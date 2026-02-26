@@ -1,0 +1,1 @@
+var json_Bordeada_0 = {"type":"FeatureCollection","name":"Bordeada_0","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[]}
