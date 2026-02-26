@@ -570,28 +570,158 @@
             resetLabels([layer_MI102049_7,layer_MI102048_8]);
         });
       	</script>
-		<input type="file" id="upload" accept=".geojson,.json,.kml"
-		style="position:absolute;top:10px;right:10px;z-index:1000;background:white;padding:5px;"/>
-		<script src="https://unpkg.com/leaflet-omnivore/leaflet-omnivore.min.js"></script>
-		<script>
-		document.getElementById('upload').addEventListener('change', function(evt) {
-		  var file = evt.target.files[0];
-		  var reader = new FileReader();
+		<!-- ===== PAINEL LATERAL ===== -->
+		<style>
+		#uploadPanel {
+		  position:absolute;
+		  top:10px;
+		  right:10px;
+		  width:260px;
+		  background:white;
+		  z-index:1000;
+		  border-radius:8px;
+		  box-shadow:0 3px 10px rgba(0,0,0,0.3);
+		  font-size:13px;
+		  font-family:sans-serif;
+		}
 
-		  reader.onload = function(e) {
-		    var layer;
- 		   if (file.name.endsWith(".kml")) {
-		      layer = omnivore.kml.parse(e.target.result);
-		    } else {
- 		     var geojson = JSON.parse(e.target.result);
-		      layer = L.geoJSON(geojson);
-		    }
- 		   layer.addTo(map);
-		    map.fitBounds(layer.getBounds());
+		#uploadHeader {
+		  background:#2c3e50;
+		  color:white;
+		  padding:8px;
+		  cursor:pointer;
+		  border-radius:8px 8px 0 0;
+		}
+
+		#uploadContent {
+		  padding:10px;
+		  display:none;
+		}
+
+		.fileItem {
+		  margin:5px 0;
+		  padding:5px;
+		  background:#f4f4f4;
+		  border-radius:4px;
+		  display:flex;
+		  justify-content:space-between;
+		  align-items:center;
+		}
+
+		.removeBtn {
+		  cursor:pointer;
+		  color:red;
+		  font-weight:bold;
+		}
+		</style>
+
+		<div id="uploadPanel">
+		  <div id="uploadHeader">📂 Upload de Arquivos</div>
+		  <div id="uploadContent">
+		    Formatos aceitos:<br>
+		    • GeoJSON (.geojson / .json)<br>
+		    • KML (.kml)<br>
+		    Máximo: 5 arquivos
+		    <br><br>
+		    <input type="file" id="upload" accept=".geojson,.json,.kml" multiple>
+		    <hr>
+		    <div id="fileList"></div>
+			<button onclick="removeAllLayers()">Remover Todos</button>
+		  </div>
+		</div>
+
+		<script src="https://unpkg.com/leaflet-omnivore/leaflet-omnivore.min.js"></script>
+
+		<script>
+
+		var uploadedLayers = [];
+		var colorIndex = 0;
+		var colors = ["red","blue","green","purple","orange"];
+
+		document.getElementById("uploadHeader").onclick = function() {
+		  var content = document.getElementById("uploadContent");
+		  content.style.display = content.style.display === "none" ? "block" : "none";
+		};
+
+		document.getElementById('upload').addEventListener('change', function(evt) {
+
+		  var files = evt.target.files;
+
+		  if (uploadedLayers.length + files.length > 5) {
+		    alert("Máximo de 5 arquivos permitidos.");
+		    evt.target.value = "";
+		    return;
+		  }
+
+		  for (let i = 0; i < files.length; i++) {
+
+		    let file = files[i];
+		    let reader = new FileReader();
+
+		    reader.onload = function(e) {
+
+		      var layer;
+		      var chosenColor = colors[colorIndex % colors.length];
+		      colorIndex++;
+
+		      if (file.name.toLowerCase().endsWith(".kml")) {
+		        layer = omnivore.kml.parse(e.target.result);
+		      } else {
+		        try {
+		          var geojson = JSON.parse(e.target.result);
+		          layer = L.geoJSON(geojson, {
+		            style: {color: chosenColor, weight: 3}
+		          });
+		        } catch (error) {
+		          alert("Erro ao ler arquivo: " + file.name);
+		          return;
+		        }
+		      }
+
+		      layer.addTo(map);
+		      map.fitBounds(layer.getBounds());
+
+		      uploadedLayers.push({name: file.name, layer: layer});
+		      addFileToList(file.name, layer);
+		    };
+
+		    reader.readAsText(file);
+		  }
+
+		  evt.target.value = "";
+		});
+
+		function addFileToList(name, layer) {
+
+		  var fileList = document.getElementById("fileList");
+
+		  var div = document.createElement("div");
+		  div.className = "fileItem";
+
+		  var span = document.createElement("span");
+		  span.textContent = name;
+
+		  var remove = document.createElement("span");
+		  remove.textContent = "✖";
+		  remove.className = "removeBtn";
+
+		  remove.onclick = function() {
+		    map.removeLayer(layer);
+		    fileList.removeChild(div);
+		    uploadedLayers = uploadedLayers.filter(item => item.layer !== layer);
 		  };
 
-		  reader.readAsText(file);
-		});
+		  div.appendChild(span);
+		  div.appendChild(remove);
+		  fileList.appendChild(div);
+		}
+
+		function removeAllLayers() {
+		  uploadedLayers.forEach(item => map.removeLayer(item.layer));
+		  uploadedLayers = [];
+		  document.getElementById("fileList").innerHTML = "";
+		}
+
 		</script>
     </body>
 </html>
