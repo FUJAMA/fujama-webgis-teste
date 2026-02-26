@@ -754,3 +754,30 @@ function fnc__specialcol_(values, context) {
 function fnc_project_color(values, context) {
     return false;
 };
+
+
+
+function exp_label_MI102049_7_eval_expression(context) {
+    // 'Tarumã Administradora de Bens Ltda e Kinas Administradora de Bens Ltda' || '\n' || 'MI 102.049' || '\n' || 'Cad. 36170'
+
+    var feature = context.feature;
+    
+    if (feature.properties) {
+        return (((('Tarumã Administradora de Bens Ltda e Kinas Administradora de Bens Ltda' + '\n') + 'MI 102.049') + '\n') + 'Cad. 36170');
+    } else {
+        return (((('Tarumã Administradora de Bens Ltda e Kinas Administradora de Bens Ltda' + '\n') + 'MI 102.049') + '\n') + 'Cad. 36170');
+    }
+}
+
+
+function exp_label_MI102048_8_eval_expression(context) {
+    // 'Tarumã Administradora de Bens Ltda e LMA Administradora de Bens Ltda' || '\n' || 'MI 102.048' || '\n' || 'Cad. 36276'
+
+    var feature = context.feature;
+    
+    if (feature.properties) {
+        return (((('Tarumã Administradora de Bens Ltda e LMA Administradora de Bens Ltda' + '\n') + 'MI 102.048') + '\n') + 'Cad. 36276');
+    } else {
+        return (((('Tarumã Administradora de Bens Ltda e LMA Administradora de Bens Ltda' + '\n') + 'MI 102.048') + '\n') + 'Cad. 36276');
+    }
+}

@@ -1,0 +1,1 @@
+var json_Araucria_5 = {"type":"FeatureCollection","name":"Araucria_5","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[{"type":"Feature","properties":{"id":null},"geometry":{"type":"Point","coordinates":[-49.13529809535401,-26.55586184957733]}}]}
