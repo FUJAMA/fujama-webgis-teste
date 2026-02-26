@@ -569,23 +569,24 @@
         map.on("layerremove", function(){
             resetLabels([layer_MI102049_7,layer_MI102048_8]);
         });
-        <input type="file" id="upload" accept=".geojson,.json,.kml"
+      	</script>
+		<input type="file" id="upload" accept=".geojson,.json,.kml"
 		style="position:absolute;top:10px;right:10px;z-index:1000;background:white;padding:5px;"/>
-
+		<script src="https://unpkg.com/leaflet-omnivore/leaflet-omnivore.min.js"></script>
 		<script>
 		document.getElementById('upload').addEventListener('change', function(evt) {
- 		 var file = evt.target.files[0];
-		 var reader = new FileReader();
+		  var file = evt.target.files[0];
+		  var reader = new FileReader();
 
 		  reader.onload = function(e) {
 		    var layer;
  		   if (file.name.endsWith(".kml")) {
- 		     layer = omnivore.kml.parse(e.target.result);
+		      layer = omnivore.kml.parse(e.target.result);
 		    } else {
-		      var geojson = JSON.parse(e.target.result);
+ 		     var geojson = JSON.parse(e.target.result);
 		      layer = L.geoJSON(geojson);
 		    }
-		    layer.addTo(map);
+ 		   layer.addTo(map);
 		    map.fitBounds(layer.getBounds());
 		  };
 
