@@ -569,6 +569,28 @@
         map.on("layerremove", function(){
             resetLabels([layer_MI102049_7,layer_MI102048_8]);
         });
-        </script>
+        <input type="file" id="upload" accept=".geojson,.json,.kml"
+		style="position:absolute;top:10px;right:10px;z-index:1000;background:white;padding:5px;"/>
+
+		<script>
+		document.getElementById('upload').addEventListener('change', function(evt) {
+ 		 var file = evt.target.files[0];
+		 var reader = new FileReader();
+
+		  reader.onload = function(e) {
+		    var layer;
+ 		   if (file.name.endsWith(".kml")) {
+ 		     layer = omnivore.kml.parse(e.target.result);
+		    } else {
+		      var geojson = JSON.parse(e.target.result);
+		      layer = L.geoJSON(geojson);
+		    }
+		    layer.addTo(map);
+		    map.fitBounds(layer.getBounds());
+		  };
+
+		  reader.readAsText(file);
+		});
+		</script>
     </body>
 </html>
