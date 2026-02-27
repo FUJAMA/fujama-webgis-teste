@@ -1,4 +1,4 @@
-<!doctype html>
+	<!doctype html>
 <html lang="en">
     <head>
         <meta charset="utf-8">
@@ -113,7 +113,7 @@
         map.addLayer(layer_Ortomosaico2020_0);
         map.createPane('pane_Satelite_1');
         map.getPane('pane_Satelite_1').style.zIndex = 401;
-        var layer_Satelite_1 = L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}', {
+        var layer_Satelite_1 = L.tileLayer('https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}', {
             pane: 'pane_Satelite_1',
             opacity: 1.0,
             attribution: '',
@@ -533,87 +533,140 @@
         document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
         .title += 'Search for a place';
         setBounds();
-        var i = 0;
-        layer_MI102049_7.eachLayer(function(layer) {
-            var context = {
-                feature: layer.feature,
-                variables: {}
-            };
-            layer.bindTooltip((exp_label_MI102049_7_eval_expression(context) !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Liberation Sans\', sans-serif;">' + exp_label_MI102049_7_eval_expression(context)) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_MI102049_7'});
-            labels.push(layer);
-            totalMarkers += 1;
-              layer.added = true;
-              addLabel(layer, i);
-              i++;
-        });
-        var i = 0;
-        layer_MI102048_8.eachLayer(function(layer) {
-            var context = {
-                feature: layer.feature,
-                variables: {}
-            };
-            layer.bindTooltip((exp_label_MI102048_8_eval_expression(context) !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Liberation Sans\', sans-serif;">' + exp_label_MI102048_8_eval_expression(context)) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_MI102048_8'});
-            labels.push(layer);
-            totalMarkers += 1;
-              layer.added = true;
-              addLabel(layer, i);
-              i++;
-        });
-        resetLabels([layer_MI102049_7,layer_MI102048_8]);
-        map.on("zoomend", function(){
-            resetLabels([layer_MI102049_7,layer_MI102048_8]);
-        });
-        map.on("layeradd", function(){
-            resetLabels([layer_MI102049_7,layer_MI102048_8]);
-        });
-        map.on("layerremove", function(){
-            resetLabels([layer_MI102049_7,layer_MI102048_8]);
-        });
-      	</script>
-		<!-- ===== PAINEL LATERAL ===== -->
-		<style>
-		#uploadPanel {
-		  position:absolute;
-		  top:10px;
-		  right:10px;
-		  width:260px;
-		  background:white;
-		  z-index:1000;
-		  border-radius:8px;
-		  box-shadow:0 3px 10px rgba(0,0,0,0.3);
-		  font-size:13px;
-		  font-family:sans-serif;
-		}
+// ===== CONTROLE DE CAMADAS TREE =====
 
-		#uploadHeader {
-		  background:#2c3e50;
-		  color:white;
-		  padding:8px;
-		  cursor:pointer;
-		  border-radius:8px 8px 0 0;
-		}
+		var baseTree = {
+		    label: "Mapas Base",
+		    children: [
+		        { label: "Ortomosaico 2020", layer: layer_Ortomosaico2020_0 },
+		        { label: "Satélite", layer: layer_Satelite_1 }
+		    ]
+		};
 
-		#uploadContent {
-		  padding:10px;
-		  display:none;
-		}
+		var overlaysTree = {
+		    label: "Camadas",
+		    selectAllCheckbox: true,
+		    children: [
+		        { label: "Curso d'água", layer: layer_Cursodgua_2 },
+		        { label: "Lagoas Tarumã", layer: layer_LagoasTaruma_3 },
+		        { label: "Área Terraplenagem", layer: layer_readeTerraplenagem_4 },
+		        { label: "Araucária", layer: layer_Araucria_5 },
+		        { label: "Rio Cerro", layer: layer_RioCerro_6 },
+		        { label: "MI102049", layer: layer_MI102049_7 },
+		        { label: "MI102048", layer: layer_MI102048_8 },
+		        { label: "Área Preservação", layer: layer_readePreservaoPermanente_9 },
+		        { label: "Continuação Curso", layer: layer_Continuaocursodguatarum_10 }
+		    ]
+		};
 
-		.fileItem {
-		  margin:5px 0;
-		  padding:5px;
-		  background:#f4f4f4;
-		  border-radius:4px;
-		  display:flex;
-		  justify-content:space-between;
-		  align-items:center;
-		}
+		var layerControl = L.control.layers.tree(
+		    baseTree,
+		    overlaysTree,
+		    { collapsed: false }
+		).addTo(map);
 
-		.removeBtn {
-		  cursor:pointer;
-		  color:red;
-		  font-weight:bold;
-		}
-		</style>
+// ===== WMS AUTOMÁTICO =====
+
+		var wmsUrl = "https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms";
+		var capabilitiesUrl = wmsUrl + "?service=WMS&request=GetCapabilities";
+
+		fetch(capabilitiesUrl)
+		.then(response => response.text())
+		.then(text => {
+
+		    var parser = new DOMParser();
+		    var xml = parser.parseFromString(text, "text/xml");
+		    var layerNodes = xml.getElementsByTagName("Layer");
+
+		    var wmsChildren = [];
+
+		    for (var i = 0; i < layerNodes.length; i++) {
+
+		        var nameNode = layerNodes[i].getElementsByTagName("Name")[0];
+
+		        if (nameNode) {
+
+		            var layerName = nameNode.textContent;
+
+		            if (layerName.startsWith("PMJS:")) {
+
+		                var layer = L.tileLayer.wms(wmsUrl, {
+		                    layers: layerName,
+		                    format: "image/png",
+		                    transparent: true,
+		                    version: "1.1.1",
+		                    attribution: "Fonte: PMJS"
+		                });
+
+		                var nomeLimpo = layerName.split(":")[1];
+
+		                wmsChildren.push({
+		                    label: nomeLimpo,
+		                    layer: layer
+		                });
+		            }
+		        }
+		    }
+
+		    if (wmsChildren.length > 0) {
+
+		        layerControl.addOverlay({
+		            label: "GeoJaraguá",
+		            selectAllCheckbox: true,
+		            children: wmsChildren
+		        });
+
+		    }
+
+		})
+		.catch(error => console.error("Erro ao carregar WMS:", error));
+
+// ===== FIM =====
+		    	</script>
+				<!-- ===== PAINEL LATERAL ===== -->
+				<style>
+				#uploadPanel {
+				  position:absolute;
+				  top:10px;
+				  right:10px;
+				  width:260px;
+				  background:white;
+				  z-index:1000;
+				  border-radius:8px;
+				  box-shadow:0 3px 10px rgba(0,0,0,0.3);
+				  font-size:13px;
+				  font-family:sans-serif;
+				}
+
+				#uploadHeader {
+				  background:#2c3e50;
+				  color:white;
+				  padding:8px;
+				  cursor:pointer;
+				  border-radius:8px 8px 0 0;
+				}
+
+				#uploadContent {
+				  padding:10px;
+				  display:none;
+				}
+
+				.fileItem {
+				  margin:5px 0;
+				  padding:5px;
+				  background:#f4f4f4;
+				  border-radius:4px;
+				  display:flex;
+				  justify-content:space-between;
+				  align-items:center;
+				}
+
+				.removeBtn {
+				  cursor:pointer;
+				  color:red;
+				  font-weight:bold;
+				}
+				</style>
 
 		<div id="uploadPanel">
 		  <div id="uploadHeader">📂 Upload de Arquivos</div>
