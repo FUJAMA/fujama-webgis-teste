@@ -533,39 +533,8 @@
         document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
         .title += 'Search for a place';
         setBounds();
-// ===== CONTROLE DE CAMADAS TREE =====
 
-		var baseTree = {
-		    label: "Mapas Base",
-		    children: [
-		        { label: "Ortomosaico 2020", layer: layer_Ortomosaico2020_0 },
-		        { label: "Satélite", layer: layer_Satelite_1 }
-		    ]
-		};
-
-		var overlaysTree = {
-		    label: "Camadas",
-		    selectAllCheckbox: true,
-		    children: [
-		        { label: "Curso d'água", layer: layer_Cursodgua_2 },
-		        { label: "Lagoas Tarumã", layer: layer_LagoasTaruma_3 },
-		        { label: "Área Terraplenagem", layer: layer_readeTerraplenagem_4 },
-		        { label: "Araucária", layer: layer_Araucria_5 },
-		        { label: "Rio Cerro", layer: layer_RioCerro_6 },
-		        { label: "MI102049", layer: layer_MI102049_7 },
-		        { label: "MI102048", layer: layer_MI102048_8 },
-		        { label: "Área Preservação", layer: layer_readePreservaoPermanente_9 },
-		        { label: "Continuação Curso", layer: layer_Continuaocursodguatarum_10 }
-		    ]
-		};
-
-		var layerControl = L.control.layers.tree(
-		    baseTree,
-		    overlaysTree,
-		    { collapsed: false }
-		).addTo(map);
-
-		// ================= WMS PROFISSIONAL ORGANIZADO =================
+		// ================= WMS + TREE ÚNICO =================
 
 		var wmsUrl = "https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms";
 		var capabilitiesUrl = wmsUrl + "?service=WMS&request=GetCapabilities";
@@ -574,107 +543,98 @@
 		.then(response => response.text())
 		.then(text => {
 
-			var parser = new DOMParser();
-			var xml = parser.parseFromString(text, "text/xml");
-			var layerNodes = xml.getElementsByTagName("Layer");
+				var parser = new DOMParser();
+				var xml = parser.parseFromString(text, "text/xml");
 
-			function parseLayers(nodes) {
+				function parseLayers(nodes) {
 
-				var result = [];
+						var result = [];
 
-				for (var i = 0; i < nodes.length; i++) {
+						for (var i = 0; i < nodes.length; i++) {
 
-					var node = nodes[i];
-					var nameNode = node.getElementsByTagName("Name")[0];
-					var titleNode = node.getElementsByTagName("Title")[0];
-					var childLayers = node.children;
+								var node = nodes[i];
 
-					var subLayerNodes = [];
-					for (var j = 0; j < childLayers.length; j++) {
-						if (childLayers[j].tagName === "Layer") {
-							subLayerNodes.push(childLayers[j]);
+								var nameNode = node.getElementsByTagName("Name")[0];
+								var titleNode = node.getElementsByTagName("Title")[0];
+
+								var childLayers = [];
+								for (var j = 0; j < node.children.length; j++) {
+										if (node.children[j].tagName === "Layer") {
+												childLayers.push(node.children[j]);
+										}
+								}
+
+								if (childLayers.length > 0) {
+
+										var groupChildren = parseLayers(childLayers);
+
+										if (groupChildren.length > 0) {
+												result.push({
+														label: titleNode ? titleNode.textContent : "Grupo",
+														selectAllCheckbox: true,
+														children: groupChildren
+												});
+										}
+
+								}
+								else if (nameNode && nameNode.textContent.startsWith("PMJS:")) {
+
+										result.push({
+												label: titleNode ? titleNode.textContent : nameNode.textContent,
+												layer: L.tileLayer.wms(wmsUrl, {
+														layers: nameNode.textContent,
+														format: "image/png",
+														transparent: true,
+														version: "1.1.1"
+												})
+										});
+								}
 						}
-					}
 
-					// Se tem subcamadas → criar grupo
-					if (subLayerNodes.length > 0) {
-
-						var groupChildren = parseLayers(subLayerNodes);
-
-						if (groupChildren.length > 0) {
-							result.push({
-								label: titleNode ? titleNode.textContent : "Grupo",
-								selectAllCheckbox: true,
-								children: groupChildren
-							});
-						}
-
-					}
-					// Se é layer final
-					else if (nameNode && nameNode.textContent.startsWith("PMJS:")) {
-
-						var layerName = nameNode.textContent;
-
-						result.push({
-							label: titleNode ? titleNode.textContent : layerName,
-							layer: L.tileLayer.wms(wmsUrl, {
-								layers: layerName,
-								format: "image/png",
-								transparent: true,
-								version: "1.1.1"
-							})
-						});
-					}
+						return result;
 				}
 
-				return result;
-			}
+				var rootLayer = xml.getElementsByTagName("Capability")[0]
+						.getElementsByTagName("Layer")[0];
 
-			var rootLayers = xml.getElementsByTagName("Capability")[0]
-				.getElementsByTagName("Layer")[0]
-				.children;
+				var wmsTree = parseLayers(rootLayer.children);
 
-			var wmsTree = parseLayers(rootLayers);
+				var baseTree = {
+						label: "Mapas Base",
+						children: [
+								{ label: "Ortomosaico 2020", layer: layer_Ortomosaico2020_0 },
+								{ label: "Satélite", layer: layer_Satelite_1 }
+						]
+				};
 
-			// ================= TREE FINAL =================
-
-			var baseTree = {
-				label: "Mapas Base",
-				children: [
-					{ label: "Ortomosaico 2020", layer: layer_Ortomosaico2020_0 },
-					{ label: "Satélite", layer: layer_Satelite_1 }
-				]
-			};
-
-			var overlaysTree = {
-				label: "Camadas",
-				selectAllCheckbox: true,
-				children: [
-
-					{ label: "Curso d'água", layer: layer_Cursodgua_2 },
-					{ label: "Lagoas Tarumã", layer: layer_LagoasTaruma_3 },
-					{ label: "Área Terraplenagem", layer: layer_readeTerraplenagem_4 },
-					{ label: "Araucária", layer: layer_Araucria_5 },
-					{ label: "Rio Cerro", layer: layer_RioCerro_6 },
-					{ label: "MI102049", layer: layer_MI102049_7 },
-					{ label: "MI102048", layer: layer_MI102048_8 },
-					{ label: "Área Preservação", layer: layer_readePreservaoPermanente_9 },
-					{ label: "Continuação Curso", layer: layer_Continuaocursodguatarum_10 },
-
-					{
-						label: "GeoJaraguá (WMS)",
+				var overlaysTree = {
+						label: "Camadas",
 						selectAllCheckbox: true,
-						children: wmsTree
-					}
+						children: [
 
-				]
-			};
+								{ label: "Curso d'água", layer: layer_Cursodgua_2 },
+								{ label: "Lagoas Tarumã", layer: layer_LagoasTaruma_3 },
+								{ label: "Área Terraplenagem", layer: layer_readeTerraplenagem_4 },
+								{ label: "Araucária", layer: layer_Araucria_5 },
+								{ label: "Rio Cerro", layer: layer_RioCerro_6 },
+								{ label: "MI102049", layer: layer_MI102049_7 },
+								{ label: "MI102048", layer: layer_MI102048_8 },
+								{ label: "Área Preservação", layer: layer_readePreservaoPermanente_9 },
+								{ label: "Continuação Curso", layer: layer_Continuaocursodguatarum_10 },
 
-			L.control.layers.tree(
-				baseTree,
-				overlaysTree,
-				{ collapsed: false }
-			).addTo(map);
+								{
+										label: "GeoJaraguá (WMS)",
+										selectAllCheckbox: true,
+										children: wmsTree
+								}
+						]
+				};
+
+				L.control.layers.tree(
+						baseTree,
+						overlaysTree,
+						{ collapsed: false }
+				).addTo(map);
 
 		})
 		.catch(error => console.error("Erro ao carregar WMS:", error));
