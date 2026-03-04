@@ -38,14 +38,13 @@
         <script src="js/labels.js"></script>
         <script src="js/leaflet.wms.js"></script>
         <script src="js/leaflet-measure.js"></script>
-        <script src="data/view_loteview_loteshp_30.js"></script>
-        <script src="data/Vegetao_32.js"></script>
-        <script src="data/Pedologia_33.js"></script>
-        <script src="data/Geomorfologia_34.js"></script>
-        <script src="data/AREA_IMOVEL_35.js"></script>
-        <script src="data/RESERVA_LEGAL_36.js"></script>
-        <script src="data/LAP_37.js"></script>
-        <script src="data/LAI_38.js"></script>
+        <script src="data/Vegetao_31.js"></script>
+        <script src="data/Pedologia_32.js"></script>
+        <script src="data/Geomorfologia_33.js"></script>
+        <script src="data/AREA_IMOVEL_34.js"></script>
+        <script src="data/RESERVA_LEGAL_35.js"></script>
+        <script src="data/LAP_36.js"></script>
+        <script src="data/LAI_37.js"></script>
         <script>
         var map = L.map('map', {
             zoomControl:false, maxZoom:28, minZoom:1
@@ -512,55 +511,10 @@
             identify: false,
             attribution: '',
         });
-        function pop_view_loteview_loteshp_30(feature, layer) {
-            var popupContent = '<table>\
-                    <tr>\
-                        <td colspan="2">' + (feature.properties['ID'] !== null ? autolinker.link(feature.properties['ID'].toLocaleString()) : '') + '</td>\
-                    </tr>\
-                    <tr>\
-                        <td colspan="2">' + (feature.properties['CHAVE'] !== null ? autolinker.link(feature.properties['CHAVE'].toLocaleString()) : '') + '</td>\
-                    </tr>\
-                </table>';
-            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
-			layer.on('popupopen', function(e) {
-				addClassToPopupIfMedia(content, e.popup);
-			});
-			layer.bindPopup(content, { maxHeight: 400 });
-        }
-
-        function style_view_loteview_loteshp_30_0() {
-            return {
-                pane: 'pane_view_loteview_loteshp_30',
-                opacity: 1,
-                color: 'rgba(35,35,35,1.0)',
-                dashArray: '',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(164,113,88,1.0)',
-                interactive: true,
-            }
-        }
-        map.createPane('pane_view_loteview_loteshp_30');
-        map.getPane('pane_view_loteview_loteshp_30').style.zIndex = 430;
-        map.getPane('pane_view_loteview_loteshp_30').style['mix-blend-mode'] = 'normal';
-        var layer_view_loteview_loteshp_30 = new L.geoJson(json_view_loteview_loteshp_30, {
-            attribution: '',
-            interactive: true,
-            dataVar: 'json_view_loteview_loteshp_30',
-            layerName: 'layer_view_loteview_loteshp_30',
-            pane: 'pane_view_loteview_loteshp_30',
-            onEachFeature: pop_view_loteview_loteshp_30,
-            style: style_view_loteview_loteshp_30_0,
-        });
-        bounds_group.addLayer(layer_view_loteview_loteshp_30);
-        map.addLayer(layer_view_loteview_loteshp_30);
-        map.createPane('pane_Processosminerriosativos_31');
-        map.getPane('pane_Processosminerriosativos_31').style.zIndex = 431;
-        var layer_Processosminerriosativos_31 = L.WMS.layer("https://geoservicos.inde.gov.br/geoserver/ANM/ows?version=1.1.0&layers=processos_minerarios_ativos&styles=&bbox=-73.769931,-44.137575,0.107051,20.002959&width=365&height=245&tiled=true&srs=EPSG:4326&transparent=true", "processos_minerarios_ativos", {
-            pane: 'pane_Processosminerriosativos_31',
+        map.createPane('pane_Processosminerriosativos_30');
+        map.getPane('pane_Processosminerriosativos_30').style.zIndex = 430;
+        var layer_Processosminerriosativos_30 = L.WMS.layer("https://geoservicos.inde.gov.br/geoserver/ANM/ows?version=1.1.0&layers=processos_minerarios_ativos&styles=&bbox=-73.769931,-44.137575,0.107051,20.002959&width=365&height=245&tiled=true&srs=EPSG:4326&transparent=true", "processos_minerarios_ativos", {
+            pane: 'pane_Processosminerriosativos_30',
             format: 'image/png',
             uppercase: true,
             transparent: true,
@@ -571,7 +525,7 @@
             identify: false,
             attribution: '',
         });
-        function pop_Vegetao_32(feature, layer) {
+        function pop_Vegetao_31(feature, layer) {
             var popupContent = '<table>\
                     <tr>\
                         <td colspan="2">' + (feature.properties['id1'] !== null ? autolinker.link(feature.properties['id1'].toLocaleString()) : '') + '</td>\
@@ -659,11 +613,11 @@
 			layer.bindPopup(content, { maxHeight: 400 });
         }
 
-        function style_Vegetao_32_0(feature) {
+        function style_Vegetao_31_0(feature) {
             switch(String(feature.properties['leg_carga'])) {
                 case 'Ag+Rp.D':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -678,7 +632,7 @@
                     break;
                 case 'Ag+Rp.M':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -693,7 +647,7 @@
                     break;
                 case 'Ag+Rp+Vss.EM':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -708,7 +662,7 @@
                     break;
                 case 'Ag+Vss+Db':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -723,7 +677,7 @@
                     break;
                 case 'Ag+Vss+Dm':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -738,7 +692,7 @@
                     break;
                 case 'Ag+Vss+Ds':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -753,7 +707,7 @@
                     break;
                 case 'Dm':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -768,7 +722,7 @@
                     break;
                 case 'Dm+Vss':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -783,7 +737,7 @@
                     break;
                 case 'Dm+Vss+Rp':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -798,7 +752,7 @@
                     break;
                 case 'Ds+Vss':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -813,7 +767,7 @@
                     break;
                 case 'Iu.D':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -828,7 +782,7 @@
                     break;
                 case 'Mm+Vss':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -843,7 +797,7 @@
                     break;
                 case 'Mm+Vss+Rp':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -858,7 +812,7 @@
                     break;
                 case 'Vss+Ag+Dm':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -873,7 +827,7 @@
                     break;
                 case 'Vss+Ag+Ds':
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -888,7 +842,7 @@
                     break;
                 default:
                     return {
-                pane: 'pane_Vegetao_32',
+                pane: 'pane_Vegetao_31',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -903,20 +857,20 @@
                     break;
             }
         }
-        map.createPane('pane_Vegetao_32');
-        map.getPane('pane_Vegetao_32').style.zIndex = 432;
-        map.getPane('pane_Vegetao_32').style['mix-blend-mode'] = 'normal';
-        var layer_Vegetao_32 = new L.geoJson(json_Vegetao_32, {
+        map.createPane('pane_Vegetao_31');
+        map.getPane('pane_Vegetao_31').style.zIndex = 431;
+        map.getPane('pane_Vegetao_31').style['mix-blend-mode'] = 'normal';
+        var layer_Vegetao_31 = new L.geoJson(json_Vegetao_31, {
             attribution: '',
             interactive: true,
-            dataVar: 'json_Vegetao_32',
-            layerName: 'layer_Vegetao_32',
-            pane: 'pane_Vegetao_32',
-            onEachFeature: pop_Vegetao_32,
-            style: style_Vegetao_32_0,
+            dataVar: 'json_Vegetao_31',
+            layerName: 'layer_Vegetao_31',
+            pane: 'pane_Vegetao_31',
+            onEachFeature: pop_Vegetao_31,
+            style: style_Vegetao_31_0,
         });
-        bounds_group.addLayer(layer_Vegetao_32);
-        function pop_Pedologia_33(feature, layer) {
+        bounds_group.addLayer(layer_Vegetao_31);
+        function pop_Pedologia_32(feature, layer) {
             var popupContent = '<table>\
                     <tr>\
                         <td colspan="2">' + (feature.properties['id1'] !== null ? autolinker.link(feature.properties['id1'].toLocaleString()) : '') + '</td>\
@@ -1013,11 +967,11 @@
 			layer.bindPopup(content, { maxHeight: 400 });
         }
 
-        function style_Pedologia_33_0(feature) {
+        function style_Pedologia_32_0(feature) {
             switch(String(feature.properties['nom_unidad'])) {
                 case 'CHa12':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1032,7 +986,7 @@
                     break;
                 case 'CXa11':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1047,7 +1001,7 @@
                     break;
                 case 'CXa15':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1062,7 +1016,7 @@
                     break;
                 case 'CXa22':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1077,7 +1031,7 @@
                     break;
                 case 'CYbd1':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1092,7 +1046,7 @@
                     break;
                 case 'PVAa10':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1107,7 +1061,7 @@
                     break;
                 case 'PVAd14':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1122,7 +1076,7 @@
                     break;
                 case 'PVAd15':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1137,7 +1091,7 @@
                     break;
                 case 'PVAd3':
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1152,7 +1106,7 @@
                     break;
                 default:
                     return {
-                pane: 'pane_Pedologia_33',
+                pane: 'pane_Pedologia_32',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1167,20 +1121,20 @@
                     break;
             }
         }
-        map.createPane('pane_Pedologia_33');
-        map.getPane('pane_Pedologia_33').style.zIndex = 433;
-        map.getPane('pane_Pedologia_33').style['mix-blend-mode'] = 'normal';
-        var layer_Pedologia_33 = new L.geoJson(json_Pedologia_33, {
+        map.createPane('pane_Pedologia_32');
+        map.getPane('pane_Pedologia_32').style.zIndex = 432;
+        map.getPane('pane_Pedologia_32').style['mix-blend-mode'] = 'normal';
+        var layer_Pedologia_32 = new L.geoJson(json_Pedologia_32, {
             attribution: '',
             interactive: true,
-            dataVar: 'json_Pedologia_33',
-            layerName: 'layer_Pedologia_33',
-            pane: 'pane_Pedologia_33',
-            onEachFeature: pop_Pedologia_33,
-            style: style_Pedologia_33_0,
+            dataVar: 'json_Pedologia_32',
+            layerName: 'layer_Pedologia_32',
+            pane: 'pane_Pedologia_32',
+            onEachFeature: pop_Pedologia_32,
+            style: style_Pedologia_32_0,
         });
-        bounds_group.addLayer(layer_Pedologia_33);
-        function pop_Geomorfologia_34(feature, layer) {
+        bounds_group.addLayer(layer_Pedologia_32);
+        function pop_Geomorfologia_33(feature, layer) {
             var popupContent = '<table>\
                     <tr>\
                         <td colspan="2">' + (feature.properties['id1'] !== null ? autolinker.link(feature.properties['id1'].toLocaleString()) : '') + '</td>\
@@ -1262,11 +1216,11 @@
 			layer.bindPopup(content, { maxHeight: 400 });
         }
 
-        function style_Geomorfologia_34_0(feature) {
+        function style_Geomorfologia_33_0(feature) {
             switch(String(feature.properties['leg_carga'])) {
                 case '385Arc':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1281,7 +1235,7 @@
                     break;
                 case '385Atf1':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1296,7 +1250,7 @@
                     break;
                 case '456Da25':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1311,7 +1265,7 @@
                     break;
                 case '456Da35':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1326,7 +1280,7 @@
                     break;
                 case '456Dc32':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1341,7 +1295,7 @@
                     break;
                 case '456Dc34':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1356,7 +1310,7 @@
                     break;
                 case '675Dt31':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1371,7 +1325,7 @@
                     break;
                 case '676Da25':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1386,7 +1340,7 @@
                     break;
                 case '676Da35':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1401,7 +1355,7 @@
                     break;
                 case '677Dc21':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1416,7 +1370,7 @@
                     break;
                 case '677Dc42':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1431,7 +1385,7 @@
                     break;
                 case '687Dt32':
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1446,7 +1400,7 @@
                     break;
                 default:
                     return {
-                pane: 'pane_Geomorfologia_34',
+                pane: 'pane_Geomorfologia_33',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1461,20 +1415,20 @@
                     break;
             }
         }
-        map.createPane('pane_Geomorfologia_34');
-        map.getPane('pane_Geomorfologia_34').style.zIndex = 434;
-        map.getPane('pane_Geomorfologia_34').style['mix-blend-mode'] = 'normal';
-        var layer_Geomorfologia_34 = new L.geoJson(json_Geomorfologia_34, {
+        map.createPane('pane_Geomorfologia_33');
+        map.getPane('pane_Geomorfologia_33').style.zIndex = 433;
+        map.getPane('pane_Geomorfologia_33').style['mix-blend-mode'] = 'normal';
+        var layer_Geomorfologia_33 = new L.geoJson(json_Geomorfologia_33, {
             attribution: '',
             interactive: true,
-            dataVar: 'json_Geomorfologia_34',
-            layerName: 'layer_Geomorfologia_34',
-            pane: 'pane_Geomorfologia_34',
-            onEachFeature: pop_Geomorfologia_34,
-            style: style_Geomorfologia_34_0,
+            dataVar: 'json_Geomorfologia_33',
+            layerName: 'layer_Geomorfologia_33',
+            pane: 'pane_Geomorfologia_33',
+            onEachFeature: pop_Geomorfologia_33,
+            style: style_Geomorfologia_33_0,
         });
-        bounds_group.addLayer(layer_Geomorfologia_34);
-        function pop_AREA_IMOVEL_35(feature, layer) {
+        bounds_group.addLayer(layer_Geomorfologia_33);
+        function pop_AREA_IMOVEL_34(feature, layer) {
             var popupContent = '<table>\
                     <tr>\
                         <td colspan="2">' + (feature.properties['COD_IMOVEL'] !== null ? autolinker.link(feature.properties['COD_IMOVEL'].toLocaleString()) : '') + '</td>\
@@ -1508,9 +1462,9 @@
 			layer.bindPopup(content, { maxHeight: 400 });
         }
 
-        function style_AREA_IMOVEL_35_0() {
+        function style_AREA_IMOVEL_34_0() {
             return {
-                pane: 'pane_AREA_IMOVEL_35',
+                pane: 'pane_AREA_IMOVEL_34',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1523,20 +1477,20 @@
                 interactive: true,
             }
         }
-        map.createPane('pane_AREA_IMOVEL_35');
-        map.getPane('pane_AREA_IMOVEL_35').style.zIndex = 435;
-        map.getPane('pane_AREA_IMOVEL_35').style['mix-blend-mode'] = 'normal';
-        var layer_AREA_IMOVEL_35 = new L.geoJson(json_AREA_IMOVEL_35, {
+        map.createPane('pane_AREA_IMOVEL_34');
+        map.getPane('pane_AREA_IMOVEL_34').style.zIndex = 434;
+        map.getPane('pane_AREA_IMOVEL_34').style['mix-blend-mode'] = 'normal';
+        var layer_AREA_IMOVEL_34 = new L.geoJson(json_AREA_IMOVEL_34, {
             attribution: '',
             interactive: true,
-            dataVar: 'json_AREA_IMOVEL_35',
-            layerName: 'layer_AREA_IMOVEL_35',
-            pane: 'pane_AREA_IMOVEL_35',
-            onEachFeature: pop_AREA_IMOVEL_35,
-            style: style_AREA_IMOVEL_35_0,
+            dataVar: 'json_AREA_IMOVEL_34',
+            layerName: 'layer_AREA_IMOVEL_34',
+            pane: 'pane_AREA_IMOVEL_34',
+            onEachFeature: pop_AREA_IMOVEL_34,
+            style: style_AREA_IMOVEL_34_0,
         });
-        bounds_group.addLayer(layer_AREA_IMOVEL_35);
-        function pop_RESERVA_LEGAL_36(feature, layer) {
+        bounds_group.addLayer(layer_AREA_IMOVEL_34);
+        function pop_RESERVA_LEGAL_35(feature, layer) {
             var popupContent = '<table>\
                     <tr>\
                         <td colspan="2">' + (feature.properties['IDF'] !== null ? autolinker.link(feature.properties['IDF'].toLocaleString()) : '') + '</td>\
@@ -1555,9 +1509,9 @@
 			layer.bindPopup(content, { maxHeight: 400 });
         }
 
-        function style_RESERVA_LEGAL_36_0() {
+        function style_RESERVA_LEGAL_35_0() {
             return {
-                pane: 'pane_RESERVA_LEGAL_36',
+                pane: 'pane_RESERVA_LEGAL_35',
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
                 dashArray: '',
@@ -1570,20 +1524,20 @@
                 interactive: true,
             }
         }
-        map.createPane('pane_RESERVA_LEGAL_36');
-        map.getPane('pane_RESERVA_LEGAL_36').style.zIndex = 436;
-        map.getPane('pane_RESERVA_LEGAL_36').style['mix-blend-mode'] = 'normal';
-        var layer_RESERVA_LEGAL_36 = new L.geoJson(json_RESERVA_LEGAL_36, {
+        map.createPane('pane_RESERVA_LEGAL_35');
+        map.getPane('pane_RESERVA_LEGAL_35').style.zIndex = 435;
+        map.getPane('pane_RESERVA_LEGAL_35').style['mix-blend-mode'] = 'normal';
+        var layer_RESERVA_LEGAL_35 = new L.geoJson(json_RESERVA_LEGAL_35, {
             attribution: '',
             interactive: true,
-            dataVar: 'json_RESERVA_LEGAL_36',
-            layerName: 'layer_RESERVA_LEGAL_36',
-            pane: 'pane_RESERVA_LEGAL_36',
-            onEachFeature: pop_RESERVA_LEGAL_36,
-            style: style_RESERVA_LEGAL_36_0,
+            dataVar: 'json_RESERVA_LEGAL_35',
+            layerName: 'layer_RESERVA_LEGAL_35',
+            pane: 'pane_RESERVA_LEGAL_35',
+            onEachFeature: pop_RESERVA_LEGAL_35,
+            style: style_RESERVA_LEGAL_35_0,
         });
-        bounds_group.addLayer(layer_RESERVA_LEGAL_36);
-        function pop_LAP_37(feature, layer) {
+        bounds_group.addLayer(layer_RESERVA_LEGAL_35);
+        function pop_LAP_36(feature, layer) {
             var popupContent = '<table>\
                     <tr>\
                         <td colspan="2">' + (feature.properties['id'] !== null ? autolinker.link(feature.properties['id'].toLocaleString()) : '') + '</td>\
@@ -1611,9 +1565,9 @@
 			layer.bindPopup(content, { maxHeight: 400 });
         }
 
-        function style_LAP_37_0() {
+        function style_LAP_36_0() {
             return {
-                pane: 'pane_LAP_37',
+                pane: 'pane_LAP_36',
                 radius: 4.0,
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
@@ -1627,27 +1581,27 @@
                 interactive: true,
             }
         }
-        map.createPane('pane_LAP_37');
-        map.getPane('pane_LAP_37').style.zIndex = 437;
-        map.getPane('pane_LAP_37').style['mix-blend-mode'] = 'normal';
-        var layer_LAP_37 = new L.geoJson(json_LAP_37, {
+        map.createPane('pane_LAP_36');
+        map.getPane('pane_LAP_36').style.zIndex = 436;
+        map.getPane('pane_LAP_36').style['mix-blend-mode'] = 'normal';
+        var layer_LAP_36 = new L.geoJson(json_LAP_36, {
             attribution: '',
             interactive: true,
-            dataVar: 'json_LAP_37',
-            layerName: 'layer_LAP_37',
-            pane: 'pane_LAP_37',
-            onEachFeature: pop_LAP_37,
+            dataVar: 'json_LAP_36',
+            layerName: 'layer_LAP_36',
+            pane: 'pane_LAP_36',
+            onEachFeature: pop_LAP_36,
             pointToLayer: function (feature, latlng) {
                 var context = {
                     feature: feature,
                     variables: {}
                 };
-                return L.circleMarker(latlng, style_LAP_37_0(feature));
+                return L.circleMarker(latlng, style_LAP_36_0(feature));
             },
         });
-        bounds_group.addLayer(layer_LAP_37);
-        map.addLayer(layer_LAP_37);
-        function pop_LAI_38(feature, layer) {
+        bounds_group.addLayer(layer_LAP_36);
+        map.addLayer(layer_LAP_36);
+        function pop_LAI_37(feature, layer) {
             var popupContent = '<table>\
                     <tr>\
                         <td colspan="2">' + (feature.properties['id'] !== null ? autolinker.link(feature.properties['id'].toLocaleString()) : '') + '</td>\
@@ -1675,9 +1629,9 @@
 			layer.bindPopup(content, { maxHeight: 400 });
         }
 
-        function style_LAI_38_0() {
+        function style_LAI_37_0() {
             return {
-                pane: 'pane_LAI_38',
+                pane: 'pane_LAI_37',
                 radius: 4.0,
                 opacity: 1,
                 color: 'rgba(35,35,35,1.0)',
@@ -1691,42 +1645,41 @@
                 interactive: true,
             }
         }
-        map.createPane('pane_LAI_38');
-        map.getPane('pane_LAI_38').style.zIndex = 438;
-        map.getPane('pane_LAI_38').style['mix-blend-mode'] = 'normal';
-        var layer_LAI_38 = new L.geoJson(json_LAI_38, {
+        map.createPane('pane_LAI_37');
+        map.getPane('pane_LAI_37').style.zIndex = 437;
+        map.getPane('pane_LAI_37').style['mix-blend-mode'] = 'normal';
+        var layer_LAI_37 = new L.geoJson(json_LAI_37, {
             attribution: '',
             interactive: true,
-            dataVar: 'json_LAI_38',
-            layerName: 'layer_LAI_38',
-            pane: 'pane_LAI_38',
-            onEachFeature: pop_LAI_38,
+            dataVar: 'json_LAI_37',
+            layerName: 'layer_LAI_37',
+            pane: 'pane_LAI_37',
+            onEachFeature: pop_LAI_37,
             pointToLayer: function (feature, latlng) {
                 var context = {
                     feature: feature,
                     variables: {}
                 };
-                return L.circleMarker(latlng, style_LAI_38_0(feature));
+                return L.circleMarker(latlng, style_LAI_37_0(feature));
             },
         });
-        bounds_group.addLayer(layer_LAI_38);
-        map.addLayer(layer_LAI_38);
+        bounds_group.addLayer(layer_LAI_37);
+        map.addLayer(layer_LAI_37);
         var baseMaps = {};
         var overlaysTree = [
         {label: '<b>Licenças Ambientais - 2026</b>', selectAllCheckbox: true, children: [
-            {label: '<img src="legend/LAI_38.png" /> LAI', layer: layer_LAI_38},
-            {label: '<img src="legend/LAP_37.png" /> LAP', layer: layer_LAP_37},]},
+            {label: '<img src="legend/LAI_37.png" /> LAI', layer: layer_LAI_37},
+            {label: '<img src="legend/LAP_36.png" /> LAP', layer: layer_LAP_36},]},
         {label: '<b>CAR</b>', selectAllCheckbox: true, children: [
-            {label: '<img src="legend/RESERVA_LEGAL_36.png" /> RESERVA_LEGAL', layer: layer_RESERVA_LEGAL_36},
-            {label: '<img src="legend/AREA_IMOVEL_35.png" /> AREA_IMOVEL', layer: layer_AREA_IMOVEL_35},]},
+            {label: '<img src="legend/RESERVA_LEGAL_35.png" /> RESERVA_LEGAL', layer: layer_RESERVA_LEGAL_35},
+            {label: '<img src="legend/AREA_IMOVEL_34.png" /> AREA_IMOVEL', layer: layer_AREA_IMOVEL_34},]},
         {label: '<b>BDiA</b>', selectAllCheckbox: true, children: [
-            {label: 'Geomorfologia<br /><table><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_385Arc0.png" /></td><td>385Arc</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_385Atf11.png" /></td><td>385Atf1</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_456Da252.png" /></td><td>456Da25</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_456Da353.png" /></td><td>456Da35</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_456Dc324.png" /></td><td>456Dc32</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_456Dc345.png" /></td><td>456Dc34</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_675Dt316.png" /></td><td>675Dt31</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_676Da257.png" /></td><td>676Da25</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_676Da358.png" /></td><td>676Da35</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_677Dc219.png" /></td><td>677Dc21</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_677Dc4210.png" /></td><td>677Dc42</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_687Dt3211.png" /></td><td>687Dt32</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_34_12.png" /></td><td></td></tr></table>', layer: layer_Geomorfologia_34},
-            {label: 'Pedologia<br /><table><tr><td style="text-align: center;"><img src="legend/Pedologia_33_CHa120.png" /></td><td>CHa12</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_CXa111.png" /></td><td>CXa11</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_CXa152.png" /></td><td>CXa15</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_CXa223.png" /></td><td>CXa22</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_CYbd14.png" /></td><td>CYbd1</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_PVAa105.png" /></td><td>PVAa10</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_PVAd146.png" /></td><td>PVAd14</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_PVAd157.png" /></td><td>PVAd15</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_PVAd38.png" /></td><td>PVAd3</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_33_9.png" /></td><td></td></tr></table>', layer: layer_Pedologia_33},
-            {label: 'Vegetação<br /><table><tr><td style="text-align: center;"><img src="legend/Vegetao_32_AgRpD0.png" /></td><td>Ag+Rp.D</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_AgRpM1.png" /></td><td>Ag+Rp.M</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_AgRpVssEM2.png" /></td><td>Ag+Rp+Vss.EM</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_AgVssDb3.png" /></td><td>Ag+Vss+Db</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_AgVssDm4.png" /></td><td>Ag+Vss+Dm</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_AgVssDs5.png" /></td><td>Ag+Vss+Ds</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_Dm6.png" /></td><td>Dm</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_DmVss7.png" /></td><td>Dm+Vss</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_DmVssRp8.png" /></td><td>Dm+Vss+Rp</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_DsVss9.png" /></td><td>Ds+Vss</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_IuD10.png" /></td><td>Iu.D</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_MmVss11.png" /></td><td>Mm+Vss</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_MmVssRp12.png" /></td><td>Mm+Vss+Rp</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_VssAgDm13.png" /></td><td>Vss+Ag+Dm</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_VssAgDs14.png" /></td><td>Vss+Ag+Ds</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_32_15.png" /></td><td></td></tr></table>', layer: layer_Vegetao_32},]},
+            {label: 'Geomorfologia<br /><table><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_385Arc0.png" /></td><td>385Arc</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_385Atf11.png" /></td><td>385Atf1</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_456Da252.png" /></td><td>456Da25</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_456Da353.png" /></td><td>456Da35</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_456Dc324.png" /></td><td>456Dc32</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_456Dc345.png" /></td><td>456Dc34</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_675Dt316.png" /></td><td>675Dt31</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_676Da257.png" /></td><td>676Da25</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_676Da358.png" /></td><td>676Da35</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_677Dc219.png" /></td><td>677Dc21</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_677Dc4210.png" /></td><td>677Dc42</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_687Dt3211.png" /></td><td>687Dt32</td></tr><tr><td style="text-align: center;"><img src="legend/Geomorfologia_33_12.png" /></td><td></td></tr></table>', layer: layer_Geomorfologia_33},
+            {label: 'Pedologia<br /><table><tr><td style="text-align: center;"><img src="legend/Pedologia_32_CHa120.png" /></td><td>CHa12</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_CXa111.png" /></td><td>CXa11</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_CXa152.png" /></td><td>CXa15</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_CXa223.png" /></td><td>CXa22</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_CYbd14.png" /></td><td>CYbd1</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_PVAa105.png" /></td><td>PVAa10</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_PVAd146.png" /></td><td>PVAd14</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_PVAd157.png" /></td><td>PVAd15</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_PVAd38.png" /></td><td>PVAd3</td></tr><tr><td style="text-align: center;"><img src="legend/Pedologia_32_9.png" /></td><td></td></tr></table>', layer: layer_Pedologia_32},
+            {label: 'Vegetação<br /><table><tr><td style="text-align: center;"><img src="legend/Vegetao_31_AgRpD0.png" /></td><td>Ag+Rp.D</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_AgRpM1.png" /></td><td>Ag+Rp.M</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_AgRpVssEM2.png" /></td><td>Ag+Rp+Vss.EM</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_AgVssDb3.png" /></td><td>Ag+Vss+Db</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_AgVssDm4.png" /></td><td>Ag+Vss+Dm</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_AgVssDs5.png" /></td><td>Ag+Vss+Ds</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_Dm6.png" /></td><td>Dm</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_DmVss7.png" /></td><td>Dm+Vss</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_DmVssRp8.png" /></td><td>Dm+Vss+Rp</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_DsVss9.png" /></td><td>Ds+Vss</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_IuD10.png" /></td><td>Iu.D</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_MmVss11.png" /></td><td>Mm+Vss</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_MmVssRp12.png" /></td><td>Mm+Vss+Rp</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_VssAgDm13.png" /></td><td>Vss+Ag+Dm</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_VssAgDs14.png" /></td><td>Vss+Ag+Ds</td></tr><tr><td style="text-align: center;"><img src="legend/Vegetao_31_15.png" /></td><td></td></tr></table>', layer: layer_Vegetao_31},]},
         {label: '<b>ANM</b>', selectAllCheckbox: true, children: [
-            {label: "Processos minerários ativos", layer: layer_Processosminerriosativos_31},]},
+            {label: "Processos minerários ativos", layer: layer_Processosminerriosativos_30},]},
         {label: '<b>GeoJaraguá</b>', selectAllCheckbox: true, children: [
-            {label: '<img src="legend/view_loteview_loteshp_30.png" /> view_lote — view_lote.shp', layer: layer_view_loteview_loteshp_30},
             {label: "Limite Municipal", layer: layer_LimiteMunicipal_29},
             {label: "Limite de Bairros", layer: layer_LimitedeBairros_28},
             {label: "Limite de Lotes Urbanos", layer: layer_LimitedeLotesUrbanos_27},
@@ -1771,12 +1724,12 @@
         lay.addTo(map);
         setBounds();
         var i = 0;
-        layer_Vegetao_32.eachLayer(function(layer) {
+        layer_Vegetao_31.eachLayer(function(layer) {
             var context = {
                 feature: layer.feature,
                 variables: {}
             };
-            layer.bindTooltip((exp_label_Vegetao_32_eval_expression(context) !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Liberation Sans\', sans-serif;">' + exp_label_Vegetao_32_eval_expression(context)) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Vegetao_32'});
+            layer.bindTooltip((exp_label_Vegetao_31_eval_expression(context) !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Liberation Sans\', sans-serif;">' + exp_label_Vegetao_31_eval_expression(context)) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Vegetao_31'});
             labels.push(layer);
             totalMarkers += 1;
               layer.added = true;
@@ -1784,12 +1737,12 @@
               i++;
         });
         var i = 0;
-        layer_Pedologia_33.eachLayer(function(layer) {
+        layer_Pedologia_32.eachLayer(function(layer) {
             var context = {
                 feature: layer.feature,
                 variables: {}
             };
-            layer.bindTooltip((layer.feature.properties['legenda'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Liberation Sans\', sans-serif;">' + layer.feature.properties['legenda']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Pedologia_33'});
+            layer.bindTooltip((layer.feature.properties['legenda'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Liberation Sans\', sans-serif;">' + layer.feature.properties['legenda']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Pedologia_32'});
             labels.push(layer);
             totalMarkers += 1;
               layer.added = true;
@@ -1797,27 +1750,27 @@
               i++;
         });
         var i = 0;
-        layer_Geomorfologia_34.eachLayer(function(layer) {
+        layer_Geomorfologia_33.eachLayer(function(layer) {
             var context = {
                 feature: layer.feature,
                 variables: {}
             };
-            layer.bindTooltip((layer.feature.properties['nm_dominio'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Liberation Sans\', sans-serif;">' + layer.feature.properties['nm_dominio']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Geomorfologia_34'});
+            layer.bindTooltip((layer.feature.properties['nm_dominio'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Liberation Sans\', sans-serif;">' + layer.feature.properties['nm_dominio']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Geomorfologia_33'});
             labels.push(layer);
             totalMarkers += 1;
               layer.added = true;
               addLabel(layer, i);
               i++;
         });
-        resetLabels([layer_Vegetao_32,layer_Pedologia_33,layer_Geomorfologia_34]);
+        resetLabels([layer_Vegetao_31,layer_Pedologia_32,layer_Geomorfologia_33]);
         map.on("zoomend", function(){
-            resetLabels([layer_Vegetao_32,layer_Pedologia_33,layer_Geomorfologia_34]);
+            resetLabels([layer_Vegetao_31,layer_Pedologia_32,layer_Geomorfologia_33]);
         });
         map.on("layeradd", function(){
-            resetLabels([layer_Vegetao_32,layer_Pedologia_33,layer_Geomorfologia_34]);
+            resetLabels([layer_Vegetao_31,layer_Pedologia_32,layer_Geomorfologia_33]);
         });
         map.on("layerremove", function(){
-            resetLabels([layer_Vegetao_32,layer_Pedologia_33,layer_Geomorfologia_34]);
+            resetLabels([layer_Vegetao_31,layer_Pedologia_32,layer_Geomorfologia_33]);
         });
         </script>
     </body>
