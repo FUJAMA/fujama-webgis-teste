@@ -757,27 +757,14 @@ function fnc_project_color(values, context) {
 
 
 
-function exp_label_MI102049_7_eval_expression(context) {
-    // 'Tarumã Administradora de Bens Ltda e Kinas Administradora de Bens Ltda' || '\n' || 'MI 102.049' || '\n' || 'Cad. 36170'
+function exp_label_Vegetao_32_eval_expression(context) {
+    // coalesce(nm_uveg, nm_uantr) || ' + ' || coalesce(nm_sec1, ' ') || coalesce(nm_sec2, ' ') || '\n' || leg_carga
 
     var feature = context.feature;
     
     if (feature.properties) {
-        return (((('Tarumã Administradora de Bens Ltda e Kinas Administradora de Bens Ltda' + '\n') + 'MI 102.049') + '\n') + 'Cad. 36170');
+        return (((((fnc_coalesce([feature.properties['nm_uveg'] ,feature.properties['nm_uantr'] ], context) + ' + ') + fnc_coalesce([feature.properties['nm_sec1'] ,' '], context)) + fnc_coalesce([feature.properties['nm_sec2'] ,' '], context)) + '\n') + feature.properties['leg_carga'] );
     } else {
-        return (((('Tarumã Administradora de Bens Ltda e Kinas Administradora de Bens Ltda' + '\n') + 'MI 102.049') + '\n') + 'Cad. 36170');
-    }
-}
-
-
-function exp_label_MI102048_8_eval_expression(context) {
-    // 'Tarumã Administradora de Bens Ltda e LMA Administradora de Bens Ltda' || '\n' || 'MI 102.048' || '\n' || 'Cad. 36276'
-
-    var feature = context.feature;
-    
-    if (feature.properties) {
-        return (((('Tarumã Administradora de Bens Ltda e LMA Administradora de Bens Ltda' + '\n') + 'MI 102.048') + '\n') + 'Cad. 36276');
-    } else {
-        return (((('Tarumã Administradora de Bens Ltda e LMA Administradora de Bens Ltda' + '\n') + 'MI 102.048') + '\n') + 'Cad. 36276');
+        return (((((fnc_coalesce([feature['nm_uveg'] ,feature['nm_uantr'] ], context) + ' + ') + fnc_coalesce([feature['nm_sec1'] ,' '], context)) + fnc_coalesce([feature['nm_sec2'] ,' '], context)) + '\n') + feature['leg_carga'] );
     }
 }
