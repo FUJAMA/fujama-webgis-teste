@@ -768,3 +768,16 @@ function exp_label_Vegetao_31_eval_expression(context) {
         return (((((fnc_coalesce([feature['nm_uveg'] ,feature['nm_uantr'] ], context) + ' + ') + fnc_coalesce([feature['nm_sec1'] ,' '], context)) + fnc_coalesce([feature['nm_sec2'] ,' '], context)) + '\n') + feature['leg_carga'] );
     }
 }
+
+
+function exp_label_AutorizaoAmbiental_42_eval_expression(context) {
+    // numero
+
+    var feature = context.feature;
+    
+    if (feature.properties) {
+        return feature.properties['numero'] ;
+    } else {
+        return feature['numero'] ;
+    }
+}
