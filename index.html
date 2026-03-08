@@ -656,6 +656,168 @@
                 padding: 10px;
             }
         }
+        /* ===== ABAS DO DASHBOARD ===== */
+        .dashboard-abas {
+            display: flex;
+            background: rgba(0,0,0,0.4);
+            border-bottom: 1px solid #333;
+        }
+        .dashboard-aba-btn {
+            flex: 1;
+            padding: 10px 16px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #888;
+            font-size: 0.9em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            transition: color 0.2s, border-color 0.2s;
+            font-family: inherit;
+        }
+        .dashboard-aba-btn:hover { color: #ccc; }
+        .dashboard-aba-btn.ativa {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+        .dashboard-painel {
+            display: none;
+        }
+        .dashboard-painel.ativo {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+            gap: 20px;
+            max-height: 350px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease;
+        }
+        .dashboard-minimizado .dashboard-painel.ativo {
+            max-height: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* ===== ESTATÍSTICAS ===== */
+        .stats-ano-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .stats-ano-btn {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #ccc;
+            padding: 5px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .stats-ano-btn:hover { background: #333; color: white; }
+        .stats-ano-btn.ativo {
+            background: #2980b9;
+            border-color: #3498db;
+            color: white;
+        }
+        .stats-card-wide {
+            background: rgba(30,30,40,0.9);
+            border-radius: 12px;
+            padding: 18px;
+            border-left: 4px solid #3498db;
+            flex: 1 1 340px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            min-width: 300px;
+        }
+        .stats-card-wide.verde { border-left-color: #27ae60; }
+        .stats-resumo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .stats-resumo-item {
+            background: rgba(52,152,219,0.1);
+            border: 1px solid rgba(52,152,219,0.3);
+            border-radius: 8px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .stats-resumo-item .stat-num {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: #3498db;
+            display: block;
+        }
+        .stats-resumo-item .stat-label {
+            font-size: 0.75em;
+            color: #aaa;
+            margin-top: 3px;
+            display: block;
+        }
+        .stats-canvas-wrap {
+            position: relative;
+            width: 100%;
+            height: 200px;
+        }
+        .stats-canvas-wrap canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .stats-tabela {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82em;
+            margin-top: 10px;
+        }
+        .stats-tabela th {
+            text-align: left;
+            color: #888;
+            padding: 4px 8px;
+            border-bottom: 1px solid #333;
+            font-weight: 600;
+        }
+        .stats-tabela td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #222;
+            color: #ddd;
+            vertical-align: middle;
+        }
+        .stats-tabela tr:last-child td { border-bottom: none; }
+        .stats-tabela tr:hover td { background: rgba(255,255,255,0.03); }
+        .stats-barra-inline {
+            height: 8px;
+            border-radius: 4px;
+            display: inline-block;
+            min-width: 4px;
+            vertical-align: middle;
+        }
+        .stats-sem-dados {
+            color: #666;
+            text-align: center;
+            padding: 30px 10px;
+            font-size: 0.9em;
+        }
+        .stats-sem-dados i { font-size: 2em; display: block; margin-bottom: 8px; color: #444; }
+
+        @media (max-width: 768px) {
+            .dashboard-painel.ativo {
+                flex-direction: column;
+                flex-wrap: nowrap;
+                max-height: 55vh;
+                padding: 12px;
+                gap: 12px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .stats-card-wide { min-width: unset; flex: 1 1 100%; }
+            .stats-canvas-wrap { height: 160px; }
+        }
         </style>
         <title></title>
     </head>
@@ -715,7 +877,17 @@
                 <h3>Painel de Controle</h3>
                 <span class="dashboard-toggle" id="dashboardToggle">▼</span>
             </div>
-            <div class="dashboard-conteudo" id="dashboardConteudo">
+            <!-- Abas do dashboard -->
+            <div class="dashboard-abas">
+                <button class="dashboard-aba-btn ativa" onclick="trocarAba('controle')" id="aba-btn-controle">
+                    <i class="fas fa-sliders-h"></i> Painel de Controle
+                </button>
+                <button class="dashboard-aba-btn" onclick="trocarAba('estatisticas')" id="aba-btn-estatisticas">
+                    <i class="fas fa-chart-bar"></i> Estatísticas
+                </button>
+            </div>
+            <!-- Painel: Controle (conteúdo original) -->
+            <div class="dashboard-painel ativo" id="painel-controle">
                 <!-- CARD: Ferramenta de Ponto -->
                 <div class="dashboard-card card-ponto">
                     <div class="card-header"><i class="fas fa-map-pin"></i> Marcação de Pontos</div>
@@ -900,6 +1072,47 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Painel: Estatísticas -->
+            <div class="dashboard-painel" id="painel-estatisticas">
+                <!-- Seletor de Ano -->
+                <div class="stats-card-wide" style="flex: 1 1 100%; min-width: unset;">
+                    <div class="card-header" style="margin-bottom:12px;">
+                        <i class="fas fa-calendar-alt" style="color:#3498db;"></i>
+                        <span style="font-weight:600;">Ano de Referência</span>
+                    </div>
+                    <div class="stats-ano-selector" id="statsAnoSelector">
+                        <!-- Populado dinamicamente pelo JS -->
+                    </div>
+                </div>
+                <!-- Card: Resumo por Tipo de Licença -->
+                <div class="stats-card-wide">
+                    <div class="card-header" style="margin-bottom:12px;">
+                        <i class="fas fa-layer-group" style="color:#3498db;"></i>
+                        <span style="font-weight:600;">Licenças por Tipo</span>
+                    </div>
+                    <div class="stats-resumo-grid" id="statsResumoGrid">
+                        <div class="stats-sem-dados"><i class="fas fa-chart-bar"></i>Selecione um ano</div>
+                    </div>
+                    <div class="stats-canvas-wrap" id="statsBarraWrap" style="display:none;">
+                        <canvas id="statsBarraCanvas"></canvas>
+                    </div>
+                </div>
+                <!-- Card: Atividades -->
+                <div class="stats-card-wide verde">
+                    <div class="card-header" style="margin-bottom:12px;">
+                        <i class="fas fa-industry" style="color:#27ae60;"></i>
+                        <span style="font-weight:600;">Tipos de Atividade</span>
+                        <span id="statsAtivLabel" style="color:#888;font-size:0.8em;margin-left:auto;"></span>
+                    </div>
+                    <div id="statsTabelaWrap">
+                        <div class="stats-sem-dados"><i class="fas fa-table"></i>Selecione um ano e uma licença</div>
+                    </div>
+                    <div class="stats-canvas-wrap" id="statsPizzaWrap" style="display:none; height:180px; margin-top:10px;">
+                        <canvas id="statsPizzaCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <script src="js/qgis2web_expressions.js"></script>
@@ -1015,12 +1228,15 @@
         window.toggleDashboard = function() {
             var dashboard = document.getElementById('dashboard');
             var toggle = document.getElementById('dashboardToggle');
+            var abas = document.querySelector('.dashboard-abas');
             if (dashboard.classList.contains('dashboard-minimizado')) {
                 dashboard.classList.remove('dashboard-minimizado');
                 toggle.innerHTML = '▼';
+                if (abas) abas.style.display = 'flex';
             } else {
                 dashboard.classList.add('dashboard-minimizado');
                 toggle.innerHTML = '▲';
+                if (abas) abas.style.display = 'none';
             }
         };
 
@@ -4306,6 +4522,306 @@
         });
 
         setBounds();
+
+        // ========== SISTEMA DE ABAS DO DASHBOARD ==========
+        window.trocarAba = function(aba) {
+            document.querySelectorAll('.dashboard-aba-btn').forEach(function(btn) {
+                btn.classList.remove('ativa');
+            });
+            document.querySelectorAll('.dashboard-painel').forEach(function(p) {
+                p.classList.remove('ativo');
+            });
+            document.getElementById('aba-btn-' + aba).classList.add('ativa');
+            document.getElementById('painel-' + aba).classList.add('ativo');
+
+            // Garante que o dashboard esteja aberto ao trocar de aba
+            var dashboard = document.getElementById('dashboard');
+            if (dashboard.classList.contains('dashboard-minimizado')) {
+                dashboard.classList.remove('dashboard-minimizado');
+                document.getElementById('dashboardToggle').innerHTML = '▼';
+            }
+
+            if (aba === 'estatisticas') {
+                inicializarEstatisticas();
+            }
+        };
+
+        // ========== ESTATÍSTICAS DE LICENÇAS AMBIENTAIS ==========
+        // Paleta de cores consistente para os gráficos
+        var STATS_CORES = [
+            '#3498db','#27ae60','#e74c3c','#f39c12','#9b59b6',
+            '#1abc9c','#e67e22','#2980b9','#c0392b','#8e44ad',
+            '#16a085','#d35400','#2c3e50','#7f8c8d','#f1c40f'
+        ];
+
+        var statsAnoAtual = null;
+        var statsLicencaAtual = null;
+
+        /**
+         * Extrai o ano de um label do overlaysTree.
+         * Funciona para qualquer grupo com padrão "Licenças Ambientais - AAAA"
+         */
+        function extrairAnoDoLabel(label) {
+            var txt = label.replace(/<[^>]+>/g, ''); // remove tags HTML
+            var match = txt.match(/Licen[çc]as\s+Ambientais\s*[-–]\s*(\d{4})/i);
+            return match ? match[1] : null;
+        }
+
+        /**
+         * Limpa o label HTML para nome legível da licença
+         */
+        function limparLabelLicenca(label) {
+            return label.replace(/<[^>]+>/g, '').trim();
+        }
+
+        /**
+         * Obtém o valor do campo de atividade de uma feature,
+         * tentando variantes comuns do nome do campo.
+         */
+        function getAtividade(feature) {
+            var p = feature.properties;
+            return p['atividade'] || p['Atividade'] || p['ATIVIDADE'] ||
+                   p['tipo_ativ'] || p['tipo_licen'] || p['tipo'] || 'Não informado';
+        }
+
+        /**
+         * Constrói o mapa { ano -> [ { nome, layer }, ... ] } lendo o overlaysTree.
+         * Qualquer novo grupo "Licenças Ambientais - AAAA" será detectado automaticamente.
+         */
+        function construirMapaAnos() {
+            var mapa = {};
+            overlaysTree.forEach(function(grupo) {
+                var ano = extrairAnoDoLabel(grupo.label || '');
+                if (!ano) return;
+                if (!mapa[ano]) mapa[ano] = [];
+                if (grupo.children) {
+                    grupo.children.forEach(function(filho) {
+                        if (filho.layer) {
+                            mapa[ano].push({
+                                nome: limparLabelLicenca(filho.label || ''),
+                                layer: filho.layer
+                            });
+                        }
+                    });
+                }
+            });
+            return mapa;
+        }
+
+        function inicializarEstatisticas() {
+            var mapaAnos = construirMapaAnos();
+            var anos = Object.keys(mapaAnos).sort();
+
+            // Monta botões de ano
+            var selectorEl = document.getElementById('statsAnoSelector');
+            selectorEl.innerHTML = '';
+            if (anos.length === 0) {
+                selectorEl.innerHTML = '<span style="color:#666;font-size:0.9em;">Nenhum grupo de licenças encontrado.</span>';
+                return;
+            }
+            anos.forEach(function(ano) {
+                var btn = document.createElement('button');
+                btn.className = 'stats-ano-btn' + (ano === statsAnoAtual ? ' ativo' : '');
+                btn.textContent = ano;
+                btn.onclick = function() {
+                    statsAnoAtual = ano;
+                    statsLicencaAtual = null;
+                    document.querySelectorAll('.stats-ano-btn').forEach(function(b) { b.classList.remove('ativo'); });
+                    btn.classList.add('ativo');
+                    renderizarResumo(mapaAnos[ano]);
+                };
+                selectorEl.appendChild(btn);
+            });
+
+            // Auto-seleciona o ano mais recente
+            if (!statsAnoAtual) {
+                statsAnoAtual = anos[anos.length - 1];
+                selectorEl.querySelectorAll('.stats-ano-btn')[anos.length - 1].classList.add('ativo');
+            }
+            renderizarResumo(mapaAnos[statsAnoAtual]);
+        }
+
+        function renderizarResumo(licencas) {
+            var grid = document.getElementById('statsResumoGrid');
+            var barraWrap = document.getElementById('statsBarraWrap');
+            grid.innerHTML = '';
+
+            // Total geral
+            var totalGeral = 0;
+            var dadosLicencas = [];
+            licencas.forEach(function(lic) {
+                var count = 0;
+                lic.layer.eachLayer(function() { count++; });
+                totalGeral += count;
+                dadosLicencas.push({ nome: lic.nome, count: count, layer: lic.layer });
+            });
+
+            // Card total
+            var cardTotal = document.createElement('div');
+            cardTotal.className = 'stats-resumo-item';
+            cardTotal.style.borderColor = 'rgba(52,152,219,0.6)';
+            cardTotal.innerHTML = '<span class="stat-num">' + totalGeral + '</span><span class="stat-label">Total de Licenças</span>';
+            grid.appendChild(cardTotal);
+
+            // Cards por tipo de licença
+            dadosLicencas.forEach(function(lic, i) {
+                var cor = STATS_CORES[i % STATS_CORES.length];
+                var card = document.createElement('div');
+                card.className = 'stats-resumo-item';
+                card.style.borderColor = cor;
+                card.style.cursor = 'pointer';
+                card.title = 'Clique para ver atividades de ' + lic.nome;
+                card.innerHTML = '<span class="stat-num" style="color:' + cor + ';">' + lic.count + '</span>'
+                    + '<span class="stat-label">' + lic.nome + '</span>';
+                card.onclick = function() {
+                    statsLicencaAtual = lic.nome;
+                    document.querySelectorAll('.stats-resumo-item').forEach(function(c) {
+                        c.style.background = 'rgba(52,152,219,0.1)';
+                    });
+                    card.style.background = 'rgba(' + hexToRgb(cor) + ',0.25)';
+                    renderizarAtividades(lic, cor);
+                };
+                grid.appendChild(card);
+            });
+
+            // Gráfico de barras: contagem por tipo de licença
+            barraWrap.style.display = dadosLicencas.length > 0 ? 'block' : 'none';
+            if (dadosLicencas.length > 0) {
+                desenharBarras('statsBarraCanvas', dadosLicencas, totalGeral);
+            }
+
+            // Limpa painel de atividades
+            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas fa-hand-pointer"></i>Clique em uma licença acima</div>';
+            document.getElementById('statsPizzaWrap').style.display = 'none';
+            document.getElementById('statsAtivLabel').textContent = '';
+        }
+
+        function renderizarAtividades(lic, cor) {
+            document.getElementById('statsAtivLabel').textContent = lic.nome;
+            var contagem = {};
+            lic.layer.eachLayer(function(l) {
+                var atv = getAtividade(l.feature);
+                if (!atv || atv === 'null' || atv === 'undefined') atv = 'Não informado';
+                contagem[atv] = (contagem[atv] || 0) + 1;
+            });
+
+            var total = lic.count;
+            var itens = Object.keys(contagem).map(function(k) {
+                return { nome: k, count: contagem[k], pct: total > 0 ? (contagem[k] / total * 100).toFixed(1) : 0 };
+            }).sort(function(a, b) { return b.count - a.count; });
+
+            var wrap = document.getElementById('statsTabelaWrap');
+            if (itens.length === 0 || total === 0) {
+                wrap.innerHTML = '<div class="stats-sem-dados"><i class="fas fa-info-circle"></i>Sem dados de atividade para esta camada.</div>';
+                document.getElementById('statsPizzaWrap').style.display = 'none';
+                return;
+            }
+
+            var html = '<table class="stats-tabela"><thead><tr>'
+                + '<th>Atividade</th><th style="text-align:right">Qtd</th><th style="text-align:right">%</th><th style="min-width:60px;"></th>'
+                + '</tr></thead><tbody>';
+            itens.forEach(function(item, i) {
+                var c = STATS_CORES[i % STATS_CORES.length];
+                html += '<tr>'
+                    + '<td>' + item.nome + '</td>'
+                    + '<td style="text-align:right;font-weight:bold;color:' + c + '">' + item.count + '</td>'
+                    + '<td style="text-align:right;color:#aaa">' + item.pct + '%</td>'
+                    + '<td><span class="stats-barra-inline" style="background:' + c + ';width:' + Math.max(item.pct, 2) + 'px;"></span></td>'
+                    + '</tr>';
+            });
+            html += '</tbody></table>';
+            wrap.innerHTML = html;
+
+            // Gráfico de pizza
+            var pizzaWrap = document.getElementById('statsPizzaWrap');
+            pizzaWrap.style.display = 'block';
+            desenharPizza('statsPizzaCanvas', itens);
+        }
+
+        function desenharBarras(canvasId, dados, total) {
+            var canvas = document.getElementById(canvasId);
+            var ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth || 400;
+            canvas.height = canvas.offsetHeight || 200;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            var W = canvas.width, H = canvas.height;
+            var pad = { top: 20, right: 10, bottom: 60, left: 40 };
+            var maxVal = Math.max.apply(null, dados.map(function(d) { return d.count; }));
+            var barW = Math.max(10, (W - pad.left - pad.right) / dados.length - 8);
+
+            dados.forEach(function(d, i) {
+                var x = pad.left + i * ((W - pad.left - pad.right) / dados.length) + 4;
+                var barH = maxVal > 0 ? ((d.count / maxVal) * (H - pad.top - pad.bottom)) : 0;
+                var y = H - pad.bottom - barH;
+                var cor = STATS_CORES[i % STATS_CORES.length];
+
+                ctx.fillStyle = cor;
+                ctx.fillRect(x, y, barW, barH);
+
+                // Valor em cima
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 11px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.fillText(d.count, x + barW / 2, y - 4);
+
+                // Label abaixo (rotacionado)
+                ctx.save();
+                ctx.translate(x + barW / 2, H - pad.bottom + 8);
+                ctx.rotate(-Math.PI / 4);
+                ctx.fillStyle = '#aaa';
+                ctx.font = '9px Segoe UI';
+                ctx.textAlign = 'right';
+                var label = d.nome.length > 18 ? d.nome.substring(0, 18) + '…' : d.nome;
+                ctx.fillText(label, 0, 0);
+                ctx.restore();
+            });
+        }
+
+        function desenharPizza(canvasId, itens) {
+            var canvas = document.getElementById(canvasId);
+            var ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth || 300;
+            canvas.height = canvas.offsetHeight || 180;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            var W = canvas.width, H = canvas.height;
+            var cx = W * 0.38, cy = H / 2, r = Math.min(cx, cy) - 10;
+            var total = itens.reduce(function(s, d) { return s + d.count; }, 0);
+            var angulo = -Math.PI / 2;
+
+            itens.forEach(function(d, i) {
+                var fatia = (d.count / total) * Math.PI * 2;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, r, angulo, angulo + fatia);
+                ctx.closePath();
+                ctx.fillStyle = STATS_CORES[i % STATS_CORES.length];
+                ctx.fill();
+                ctx.strokeStyle = '#1a1a2e';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                angulo += fatia;
+            });
+
+            // Legenda lateral
+            var legX = W * 0.72, legY = 14;
+            ctx.font = '9px Segoe UI';
+            itens.slice(0, 8).forEach(function(d, i) {
+                ctx.fillStyle = STATS_CORES[i % STATS_CORES.length];
+                ctx.fillRect(legX, legY + i * 18, 10, 10);
+                ctx.fillStyle = '#ccc';
+                var txt = d.nome.length > 14 ? d.nome.substring(0, 14) + '…' : d.nome;
+                ctx.fillText(txt + ' (' + d.pct + '%)', legX + 14, legY + i * 18 + 9);
+            });
+        }
+
+        function hexToRgb(hex) {
+            var r = parseInt(hex.slice(1,3),16);
+            var g = parseInt(hex.slice(3,5),16);
+            var b = parseInt(hex.slice(5,7),16);
+            return r + ',' + g + ',' + b;
+        }
         </script>
     </body>
 </html>
