@@ -509,14 +509,165 @@
             vertical-align: middle;
             margin-right: 4px;
         }
+
+        /* ===== BOTÃO FLUTUANTE MOBILE (abre/fecha painel) ===== */
+        .fab-mobile {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 3000;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            font-size: 1.4em;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.2s;
+        }
+        .fab-mobile:active { transform: scale(0.93); }
+
+        /* ===== MEDIA QUERY: MOBILE (≤ 768px) ===== */
+        @media (max-width: 768px) {
+
+            /* Oculta painel de coordenadas lateral fixo */
+            .painel-coordenadas {
+                display: none;
+            }
+
+            /* Seletor de base: menor, recolhido, canto superior esquerdo */
+            .base-selector {
+                top: 10px;
+                left: 10px;
+                min-width: 160px;
+                font-size: 0.85em;
+            }
+            .base-content {
+                max-height: 0;
+            }
+            .base-content.collapsed {
+                max-height: 0;
+            }
+
+            /* Logo menor */
+            #logo-fujama {
+                top: 10px !important;
+                right: 60px !important;
+                padding: 3px !important;
+            }
+            #logo-fujama img {
+                height: 38px !important;
+            }
+
+            /* Dashboard: ocupa mais espaço vertical */
+            .dashboard-inferior {
+                width: 100%;
+                left: 0;
+                right: 0;
+            }
+            .dashboard-conteudo {
+                flex-direction: column;
+                flex-wrap: nowrap;
+                max-height: 55vh;
+                padding: 12px;
+                gap: 12px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            /* Dashboard começa minimizado no mobile */
+            .dashboard-inferior.dashboard-minimizado .dashboard-conteudo {
+                max-height: 0;
+                padding: 0;
+            }
+
+            /* Cards ocupam largura total */
+            .dashboard-card {
+                flex: 1 1 100%;
+                min-width: unset;
+                width: 100%;
+                padding: 14px;
+            }
+
+            /* Título do dashboard mais compacto */
+            .dashboard-titulo h3 {
+                font-size: 0.95em;
+            }
+            .dashboard-titulo {
+                padding: 10px 14px;
+            }
+
+            /* Resultados de busca menores */
+            .search-results {
+                max-height: 130px;
+            }
+
+            /* Upload area mais compacta */
+            .upload-area {
+                padding: 12px;
+            }
+            .upload-area i {
+                font-size: 1.5em;
+            }
+
+            /* Árvore de camadas: recolhida e limitada em altura */
+            .leaflet-control-layers {
+                max-height: 60vh;
+                overflow-y: auto;
+                font-size: 0.9em;
+            }
+
+            /* Botões de ferramenta maiores (touch-friendly) */
+            .ferramenta-btn {
+                padding: 12px 10px;
+                font-size: 0.95em;
+            }
+
+            /* Botão flutuante visível no mobile */
+            .fab-mobile {
+                display: flex;
+            }
+
+            /* Afasta controles do Leaflet do dashboard */
+            .leaflet-bottom.leaflet-left {
+                bottom: 55px;
+            }
+            .leaflet-bottom.leaflet-right {
+                bottom: 55px;
+            }
+        }
+
+        /* ===== MEDIA QUERY: TELAS MUITO PEQUENAS (≤ 400px) ===== */
+        @media (max-width: 400px) {
+            .base-selector {
+                min-width: 140px;
+                font-size: 0.8em;
+            }
+            .dashboard-conteudo {
+                max-height: 60vh;
+                padding: 8px;
+                gap: 8px;
+            }
+            .dashboard-card {
+                padding: 10px;
+            }
+        }
         </style>
         <title></title>
     </head>
     <body>
         <div id="map"></div>
-        <div style="position: absolute; top: 10px; right: 140px; z-index: 1000; background: white; padding: 5px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
+        <div id="logo-fujama" style="position: absolute; top: 10px; right: 140px; z-index: 1000; background: white; padding: 5px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
             <img src="images/logo.png" alt="Logo FUJAMA" style="height: 60px; width: auto;">
         </div>
+        <!-- Botão flutuante para abrir/fechar dashboard no mobile -->
+        <button class="fab-mobile" id="fabMobile" onclick="toggleDashboardMobile()" title="Painel de Controle">
+            <i class="fas fa-sliders-h"></i>
+        </button>
         <!-- Painel de Coordenadas -->
         <div class="painel-coordenadas" id="painelCoordenadas">
             <div class="coord-linha">
@@ -696,8 +847,8 @@
                         <div class="upload-area" onclick="document.getElementById('visFileInput').click()">
                             <i class="fas fa-cloud-upload-alt"></i>
                             <p>Clique para selecionar arquivos</p>
-                            <p class="formatos">Formatos: GeoJSON, JSON, KML, KMZ</p>
-                            <input type="file" id="visFileInput" multiple style="display: none;" accept=".geojson,.json,.kml,.kmz" onchange="handleVisUpload(this.files)">
+                            <p class="formatos">Formatos: GeoJSON, JSON, KML, KMZ, Shapefile (.zip)</p>
+                            <input type="file" id="visFileInput" multiple style="display: none;" accept=".geojson,.json,.kml,.kmz,.zip" onchange="handleVisUpload(this.files)">
                         </div>
                         <div class="arquivos-lista" id="visArquivosLista">
                             <div style="color: #666; text-align: center; padding: 10px;">Nenhum arquivo carregado</div>
@@ -783,6 +934,7 @@
         <!-- Bibliotecas adicionais -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+        <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
         <script>
         // ========== SELETOR DE BASE CARTOGRÁFICA ==========
@@ -798,6 +950,33 @@
                 toggle.style.transform = 'rotate(-90deg)';
             }
         }
+
+        // ========== BOTÃO FLUTUANTE MOBILE ==========
+        function toggleDashboardMobile() {
+            var dashboard = document.getElementById('dashboard');
+            var fab = document.getElementById('fabMobile');
+            if (dashboard.classList.contains('dashboard-minimizado')) {
+                dashboard.classList.remove('dashboard-minimizado');
+                fab.innerHTML = '<i class="fas fa-times"></i>';
+                fab.style.background = '#e74c3c';
+            } else {
+                dashboard.classList.add('dashboard-minimizado');
+                fab.innerHTML = '<i class="fas fa-sliders-h"></i>';
+                fab.style.background = '#3498db';
+            }
+        }
+
+        // ========== INICIALIZAÇÃO RESPONSIVA ==========
+        (function() {
+            if (window.innerWidth <= 768) {
+                // Começa com dashboard minimizado no mobile
+                var dashboard = document.getElementById('dashboard');
+                if (dashboard) dashboard.classList.add('dashboard-minimizado');
+                // Recolhe o seletor de base
+                var baseContent = document.getElementById('baseContent');
+                if (baseContent) baseContent.classList.add('collapsed');
+            }
+        })();
 
         function setBaseMap(base) {
             // Remove todas as camadas base do mapa
@@ -1297,18 +1476,43 @@
                                         }
                                     }
                                 });
-                                
                                 layer.addTo(map);
-                                visArquivos.push({
-                                    nome: nome,
-                                    layer: layer
-                                });
+                                visArquivos.push({ nome: nome, layer: layer });
                                 atualizarListaVis();
-                                
-                                // Ajusta zoom para o layer
                                 map.fitBounds(layer.getBounds());
                             }).catch(function(err) {
                                 alert('Erro ao ler KMZ: ' + err.message);
+                            });
+                            return; // Sai porque é assíncrono
+                        } else if (extensao === 'zip') {
+                            // Shapefile dentro de .zip usando shpjs
+                            shp(conteudo).then(function(geojson) {
+                                var features = Array.isArray(geojson) ? geojson : [geojson];
+                                var layerGroup = L.featureGroup();
+                                features.forEach(function(fc) {
+                                    var l = L.geoJSON(fc, {
+                                        onEachFeature: function(feature, layer) {
+                                            if (feature.properties) {
+                                                var popupContent = '<b>Propriedades:</b><br>';
+                                                for (var key in feature.properties) {
+                                                    if (feature.properties[key] !== null && feature.properties[key] !== '') {
+                                                        popupContent += '<b>' + key + ':</b> ' + feature.properties[key] + '<br>';
+                                                    }
+                                                }
+                                                layer.bindPopup(popupContent, { maxHeight: 300 });
+                                            }
+                                        }
+                                    });
+                                    l.addTo(layerGroup);
+                                });
+                                layerGroup.addTo(map);
+                                visArquivos.push({ nome: nome, layer: layerGroup });
+                                atualizarListaVis();
+                                if (layerGroup.getBounds().isValid()) {
+                                    map.fitBounds(layerGroup.getBounds());
+                                }
+                            }).catch(function(err) {
+                                alert('Erro ao ler Shapefile: ' + err.message + '\nVerifique se o .zip contém os arquivos .shp, .dbf e .prj.');
                             });
                             return; // Sai porque é assíncrono
                         } else {
@@ -1334,7 +1538,7 @@
                     }
                 };
 
-                if (extensao === 'kmz') {
+                if (extensao === 'kmz' || extensao === 'zip') {
                     reader.readAsArrayBuffer(file);
                 } else {
                     reader.readAsText(file);
@@ -1356,6 +1560,7 @@
                         var icone = 'fa-file';
                         if (ext === 'geojson' || ext === 'json') icone = 'fa-file-code';
                         if (ext === 'kml' || ext === 'kmz') icone = 'fa-file-alt';
+                        if (ext === 'zip') icone = 'fa-file-archive';
                         
                         html += '<div class="arquivo-item">';
                         html += '<div class="arquivo-info">';
@@ -3839,7 +4044,7 @@
         };
 
         var overlaysTree = [
-            { label: '<b>Licenças Ambientais - 2026</b>', selectAllCheckbox: true, children: [
+            { label: '<b>Licenças Ambientais - 2026</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: '<img src="legend/CorteEventual_46.png" /> Corte Eventual', layer: layer_CorteEventual_46 },
                 { label: '<img src="legend/AutorizaodeCorteSimplificada_45.png" /> Autorização de Corte Simplificada', layer: layer_AutorizaodeCorteSimplificada_45 },
                 { label: '<img src="legend/SINAFLOR_44.png" /> SINAFLOR', layer: layer_SINAFLOR_44 },
@@ -3849,28 +4054,28 @@
                 { label: '<img src="legend/LAI_40.png" /> LAI', layer: layer_LAI_40 },
                 { label: '<img src="legend/LAP_39.png" /> LAP', layer: layer_LAP_39 },
             ] },
-            { label: '<b>Fiscalização Ambiental</b>', selectAllCheckbox: true, children: [
+            { label: '<b>Fiscalização Ambiental</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: '<img src="legend/AIA_2025_38.png" /> AIA_2025', layer: layer_AIA_2025_38 },
             ] },
-            { label: '<b>Instituto do Meio Ambiente</b>', selectAllCheckbox: true, children: [
+            { label: '<b>Instituto do Meio Ambiente</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: '<img src="legend/LicenciamentoAmbiental_37.png" /> Licenciamento Ambiental', layer: layer_LicenciamentoAmbiental_37 },
             ] },
-            { label: '<b>Geoinfo Embrapa</b>', selectAllCheckbox: true, children: [
+            { label: '<b>Geoinfo Embrapa</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: "Erodibilidade dos solos do Brasil [CNPS]", layer: layer_ErodibilidadedossolosdoBrasilCNPS_36 },
             ] },
-            { label: '<b>CAR</b>', selectAllCheckbox: true, children: [
+            { label: '<b>CAR</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: '<img src="legend/RESERVA_LEGAL_35.png" /> RESERVA_LEGAL', layer: layer_RESERVA_LEGAL_35 },
                 { label: '<img src="legend/AREA_IMOVEL_34.png" /> AREA_IMOVEL', layer: layer_AREA_IMOVEL_34 },
             ] },
-            { label: '<b>BDiA</b>', selectAllCheckbox: true, children: [
+            { label: '<b>BDiA</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: 'Geomorfologia<br /><table>...</table>', layer: layer_Geomorfologia_33 },
                 { label: 'Pedologia<br /><table>...</table>', layer: layer_Pedologia_32 },
                 { label: 'Vegetação<br /><table>...</table>', layer: layer_Vegetao_31 },
             ] },
-            { label: '<b>ANM</b>', selectAllCheckbox: true, children: [
+            { label: '<b>ANM</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: "Processos minerários ativos", layer: layer_Processosminerriosativos_30 },
             ] },
-            { label: '<b>GeoJaraguá</b>', selectAllCheckbox: true, children: [
+            { label: '<b>GeoJaraguá</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: "Limite Municipal", layer: layer_LimiteMunicipal_29 },
                 { label: "Limite de Bairros", layer: layer_LimitedeBairros_28 },
                 { label: "Limite de Lotes Urbanos", layer: layer_LimitedeLotesUrbanos_27 },
@@ -3894,7 +4099,7 @@
                 { label: "Inundações Esporadicas", layer: layer_InundaesEsporadicas_9 },
                 { label: "Área de Tombamento IPHAN", layer: layer_readeTombamentoIPHAN_8 },
             ] },
-            { label: '<b>SIG-SC</b>', selectAllCheckbox: true, children: [
+            { label: '<b>SIG-SC</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: "ana_nascente", layer: layer_ana_nascente_7 },
                 { label: "ana_curso_dagua", layer: layer_ana_curso_dagua_6 },
                 { label: "inde_trecho_drenagem", layer: layer_inde_trecho_drenagem_5 },
@@ -3904,6 +4109,16 @@
 
         var lay = L.control.layers.tree(baseMaps, overlaysTree, { collapsed: false });
         lay.addTo(map);
+
+        // No mobile, colapsa a árvore de camadas automaticamente
+        if (window.innerWidth <= 768) {
+            setTimeout(function() {
+                var layersControl = document.querySelector('.leaflet-control-layers');
+                if (layersControl) {
+                    layersControl.classList.remove('leaflet-control-layers-expanded');
+                }
+            }, 100);
+        }
 
         // Adicionar um mapa base padrão
         map.addLayer(layer_OpenStreetMap_0);
