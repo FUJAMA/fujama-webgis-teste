@@ -1140,6 +1140,49 @@
             .sat-filtros { max-width: 100%; min-width: unset; }
             .sat-thumb, .sat-thumb-placeholder { width: 48px; height: 48px; }
         }
+
+        .sat-btn-aoi {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            background: rgba(243,156,18,0.12);
+            border: 1px solid rgba(243,156,18,0.35);
+            border-radius: 7px;
+            color: #f39c12;
+            font-size: 0.8em;
+            font-weight: 600;
+            padding: 7px 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        .sat-btn-aoi:hover { background: rgba(243,156,18,0.22); }
+        .sat-btn-aoi.ativo {
+            background: rgba(231,76,60,0.2);
+            border-color: rgba(231,76,60,0.5);
+            color: #e74c3c;
+        }
+        .sat-aoi-status {
+            font-size: 0.7em;
+            color: rgba(243,156,18,0.8);
+            padding: 3px 2px;
+            line-height: 1.3;
+        }
+        .sat-btn-aoi-clear {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(231,76,60,0.1);
+            border: 1px solid rgba(231,76,60,0.25);
+            border-radius: 5px;
+            color: #e74c3c;
+            font-size: 0.72em;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .sat-btn-aoi-clear:hover { background: rgba(231,76,60,0.22); }
         </style>
         <title></title>
     </head>
@@ -1432,7 +1475,7 @@
                     <div class="sat-field">
                         <label><i class="fas fa-satellite"></i> Coleção / Satélite</label>
                         <select id="sat-colecao" disabled style="opacity:0.7;cursor:not-allowed;">
-                            <option value="CBERS4A-WPM-L4-DN" selected>CBERS-4A WPM (2m pan / 8m multi)</option>
+                            <option value="CBERS4A_WPM_L4_DN" selected>CBERS-4A WPM (2m pan / 8m multi)</option>
                         </select>
                     </div>
 
@@ -1463,9 +1506,16 @@
                         </select>
                     </div>
 
-                    <div class="sat-bbox-info" id="sat-bbox-info">
-                        <i class="fas fa-map-marked-alt"></i>
-                        A busca usa a extensão atual do mapa como área de interesse
+                    <!-- Área de Interesse (AOI) -->
+                    <div class="sat-field">
+                        <label><i class="fas fa-draw-polygon"></i> Área de Interesse</label>
+                        <button class="sat-btn-aoi" id="sat-btn-aoi" onclick="iniciarDesenhoAOI()">
+                            <i class="fas fa-draw-polygon"></i> Definir Área
+                        </button>
+                        <div class="sat-aoi-status" id="sat-aoi-status">Usando extensão atual do mapa</div>
+                        <button class="sat-btn-aoi-clear" id="sat-aoi-clear" onclick="limparAOI()" style="display:none">
+                            <i class="fas fa-times"></i> Remover área definida
+                        </button>
                     </div>
 
                     <button class="sat-btn-buscar" id="sat-btn-buscar" onclick="buscarImagensSatelite()">
@@ -5553,20 +5603,34 @@
         // ========== SISTEMA DE ABAS DO DASHBOARD ==========
 
         // ========== IMAGENS DE SATÉLITE (INPE STAC API) ==========
-        var satLayers = {};       // itemId → L.geoJSON footprint layer
-        var satTmsLayers = {};    // itemId → L.tileLayer TMS overlay
-        var satFeatures = [];     // resultados STAC atuais
-        var SAT_STAC = 'https://data.inpe.br/bdc/stac/v1';
+        // Documentação oficial: https://data.inpe.br/wp-content/uploads/2024/05/CatalogoIntegrado_ComoUsar.v0.1-2.pdf
+        // API: GET https://data.inpe.br/bdc/stac/v1/search?collections=CB4A-WPM-PCA-FUSED-1&bbox=...&datetime=...&limit=...
+        // TMS:     https://data.inpe.br/bdc/tms/tiles/WebMercatorQuad/{z}/{x}/{y}?url={cog_url}
 
-        // Coleta bbox do mapa atual e formata para STAC
-        function getSatBbox() {
+        var satLayers    = {};   // id → L.geoJSON footprint
+        var satTmsLayers = {};   // id → L.tileLayer TMS
+        var satFeatures  = [];
+        var satAoiLayer  = null;
+        var satAoiBbox   = null;
+        var satDrawing   = false;
+        var satDrawRect  = null;
+        var satDrawStart = null;
+
+        // Nome oficial da coleção no catálogo INPE
+        var SAT_COLLECTION = 'CB4A-WPM-PCA-FUSED-1';
+        var SAT_STAC_BASE  = 'https://data.inpe.br/bdc/stac/v1';
+        var SAT_TMS_BASE   = 'https://data.inpe.br/bdc/tms/tiles/WebMercatorQuad/{z}/{x}/{y}?url=';
+
+        // Bbox: AOI desenhada ou extensão atual do mapa
+        function getSatBboxArray() {
+            if (satAoiBbox) return satAoiBbox;
             var b = map.getBounds();
             return [
-                b.getWest().toFixed(6),
-                b.getSouth().toFixed(6),
-                b.getEast().toFixed(6),
-                b.getNorth().toFixed(6)
-            ].join(',');
+                parseFloat(b.getWest().toFixed(6)),
+                parseFloat(b.getSouth().toFixed(6)),
+                parseFloat(b.getEast().toFixed(6)),
+                parseFloat(b.getNorth().toFixed(6))
+            ];
         }
 
         function satSetProgress(txt, pct) {
@@ -5579,48 +5643,160 @@
             document.getElementById('sat-progress').style.display = 'none';
         }
 
+        // ── AOI: desenho de retângulo ──────────────────────────────────────
+        function iniciarDesenhoAOI() {
+            if (satDrawing) { cancelarDesenhoAOI(); return; }
+            satDrawing = true;
+            map.dragging.disable();
+            map.getContainer().style.cursor = 'crosshair';
+            var btn = document.getElementById('sat-btn-aoi');
+            btn.classList.add('ativo');
+            btn.innerHTML = '<i class="fas fa-times"></i> Cancelar';
+            document.getElementById('sat-aoi-status').textContent = 'Clique e arraste no mapa para definir a área de busca';
+
+            function onMouseDown(e) {
+                if (!satDrawing) return;
+                satDrawStart = e.latlng;
+                map.on('mousemove', onMouseMove);
+                map.on('mouseup', onMouseUp);
+            }
+            function onMouseMove(e) {
+                if (!satDrawStart) return;
+                if (satDrawRect) map.removeLayer(satDrawRect);
+                satDrawRect = L.rectangle(L.latLngBounds(satDrawStart, e.latlng), {
+                    color: '#f39c12', weight: 2, dashArray: '5,4',
+                    fillColor: '#f39c12', fillOpacity: 0.1, interactive: false
+                }).addTo(map);
+            }
+            function onMouseUp(e) {
+                map.off('mousemove', onMouseMove);
+                map.off('mouseup', onMouseUp);
+                map.off('mousedown', onMouseDown);
+                if (satDrawRect) { map.removeLayer(satDrawRect); satDrawRect = null; }
+                var bounds = L.latLngBounds(satDrawStart, e.latlng);
+                if (Math.abs(bounds.getNorth() - bounds.getSouth()) < 0.001 ||
+                    Math.abs(bounds.getEast() - bounds.getWest()) < 0.001) {
+                    cancelarDesenhoAOI();
+                    document.getElementById('sat-aoi-status').textContent = 'Área muito pequena — tente novamente';
+                    return;
+                }
+                finalizarAOI(bounds);
+            }
+            map.on('mousedown', onMouseDown);
+        }
+
+        function finalizarAOI(bounds) {
+            satDrawing = false;
+            map.dragging.enable();
+            map.getContainer().style.cursor = '';
+            var btn = document.getElementById('sat-btn-aoi');
+            btn.classList.remove('ativo');
+            btn.innerHTML = '<i class="fas fa-draw-polygon"></i> Redefinir Área';
+
+            if (satAoiLayer) map.removeLayer(satAoiLayer);
+            satAoiLayer = L.rectangle(bounds, {
+                color: '#f39c12', weight: 2,
+                fillColor: '#f39c12', fillOpacity: 0.06, interactive: false
+            }).addTo(map);
+
+            var sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+            satAoiBbox = [
+                parseFloat(sw.lng.toFixed(6)), parseFloat(sw.lat.toFixed(6)),
+                parseFloat(ne.lng.toFixed(6)), parseFloat(ne.lat.toFixed(6))
+            ];
+
+            var statusEl = document.getElementById('sat-aoi-status');
+            statusEl.textContent = sw.lat.toFixed(3) + '°, ' + sw.lng.toFixed(3) + '° → ' +
+                                   ne.lat.toFixed(3) + '°, ' + ne.lng.toFixed(3) + '°';
+            statusEl.style.color = '#f39c12';
+            document.getElementById('sat-aoi-clear').style.display = 'inline-flex';
+        }
+
+        function cancelarDesenhoAOI() {
+            satDrawing = false;
+            map.dragging.enable();
+            map.getContainer().style.cursor = '';
+            map.off('mousedown'); map.off('mousemove'); map.off('mouseup');
+            if (satDrawRect) { map.removeLayer(satDrawRect); satDrawRect = null; }
+            var btn = document.getElementById('sat-btn-aoi');
+            btn.classList.remove('ativo');
+            btn.innerHTML = '<i class="fas fa-draw-polygon"></i> Definir Área';
+        }
+
+        function limparAOI() {
+            if (satAoiLayer) { map.removeLayer(satAoiLayer); satAoiLayer = null; }
+            satAoiBbox = null;
+            var statusEl = document.getElementById('sat-aoi-status');
+            statusEl.textContent = 'Usando extensão atual do mapa';
+            statusEl.style.color = '';
+            document.getElementById('sat-aoi-clear').style.display = 'none';
+            document.getElementById('sat-btn-aoi').innerHTML = '<i class="fas fa-draw-polygon"></i> Definir Área';
+        }
+
+        // ── Busca principal (GET — API aceita apenas GET conforme doc. oficial) ──
         function buscarImagensSatelite() {
-            var colecao   = document.getElementById('sat-colecao').value;
-            var dataIni   = document.getElementById('sat-data-ini').value;
-            var dataFim   = document.getElementById('sat-data-fim').value || new Date().toISOString().slice(0,10);
-            var cloud     = document.getElementById('sat-cloud-range').value;
-            var limit     = document.getElementById('sat-limit').value;
-            var bbox      = getSatBbox();
+            var dataIni = document.getElementById('sat-data-ini').value;
+            var dataFim = document.getElementById('sat-data-fim').value || new Date().toISOString().slice(0,10);
+            var cloud   = parseInt(document.getElementById('sat-cloud-range').value);
+            var limit   = parseInt(document.getElementById('sat-limit').value);
+            var bbox    = getSatBboxArray();
+
+            if (!dataIni) {
+                alert('Informe a data inicial.');
+                return;
+            }
 
             var lista = document.getElementById('sat-lista');
             var btn   = document.getElementById('sat-btn-buscar');
-
             btn.disabled = true;
             lista.innerHTML = '';
-            satSetProgress('Consultando catálogo STAC do INPE...', 20);
+            satSetProgress('Consultando STAC INPE — coleção ' + SAT_COLLECTION + '...', 15);
             document.getElementById('sat-count-badge').textContent = '…';
 
-            // Monta URL da STAC Search API
-            var url = SAT_STAC + '/search?' +
-                'collections=' + encodeURIComponent(colecao) +
-                '&bbox=' + encodeURIComponent(bbox) +
-                '&datetime=' + encodeURIComponent(dataIni + 'T00:00:00Z/' + dataFim + 'T23:59:59Z') +
+            // GET com parâmetros conforme documentação oficial
+            // Obs: filtro cloud_cover não existe na API — filtramos localmente após receber
+            var url = SAT_STAC_BASE + '/search' +
+                '?collections=' + encodeURIComponent(SAT_COLLECTION) +
+                '&bbox=' + bbox.join(',') +
+                '&datetime=' + dataIni + '/' + dataFim +
                 '&limit=' + limit;
 
-            satSetProgress('Aguardando resposta do servidor INPE...', 50);
+            satSetProgress('Aguardando servidor INPE...', 40);
 
-            fetch(url)
+            fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
                 .then(function(res) {
-                    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + res.statusText);
+                    satSetProgress('Recebendo dados...', 70);
+                    if (!res.ok) {
+                        return res.text().then(function(t) {
+                            throw new Error('HTTP ' + res.status + ' — ' + t.slice(0, 300));
+                        });
+                    }
                     return res.json();
                 })
                 .then(function(data) {
-                    satSetProgress('Processando resultados...', 85);
-                    var features = (data.features || []).filter(function(f) {
-                        var cc = f.properties['eo:cloud_cover'] || f.properties['cloud_cover'] || 0;
-                        return parseFloat(cc) <= parseFloat(cloud);
+                    // Filtra cobertura de nuvens localmente
+                    var allFeatures = data.features || [];
+                    var features = allFeatures.filter(function(f) {
+                        var cc = f.properties['eo:cloud_cover'];
+                        if (cc === undefined || cc === null) return true; // sem info → inclui
+                        return parseFloat(cc) <= cloud;
                     });
+
                     satFeatures = features;
                     satHideProgress();
                     btn.disabled = false;
-                    document.getElementById('sat-count-badge').textContent = features.length + ' cena' + (features.length !== 1 ? 's' : '');
+
+                    var matched = data.numberMatched || (data.context && data.context.matched) || allFeatures.length;
+                    var badge = features.length + ' cena' + (features.length !== 1 ? 's' : '');
+                    if (matched > features.length)
+                        badge += ' (de ' + matched + ' no período)';
+                    document.getElementById('sat-count-badge').textContent = badge;
+
                     if (features.length === 0) {
-                        lista.innerHTML = '<div class="sat-status sat-erro"><i class="fas fa-search"></i><span>Nenhuma cena encontrada com os filtros selecionados.<br>Tente ampliar o intervalo de datas ou aumentar a cobertura de nuvens.</span></div>';
+                        var motivo = allFeatures.length > 0
+                            ? 'Todas as ' + allFeatures.length + ' cenas do período têm cobertura de nuvens acima do limite (' + cloud + '%). Aumente o filtro.'
+                            : 'Nenhuma cena encontrada para a área e período informados.';
+                        lista.innerHTML = '<div class="sat-status"><i class="fas fa-satellite-dish" style="opacity:0.4"></i><span>' + motivo + '</span></div>';
                         return;
                     }
                     renderSatResultados(features);
@@ -5628,62 +5804,58 @@
                 .catch(function(err) {
                     satHideProgress();
                     btn.disabled = false;
-                    var msg = err.message || String(err);
-                    var corsMsg = msg.indexOf('fetch') >= 0 || msg.indexOf('Failed') >= 0 ?
-                        '<br><small>Possível bloqueio CORS. Tente acessar diretamente: <a href="https://data.inpe.br/bdc/stac/v1" target="_blank" style="color:#3498db">data.inpe.br/bdc/stac/v1</a></small>' : '';
-                    lista.innerHTML = '<div class="sat-status sat-erro"><i class="fas fa-exclamation-triangle"></i>' +
-                        '<span>Erro ao consultar o INPE STAC API:<br><b>' + msg + '</b>' + corsMsg + '</span></div>';
+                    var msg = String(err.message || err);
+                    var isCors = /failed to fetch|networkerror|cors/i.test(msg);
+                    lista.innerHTML = '<div class="sat-status sat-erro">' +
+                        '<i class="fas fa-exclamation-triangle"></i>' +
+                        '<span>' + (isCors
+                            ? '<b>Erro de conexão (CORS)</b><br>O servidor INPE não autorizou a requisição direta do browser.<br>' +
+                              '<small>Verifique se a rede permite acesso a <code>data.inpe.br</code>. ' +
+                              'Para uso interno da FUJAMA pode ser necessário configurar um proxy.</small>'
+                            : '<b>Erro:</b> ' + msg) +
+                        '</span></div>';
                     document.getElementById('sat-count-badge').textContent = 'erro';
+                    console.error('[SAT STAC]', msg, url);
                 });
         }
 
+        // ── Renderizar cards ───────────────────────────────────────────────
         function renderSatResultados(features) {
             var lista = document.getElementById('sat-lista');
             lista.innerHTML = '';
-
-            // Limpar footprints anteriores do mapa
-            Object.keys(satLayers).forEach(function(id) {
-                if (satLayers[id]) map.removeLayer(satLayers[id]);
-            });
+            Object.values(satLayers).forEach(function(l) { if (map.hasLayer(l)) map.removeLayer(l); });
             satLayers = {};
 
             features.forEach(function(item, idx) {
-                var p         = item.properties || {};
-                var id        = item.id || ('cena-' + idx);
-                var dt        = (p.datetime || '').slice(0,10);
-                var cc        = p['eo:cloud_cover'] !== undefined ? p['eo:cloud_cover'] :
-                                (p['cloud_cover'] !== undefined ? p['cloud_cover'] : '—');
-                var ccNum     = parseFloat(cc);
-                var ccClass   = (!isNaN(ccNum) && ccNum < 20) ? 'ok' : '';
-                var ccTxt     = isNaN(ccNum) ? '—' : ccNum.toFixed(1) + '%';
-                var sensor    = p.instruments ? p.instruments.join(', ') : (p.platform || '—');
-                var thumbUrl  = item.assets && item.assets.thumbnail ? item.assets.thumbnail.href : null;
-                var hasTMS    = item.assets && (item.assets.visual || item.assets.B4 || item.assets['tci']);
-                var inpeLink  = 'https://www.dgi.inpe.br/catalogo/explore?id=' + encodeURIComponent(id);
+                var p      = item.properties || {};
+                var id     = item.id || ('cena-' + idx);
+                var dt     = (p.datetime || p.start_datetime || '').slice(0, 10);
+                var cc     = p['eo:cloud_cover'];
+                var ccNum  = parseFloat(cc);
+                var ccOk   = !isNaN(ccNum) && ccNum < 20;
+                var ccTxt  = isNaN(ccNum) ? 'N/D' : ccNum.toFixed(1) + '%';
+                var sensor = p.platform || 'CBERS-4A';
+                var assets = item.assets || {};
+                var thumbUrl = (assets.thumbnail || assets.THUMBNAIL || {}).href || null;
+                var tciUrl   = (assets.tci || assets.TCI || {}).href || null;
 
-                // Adicionar footprint ao mapa imediatamente (desativado por padrão)
+                // Footprint (não adiciona ao mapa ainda)
                 if (item.geometry) {
-                    var footLayer = L.geoJSON(item.geometry, {
-                        style: {
-                            color: '#3498db', weight: 1.5,
-                            fillColor: '#3498db', fillOpacity: 0.06,
-                            dashArray: '4,3'
-                        }
+                    satLayers[id] = L.geoJSON(item.geometry, {
+                        style: { color: '#f39c12', weight: 1.5, fillOpacity: 0.04, dashArray: '5,3' }
                     }).bindPopup(
-                        '<div style="font-size:0.85em;min-width:160px;">' +
-                        '<b style="color:#3498db">' + id + '</b><br>' +
+                        '<div style="font-size:0.85em;max-width:240px">' +
+                        '<b style="color:#f39c12">' + id + '</b><br>' +
                         '<span style="color:#aaa">Data:</span> ' + dt + '<br>' +
                         '<span style="color:#aaa">Nuvens:</span> ' + ccTxt + '<br>' +
                         '<span style="color:#aaa">Sensor:</span> ' + sensor +
                         (thumbUrl ? '<br><img src="' + thumbUrl + '" style="width:100%;margin-top:6px;border-radius:4px;">' : '') +
                         '</div>'
                     );
-                    satLayers[id] = footLayer;
-                    // Não adiciona ao mapa ainda — só ao clicar em "Ver no Mapa"
                 }
 
                 var thumbHtml = thumbUrl
-                    ? '<img class="sat-thumb" src="' + thumbUrl + '" alt="thumb" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+                    ? '<img class="sat-thumb" src="' + thumbUrl + '" alt="thumb" onerror="this.parentNode.querySelector(\'.sat-thumb-placeholder\').style.display=\'flex\';this.style.display=\'none\'">' +
                       '<div class="sat-thumb-placeholder" style="display:none"><i class="fas fa-image"></i></div>'
                     : '<div class="sat-thumb-placeholder"><i class="fas fa-image"></i></div>';
 
@@ -5693,24 +5865,26 @@
                 div.innerHTML =
                     thumbHtml +
                     '<div class="sat-item-info">' +
-                        '<div class="sat-item-id">' + id + '</div>' +
+                        '<div class="sat-item-id" title="' + id + '">' + id + '</div>' +
                         '<div class="sat-item-meta">' +
                             '<span><i class="fas fa-calendar-day"></i> ' + dt + '</span>' +
                             '<span><i class="fas fa-satellite"></i> ' + sensor + '</span>' +
-                            '<span><span class="sat-cloud-pct ' + ccClass + '"><i class="fas fa-cloud"></i> ' + ccTxt + ' nuvens</span></span>' +
+                            '<span><span class="sat-cloud-pct ' + (ccOk ? 'ok' : '') + '">' +
+                                '<i class="fas fa-cloud"></i> ' + ccTxt + '</span></span>' +
                         '</div>' +
                     '</div>' +
                     '<div class="sat-item-acoes">' +
-                        '<button class="sat-btn-mini" id="sat-map-btn-' + idx + '" onclick="toggleSatFootprint(' + idx + ',' + JSON.stringify(id) + ')">' +
-                            '<i class="fas fa-map"></i> Footprint' +
-                        '</button>' +
-                        (hasTMS ?
-                        '<button class="sat-btn-mini" id="sat-tms-btn-' + idx + '" onclick="toggleSatTMS(' + idx + ',' + JSON.stringify(id) + ',' + JSON.stringify(JSON.stringify(item.assets)) + ')">' +
-                            '<i class="fas fa-layer-group"></i> Sobrepor' +
-                        '</button>' : '') +
-                        '<a class="sat-btn-mini sat-btn-inpe" href="' + inpeLink + '" target="_blank">' +
-                            '<i class="fas fa-external-link-alt"></i> INPE' +
-                        '</a>' +
+                        '<button class="sat-btn-mini" id="sat-fp-' + idx + '" ' +
+                            'onclick="toggleSatFootprint(' + idx + ',\'' + id.replace(/'/g,"\\'")+  '\')">' +
+                            '<i class="fas fa-map"></i> Footprint</button>' +
+                        (tciUrl
+                            ? '<button class="sat-btn-mini" id="sat-tms-' + idx + '" ' +
+                              'onclick="toggleSatTMS(' + idx + ',\'' + id.replace(/'/g,"\\'") + '\',\'' + tciUrl.replace(/'/g,"\\'") + '\')">' +
+                              '<i class="fas fa-layer-group"></i> Visualizar</button>'
+                            : '') +
+                        '<a class="sat-btn-mini sat-btn-inpe" ' +
+                            'href="https://data.inpe.br/stac/browser/collections/' + SAT_COLLECTION + '/items/' + encodeURIComponent(id) + '" ' +
+                            'target="_blank"><i class="fas fa-external-link-alt"></i> Detalhes</a>' +
                     '</div>';
 
                 lista.appendChild(div);
@@ -5720,110 +5894,54 @@
         function toggleSatFootprint(idx, id) {
             var layer = satLayers[id];
             if (!layer) return;
-            var btn = document.getElementById('sat-map-btn-' + idx);
+            var btn = document.getElementById('sat-fp-' + idx);
             if (map.hasLayer(layer)) {
                 map.removeLayer(layer);
-                btn.classList.remove('ativo');
+                if (btn) btn.classList.remove('ativo');
             } else {
                 layer.addTo(map);
-                map.fitBounds(layer.getBounds(), { padding: [20, 20] });
-                btn.classList.add('ativo');
+                map.fitBounds(layer.getBounds(), { padding: [30, 30] });
+                if (btn) btn.classList.add('ativo');
             }
         }
 
-        function toggleSatTMS(idx, id, assetsJson) {
-            var btn = document.getElementById('sat-tms-btn-' + idx);
+        function toggleSatTMS(idx, id, tciUrl) {
+            var btn = document.getElementById('sat-tms-' + idx);
             if (satTmsLayers[id]) {
                 map.removeLayer(satTmsLayers[id]);
                 delete satTmsLayers[id];
-                btn.classList.remove('ativo');
+                if (btn) btn.classList.remove('ativo');
                 return;
             }
-            try {
-                var assets = JSON.parse(assetsJson);
-                // Tenta visual (TCI), depois B4
-                var tmsAsset = assets.visual || assets.tci || assets.TCI || assets.B4 || null;
-                if (tmsAsset && tmsAsset.href) {
-                    // Se for COG/GeoTIFF, tenta usar via INPE TMS proxy
-                    var href = tmsAsset.href;
-                    var tmsUrl = null;
-                    if (href.indexOf('{z}/{x}/{y}') >= 0) {
-                        tmsUrl = href;
-                    } else if (href.indexOf('/tms/') >= 0) {
-                        tmsUrl = href;
-                    } else {
-                        // Monta URL TMS do BDC para o item
-                        var col = document.getElementById('sat-colecao').value;
-                        tmsUrl = 'https://data.inpe.br/bdc/tms/v1/' + col + '/' + id + '/{z}/{x}/{y}';
-                    }
-                    var tmsLayer = L.tileLayer(tmsUrl, {
-                        opacity: 0.85,
-                        attribution: 'INPE / BDC',
-                        tms: false,
-                        maxNativeZoom: 18,
-                        maxZoom: 22,
-                        errorTileUrl: ''
-                    });
-                    tmsLayer.addTo(map);
-                    satTmsLayers[id] = tmsLayer;
-                    btn.classList.add('ativo');
-                } else {
-                    alert('Esta cena não possui visualização TMS disponível. Use o botão INPE para acessar no catálogo original.');
-                }
-            } catch(e) {
-                alert('Erro ao carregar visualização: ' + e.message);
-            }
+            // TMS via serviço INPE: parâmetro ?url=<COG_URL>
+            var tmsUrl = SAT_TMS_BASE + encodeURIComponent(tciUrl);
+            var tmsLayer = L.tileLayer(tmsUrl, {
+                opacity: 0.9,
+                attribution: 'INPE – CBERS-4A / BDC',
+                maxNativeZoom: 18, maxZoom: 22,
+                tms: false
+            });
+            tmsLayer.addTo(map);
+            satTmsLayers[id] = tmsLayer;
+            if (btn) btn.classList.add('ativo');
         }
 
         function limparResultadosSatelite() {
-            // Remove todos os footprints e TMS do mapa
-            Object.values(satLayers).forEach(function(l) { if (l && map.hasLayer(l)) map.removeLayer(l); });
-            Object.values(satTmsLayers).forEach(function(l) { if (l && map.hasLayer(l)) map.removeLayer(l); });
-            satLayers = {};
-            satTmsLayers = {};
-            satFeatures = [];
+            Object.values(satLayers).forEach(function(l) { if (map.hasLayer(l)) map.removeLayer(l); });
+            Object.values(satTmsLayers).forEach(function(l) { if (map.hasLayer(l)) map.removeLayer(l); });
+            satLayers = {}; satTmsLayers = {}; satFeatures = [];
             document.getElementById('sat-lista').innerHTML =
                 '<div class="sat-status"><i class="fas fa-satellite-dish"></i>' +
-                '<span>Resultados e camadas limpos. Configure os filtros e busque novamente.</span></div>';
+                '<span>Configure os filtros e busque novamente.</span></div>';
             document.getElementById('sat-count-badge').textContent = '0 cenas';
         }
 
         // Inicializa data final com hoje
         (function() {
-            var hoje = new Date().toISOString().slice(0,10);
             var el = document.getElementById('sat-data-fim');
-            if (el) el.value = hoje;
+            if (el && !el.value) el.value = new Date().toISOString().slice(0, 10);
         })();
 
-        window.trocarAba = function(aba) {
-            document.querySelectorAll('.dashboard-aba-btn').forEach(function(btn) {
-                btn.classList.remove('ativa');
-            });
-            document.querySelectorAll('.dashboard-painel').forEach(function(p) {
-                p.classList.remove('ativo');
-            });
-            document.getElementById('aba-btn-' + aba).classList.add('ativa');
-            document.getElementById('painel-' + aba).classList.add('ativo');
-
-            // Garante que o dashboard esteja aberto ao trocar de aba
-            var dashboard = document.getElementById('dashboard');
-            if (dashboard.classList.contains('dashboard-minimizado')) {
-                dashboard.classList.remove('dashboard-minimizado');
-                document.getElementById('dashboardToggle').innerHTML = '▼';
-            }
-
-            if (aba === 'estatisticas') {
-                inicializarEstatisticas();
-            }
-            if (aba === 'satelite') {
-                // Atualiza info bbox
-                var b = map.getBounds();
-                var info = document.getElementById('sat-bbox-info');
-                if (info) info.innerHTML = '<i class="fas fa-map-marked-alt"></i> Área atual: ' +
-                    b.getSouth().toFixed(4) + '°S a ' + b.getNorth().toFixed(4) + '°N, ' +
-                    b.getWest().toFixed(4) + '° a ' + b.getEast().toFixed(4) + '°';
-            }
-        };
 
         // ========== ESTATÍSTICAS DE LICENÇAS AMBIENTAIS ==========
         // Paleta de cores consistente para os gráficos
