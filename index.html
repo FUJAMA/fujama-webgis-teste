@@ -849,6 +849,297 @@
         @media (max-width: 400px) {
             #header-coords { display: none; }
         }
+
+        /* ===== ABA IMAGENS DE SATÉLITE ===== */
+        #painel-satelite {
+            gap: 12px;
+        }
+        .sat-filtros {
+            flex: 0 0 auto;
+            min-width: 240px;
+            max-width: 280px;
+            background: rgba(15,28,50,0.7);
+            border-radius: 10px;
+            border: 1px solid rgba(52,152,219,0.2);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .sat-filtros-title {
+            font-size: 0.82em;
+            font-weight: 700;
+            color: #3498db;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(52,152,219,0.2);
+        }
+        .sat-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sat-field label {
+            font-size: 0.72em;
+            color: #7ab;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .sat-field select,
+        .sat-field input[type="date"],
+        .sat-field input[type="range"] {
+            background: rgba(10,20,40,0.8);
+            border: 1px solid rgba(52,152,219,0.25);
+            border-radius: 6px;
+            color: #def;
+            font-size: 0.82em;
+            padding: 6px 8px;
+            outline: none;
+            width: 100%;
+        }
+        .sat-field select:focus,
+        .sat-field input:focus {
+            border-color: rgba(52,152,219,0.6);
+        }
+        .sat-cloud-val {
+            font-size: 0.75em;
+            color: #7ab;
+            text-align: right;
+        }
+        .sat-bbox-info {
+            font-size: 0.72em;
+            color: rgba(100,160,120,0.9);
+            background: rgba(46,204,113,0.06);
+            border: 1px solid rgba(46,204,113,0.15);
+            border-radius: 5px;
+            padding: 6px 8px;
+        }
+        .sat-btn-buscar {
+            background: linear-gradient(135deg, #1a6fa8, #2980b9);
+            border: none;
+            border-radius: 7px;
+            color: #fff;
+            font-size: 0.85em;
+            font-weight: 700;
+            padding: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            transition: opacity 0.2s;
+        }
+        .sat-btn-buscar:hover { opacity: 0.88; }
+        .sat-btn-buscar:disabled { opacity: 0.4; cursor: not-allowed; }
+        .sat-btn-limpar {
+            background: rgba(231,76,60,0.15);
+            border: 1px solid rgba(231,76,60,0.3);
+            border-radius: 7px;
+            color: #e74c3c;
+            font-size: 0.78em;
+            padding: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .sat-btn-limpar:hover { background: rgba(231,76,60,0.25); }
+
+        /* Painel de resultados */
+        .sat-resultados {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(15,28,50,0.7);
+            border-radius: 10px;
+            border: 1px solid rgba(52,152,219,0.2);
+            padding: 14px;
+            overflow: hidden;
+        }
+        .sat-resultados-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(52,152,219,0.15);
+            flex-shrink: 0;
+        }
+        .sat-resultados-title {
+            font-size: 0.82em;
+            font-weight: 700;
+            color: #3498db;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .sat-count-badge {
+            background: rgba(52,152,219,0.2);
+            border: 1px solid rgba(52,152,219,0.35);
+            border-radius: 20px;
+            color: #7ab8d9;
+            font-size: 0.72em;
+            font-weight: 700;
+            padding: 2px 10px;
+        }
+        .sat-lista {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 0;
+            padding-right: 2px;
+        }
+        .sat-lista::-webkit-scrollbar { width: 4px; }
+        .sat-lista::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+        .sat-lista::-webkit-scrollbar-thumb { background: rgba(52,152,219,0.3); border-radius: 4px; }
+
+        .sat-item {
+            background: rgba(12,24,44,0.8);
+            border: 1px solid rgba(52,152,219,0.15);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            flex-shrink: 0;
+        }
+        .sat-item:hover {
+            border-color: rgba(52,152,219,0.5);
+            background: rgba(20,40,70,0.9);
+        }
+        .sat-item.ativo {
+            border-color: #3498db;
+            background: rgba(52,152,219,0.12);
+        }
+        .sat-thumb {
+            width: 64px;
+            height: 64px;
+            object-fit: cover;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+            background: rgba(10,20,40,0.9);
+        }
+        .sat-thumb-placeholder {
+            width: 64px;
+            height: 64px;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+            background: rgba(10,20,40,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(52,152,219,0.4);
+            font-size: 1.4em;
+        }
+        .sat-item-info { flex: 1; min-width: 0; }
+        .sat-item-id {
+            font-size: 0.72em;
+            font-weight: 700;
+            color: #cde;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sat-item-meta {
+            font-size: 0.68em;
+            color: #7ab;
+            margin-top: 3px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .sat-item-meta span { display: flex; align-items: center; gap: 5px; }
+        .sat-cloud-pct {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(241,196,15,0.12);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.9em;
+            color: #f1c40f;
+        }
+        .sat-cloud-pct.ok { background: rgba(46,204,113,0.12); color: #2ecc71; }
+        .sat-item-acoes {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+        .sat-btn-mini {
+            background: rgba(52,152,219,0.15);
+            border: 1px solid rgba(52,152,219,0.3);
+            border-radius: 5px;
+            color: #7ab8d9;
+            font-size: 0.68em;
+            padding: 4px 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .sat-btn-mini:hover { background: rgba(52,152,219,0.3); color: #fff; }
+        .sat-btn-mini.ativo { background: rgba(52,152,219,0.4); color: #fff; border-color: #3498db; }
+        .sat-btn-inpe {
+            background: rgba(46,204,113,0.1);
+            border-color: rgba(46,204,113,0.3);
+            color: #2ecc71;
+        }
+        .sat-btn-inpe:hover { background: rgba(46,204,113,0.25); }
+
+        .sat-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #7ab;
+            font-size: 0.82em;
+            padding: 20px;
+            text-align: center;
+            flex-direction: column;
+        }
+        .sat-status i { font-size: 2em; opacity: 0.4; }
+        .sat-erro { color: #e74c3c; }
+        .sat-erro i { color: #e74c3c; }
+
+        .sat-progress {
+            background: rgba(10,25,45,0.8);
+            border-radius: 4px;
+            padding: 10px 14px;
+            font-size: 0.78em;
+            color: #7ab;
+            display: none;
+        }
+        .sat-progress-bar {
+            height: 3px;
+            background: rgba(52,152,219,0.15);
+            border-radius: 3px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .sat-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.4s ease;
+            animation: sat-shimmer 1.5s infinite;
+        }
+        @keyframes sat-shimmer {
+            0%   { filter: brightness(1); }
+            50%  { filter: brightness(1.4); }
+            100% { filter: brightness(1); }
+        }
+
+        @media (max-width: 768px) {
+            .sat-filtros { max-width: 100%; min-width: unset; }
+            .sat-thumb, .sat-thumb-placeholder { width: 48px; height: 48px; }
+        }
         </style>
         <title></title>
     </head>
@@ -938,6 +1229,9 @@
                 </button>
                 <button class="dashboard-aba-btn" onclick="trocarAba('estatisticas')" id="aba-btn-estatisticas">
                     <i class="fas fa-chart-bar"></i> Estatísticas
+                </button>
+                <button class="dashboard-aba-btn" onclick="trocarAba('satelite')" id="aba-btn-satelite">
+                    <i class="fas fa-satellite"></i> Imagens de Satélite
                 </button>
             </div>
             <!-- Painel: Controle (conteúdo original) -->
@@ -1127,6 +1421,81 @@
                 </div>
             </div>
 
+
+            <!-- Painel: Imagens de Satélite (INPE STAC) -->
+            <div class="dashboard-painel" id="painel-satelite">
+
+                <!-- Filtros -->
+                <div class="sat-filtros">
+                    <div class="sat-filtros-title"><i class="fas fa-sliders-h"></i> Filtros de Busca</div>
+
+                    <div class="sat-field">
+                        <label><i class="fas fa-satellite"></i> Coleção / Satélite</label>
+                        <select id="sat-colecao" disabled style="opacity:0.7;cursor:not-allowed;">
+                            <option value="CBERS4A-WPM-L4-DN" selected>CBERS-4A WPM (2m pan / 8m multi)</option>
+                        </select>
+                    </div>
+
+                    <div class="sat-field">
+                        <label><i class="fas fa-calendar-alt"></i> Data inicial</label>
+                        <input type="date" id="sat-data-ini" value="2024-01-01">
+                    </div>
+                    <div class="sat-field">
+                        <label><i class="fas fa-calendar-alt"></i> Data final</label>
+                        <input type="date" id="sat-data-fim">
+                    </div>
+
+                    <div class="sat-field">
+                        <label>
+                            <i class="fas fa-cloud"></i> Cobertura de nuvens máx.
+                            <span class="sat-cloud-val" id="sat-cloud-val-label">50%</span>
+                        </label>
+                        <input type="range" id="sat-cloud-range" min="0" max="100" value="50"
+                            oninput="document.getElementById('sat-cloud-val-label').textContent=this.value+'%'">
+                    </div>
+
+                    <div class="sat-field">
+                        <label><i class="fas fa-list-ol"></i> Máx. de resultados</label>
+                        <select id="sat-limit">
+                            <option value="10">10 cenas</option>
+                            <option value="20" selected>20 cenas</option>
+                            <option value="50">50 cenas</option>
+                        </select>
+                    </div>
+
+                    <div class="sat-bbox-info" id="sat-bbox-info">
+                        <i class="fas fa-map-marked-alt"></i>
+                        A busca usa a extensão atual do mapa como área de interesse
+                    </div>
+
+                    <button class="sat-btn-buscar" id="sat-btn-buscar" onclick="buscarImagensSatelite()">
+                        <i class="fas fa-search"></i> Buscar Imagens
+                    </button>
+                    <button class="sat-btn-limpar" onclick="limparResultadosSatelite()">
+                        <i class="fas fa-times"></i> Limpar resultados e camadas
+                    </button>
+                </div>
+
+                <!-- Resultados -->
+                <div class="sat-resultados">
+                    <div class="sat-resultados-header">
+                        <span class="sat-resultados-title"><i class="fas fa-images"></i> Cenas Encontradas</span>
+                        <span class="sat-count-badge" id="sat-count-badge">0 cenas</span>
+                    </div>
+                    <div class="sat-progress" id="sat-progress">
+                        <span id="sat-progress-txt">Consultando STAC API do INPE...</span>
+                        <div class="sat-progress-bar"><div class="sat-progress-fill" id="sat-progress-fill"></div></div>
+                    </div>
+                    <div class="sat-lista" id="sat-lista">
+                        <div class="sat-status">
+                            <i class="fas fa-satellite-dish"></i>
+                            <span>Configure os filtros e clique em <b>Buscar Imagens</b> para consultar o catálogo STAC do INPE.</span>
+                            <span style="font-size:0.85em;opacity:0.6;">Dados: CBERS, Amazônia-1, Landsat, Sentinel-2</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
             <!-- Painel: Estatísticas -->
             <div class="dashboard-painel" id="painel-estatisticas">
                 <!-- Seletor de Ano -->
@@ -5182,6 +5551,250 @@
         setBounds();
 
         // ========== SISTEMA DE ABAS DO DASHBOARD ==========
+
+        // ========== IMAGENS DE SATÉLITE (INPE STAC API) ==========
+        var satLayers = {};       // itemId → L.geoJSON footprint layer
+        var satTmsLayers = {};    // itemId → L.tileLayer TMS overlay
+        var satFeatures = [];     // resultados STAC atuais
+        var SAT_STAC = 'https://data.inpe.br/bdc/stac/v1';
+
+        // Coleta bbox do mapa atual e formata para STAC
+        function getSatBbox() {
+            var b = map.getBounds();
+            return [
+                b.getWest().toFixed(6),
+                b.getSouth().toFixed(6),
+                b.getEast().toFixed(6),
+                b.getNorth().toFixed(6)
+            ].join(',');
+        }
+
+        function satSetProgress(txt, pct) {
+            var el = document.getElementById('sat-progress');
+            el.style.display = 'block';
+            document.getElementById('sat-progress-txt').textContent = txt;
+            document.getElementById('sat-progress-fill').style.width = pct + '%';
+        }
+        function satHideProgress() {
+            document.getElementById('sat-progress').style.display = 'none';
+        }
+
+        function buscarImagensSatelite() {
+            var colecao   = document.getElementById('sat-colecao').value;
+            var dataIni   = document.getElementById('sat-data-ini').value;
+            var dataFim   = document.getElementById('sat-data-fim').value || new Date().toISOString().slice(0,10);
+            var cloud     = document.getElementById('sat-cloud-range').value;
+            var limit     = document.getElementById('sat-limit').value;
+            var bbox      = getSatBbox();
+
+            var lista = document.getElementById('sat-lista');
+            var btn   = document.getElementById('sat-btn-buscar');
+
+            btn.disabled = true;
+            lista.innerHTML = '';
+            satSetProgress('Consultando catálogo STAC do INPE...', 20);
+            document.getElementById('sat-count-badge').textContent = '…';
+
+            // Monta URL da STAC Search API
+            var url = SAT_STAC + '/search?' +
+                'collections=' + encodeURIComponent(colecao) +
+                '&bbox=' + encodeURIComponent(bbox) +
+                '&datetime=' + encodeURIComponent(dataIni + 'T00:00:00Z/' + dataFim + 'T23:59:59Z') +
+                '&limit=' + limit;
+
+            satSetProgress('Aguardando resposta do servidor INPE...', 50);
+
+            fetch(url)
+                .then(function(res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + res.statusText);
+                    return res.json();
+                })
+                .then(function(data) {
+                    satSetProgress('Processando resultados...', 85);
+                    var features = (data.features || []).filter(function(f) {
+                        var cc = f.properties['eo:cloud_cover'] || f.properties['cloud_cover'] || 0;
+                        return parseFloat(cc) <= parseFloat(cloud);
+                    });
+                    satFeatures = features;
+                    satHideProgress();
+                    btn.disabled = false;
+                    document.getElementById('sat-count-badge').textContent = features.length + ' cena' + (features.length !== 1 ? 's' : '');
+                    if (features.length === 0) {
+                        lista.innerHTML = '<div class="sat-status sat-erro"><i class="fas fa-search"></i><span>Nenhuma cena encontrada com os filtros selecionados.<br>Tente ampliar o intervalo de datas ou aumentar a cobertura de nuvens.</span></div>';
+                        return;
+                    }
+                    renderSatResultados(features);
+                })
+                .catch(function(err) {
+                    satHideProgress();
+                    btn.disabled = false;
+                    var msg = err.message || String(err);
+                    var corsMsg = msg.indexOf('fetch') >= 0 || msg.indexOf('Failed') >= 0 ?
+                        '<br><small>Possível bloqueio CORS. Tente acessar diretamente: <a href="https://data.inpe.br/bdc/stac/v1" target="_blank" style="color:#3498db">data.inpe.br/bdc/stac/v1</a></small>' : '';
+                    lista.innerHTML = '<div class="sat-status sat-erro"><i class="fas fa-exclamation-triangle"></i>' +
+                        '<span>Erro ao consultar o INPE STAC API:<br><b>' + msg + '</b>' + corsMsg + '</span></div>';
+                    document.getElementById('sat-count-badge').textContent = 'erro';
+                });
+        }
+
+        function renderSatResultados(features) {
+            var lista = document.getElementById('sat-lista');
+            lista.innerHTML = '';
+
+            // Limpar footprints anteriores do mapa
+            Object.keys(satLayers).forEach(function(id) {
+                if (satLayers[id]) map.removeLayer(satLayers[id]);
+            });
+            satLayers = {};
+
+            features.forEach(function(item, idx) {
+                var p         = item.properties || {};
+                var id        = item.id || ('cena-' + idx);
+                var dt        = (p.datetime || '').slice(0,10);
+                var cc        = p['eo:cloud_cover'] !== undefined ? p['eo:cloud_cover'] :
+                                (p['cloud_cover'] !== undefined ? p['cloud_cover'] : '—');
+                var ccNum     = parseFloat(cc);
+                var ccClass   = (!isNaN(ccNum) && ccNum < 20) ? 'ok' : '';
+                var ccTxt     = isNaN(ccNum) ? '—' : ccNum.toFixed(1) + '%';
+                var sensor    = p.instruments ? p.instruments.join(', ') : (p.platform || '—');
+                var thumbUrl  = item.assets && item.assets.thumbnail ? item.assets.thumbnail.href : null;
+                var hasTMS    = item.assets && (item.assets.visual || item.assets.B4 || item.assets['tci']);
+                var inpeLink  = 'https://www.dgi.inpe.br/catalogo/explore?id=' + encodeURIComponent(id);
+
+                // Adicionar footprint ao mapa imediatamente (desativado por padrão)
+                if (item.geometry) {
+                    var footLayer = L.geoJSON(item.geometry, {
+                        style: {
+                            color: '#3498db', weight: 1.5,
+                            fillColor: '#3498db', fillOpacity: 0.06,
+                            dashArray: '4,3'
+                        }
+                    }).bindPopup(
+                        '<div style="font-size:0.85em;min-width:160px;">' +
+                        '<b style="color:#3498db">' + id + '</b><br>' +
+                        '<span style="color:#aaa">Data:</span> ' + dt + '<br>' +
+                        '<span style="color:#aaa">Nuvens:</span> ' + ccTxt + '<br>' +
+                        '<span style="color:#aaa">Sensor:</span> ' + sensor +
+                        (thumbUrl ? '<br><img src="' + thumbUrl + '" style="width:100%;margin-top:6px;border-radius:4px;">' : '') +
+                        '</div>'
+                    );
+                    satLayers[id] = footLayer;
+                    // Não adiciona ao mapa ainda — só ao clicar em "Ver no Mapa"
+                }
+
+                var thumbHtml = thumbUrl
+                    ? '<img class="sat-thumb" src="' + thumbUrl + '" alt="thumb" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+                      '<div class="sat-thumb-placeholder" style="display:none"><i class="fas fa-image"></i></div>'
+                    : '<div class="sat-thumb-placeholder"><i class="fas fa-image"></i></div>';
+
+                var div = document.createElement('div');
+                div.className = 'sat-item';
+                div.id = 'sat-item-' + idx;
+                div.innerHTML =
+                    thumbHtml +
+                    '<div class="sat-item-info">' +
+                        '<div class="sat-item-id">' + id + '</div>' +
+                        '<div class="sat-item-meta">' +
+                            '<span><i class="fas fa-calendar-day"></i> ' + dt + '</span>' +
+                            '<span><i class="fas fa-satellite"></i> ' + sensor + '</span>' +
+                            '<span><span class="sat-cloud-pct ' + ccClass + '"><i class="fas fa-cloud"></i> ' + ccTxt + ' nuvens</span></span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="sat-item-acoes">' +
+                        '<button class="sat-btn-mini" id="sat-map-btn-' + idx + '" onclick="toggleSatFootprint(' + idx + ',' + JSON.stringify(id) + ')">' +
+                            '<i class="fas fa-map"></i> Footprint' +
+                        '</button>' +
+                        (hasTMS ?
+                        '<button class="sat-btn-mini" id="sat-tms-btn-' + idx + '" onclick="toggleSatTMS(' + idx + ',' + JSON.stringify(id) + ',' + JSON.stringify(JSON.stringify(item.assets)) + ')">' +
+                            '<i class="fas fa-layer-group"></i> Sobrepor' +
+                        '</button>' : '') +
+                        '<a class="sat-btn-mini sat-btn-inpe" href="' + inpeLink + '" target="_blank">' +
+                            '<i class="fas fa-external-link-alt"></i> INPE' +
+                        '</a>' +
+                    '</div>';
+
+                lista.appendChild(div);
+            });
+        }
+
+        function toggleSatFootprint(idx, id) {
+            var layer = satLayers[id];
+            if (!layer) return;
+            var btn = document.getElementById('sat-map-btn-' + idx);
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+                btn.classList.remove('ativo');
+            } else {
+                layer.addTo(map);
+                map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                btn.classList.add('ativo');
+            }
+        }
+
+        function toggleSatTMS(idx, id, assetsJson) {
+            var btn = document.getElementById('sat-tms-btn-' + idx);
+            if (satTmsLayers[id]) {
+                map.removeLayer(satTmsLayers[id]);
+                delete satTmsLayers[id];
+                btn.classList.remove('ativo');
+                return;
+            }
+            try {
+                var assets = JSON.parse(assetsJson);
+                // Tenta visual (TCI), depois B4
+                var tmsAsset = assets.visual || assets.tci || assets.TCI || assets.B4 || null;
+                if (tmsAsset && tmsAsset.href) {
+                    // Se for COG/GeoTIFF, tenta usar via INPE TMS proxy
+                    var href = tmsAsset.href;
+                    var tmsUrl = null;
+                    if (href.indexOf('{z}/{x}/{y}') >= 0) {
+                        tmsUrl = href;
+                    } else if (href.indexOf('/tms/') >= 0) {
+                        tmsUrl = href;
+                    } else {
+                        // Monta URL TMS do BDC para o item
+                        var col = document.getElementById('sat-colecao').value;
+                        tmsUrl = 'https://data.inpe.br/bdc/tms/v1/' + col + '/' + id + '/{z}/{x}/{y}';
+                    }
+                    var tmsLayer = L.tileLayer(tmsUrl, {
+                        opacity: 0.85,
+                        attribution: 'INPE / BDC',
+                        tms: false,
+                        maxNativeZoom: 18,
+                        maxZoom: 22,
+                        errorTileUrl: ''
+                    });
+                    tmsLayer.addTo(map);
+                    satTmsLayers[id] = tmsLayer;
+                    btn.classList.add('ativo');
+                } else {
+                    alert('Esta cena não possui visualização TMS disponível. Use o botão INPE para acessar no catálogo original.');
+                }
+            } catch(e) {
+                alert('Erro ao carregar visualização: ' + e.message);
+            }
+        }
+
+        function limparResultadosSatelite() {
+            // Remove todos os footprints e TMS do mapa
+            Object.values(satLayers).forEach(function(l) { if (l && map.hasLayer(l)) map.removeLayer(l); });
+            Object.values(satTmsLayers).forEach(function(l) { if (l && map.hasLayer(l)) map.removeLayer(l); });
+            satLayers = {};
+            satTmsLayers = {};
+            satFeatures = [];
+            document.getElementById('sat-lista').innerHTML =
+                '<div class="sat-status"><i class="fas fa-satellite-dish"></i>' +
+                '<span>Resultados e camadas limpos. Configure os filtros e busque novamente.</span></div>';
+            document.getElementById('sat-count-badge').textContent = '0 cenas';
+        }
+
+        // Inicializa data final com hoje
+        (function() {
+            var hoje = new Date().toISOString().slice(0,10);
+            var el = document.getElementById('sat-data-fim');
+            if (el) el.value = hoje;
+        })();
+
         window.trocarAba = function(aba) {
             document.querySelectorAll('.dashboard-aba-btn').forEach(function(btn) {
                 btn.classList.remove('ativa');
@@ -5201,6 +5814,14 @@
 
             if (aba === 'estatisticas') {
                 inicializarEstatisticas();
+            }
+            if (aba === 'satelite') {
+                // Atualiza info bbox
+                var b = map.getBounds();
+                var info = document.getElementById('sat-bbox-info');
+                if (info) info.innerHTML = '<i class="fas fa-map-marked-alt"></i> Área atual: ' +
+                    b.getSouth().toFixed(4) + '°S a ' + b.getNorth().toFixed(4) + '°N, ' +
+                    b.getWest().toFixed(4) + '° a ' + b.getEast().toFixed(4) + '°';
             }
         };
 
