@@ -6029,7 +6029,7 @@
             // Pane dedicado acima de todos os vetoriais (z-index ~400-500)
             if (!map.getPane('satTmsPane')) {
                 map.createPane('satTmsPane');
-                map.getPane('satTmsPane').style.zIndex = 250;
+                map.getPane('satTmsPane').style.zIndex = 399;
                 map.getPane('satTmsPane').style.pointerEvents = 'none';
             }
             var tmsLayer = L.tileLayer(tmsUrl, {
