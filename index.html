@@ -1183,6 +1183,115 @@
             transition: background 0.15s;
         }
         .sat-btn-aoi-clear:hover { background: rgba(231,76,60,0.22); }
+
+        /* ===== FERRAMENTA DESENHO DE ÁREA ===== */
+        .card-ponto { border-left-color: #e74c3c; }
+        .draw-area-btns {
+            display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px;
+        }
+        .draw-area-btns .ferramenta-btn {
+            flex: 1 1 calc(50% - 5px); min-width: 0; font-size: 0.75em; padding: 6px 4px;
+        }
+        .draw-export-btns {
+            display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap;
+        }
+        .draw-export-btn {
+            flex: 1; background: rgba(52,152,219,0.12);
+            border: 1px solid rgba(52,152,219,0.3);
+            border-radius: 6px; color: #7ab8d9;
+            font-size: 0.72em; padding: 5px 4px;
+            cursor: pointer; text-align: center; transition: background 0.15s;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
+        }
+        .draw-export-btn:hover { background: rgba(52,152,219,0.25); color:#fff; }
+        .draw-export-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .draw-export-btn.verde { background:rgba(46,204,113,0.1); border-color:rgba(46,204,113,0.3); color:#2ecc71; }
+        .draw-export-btn.verde:hover { background:rgba(46,204,113,0.25); }
+        .draw-area-info {
+            font-size: 0.72em; color: #7ab; margin-top: 6px;
+            background: rgba(52,152,219,0.06); border-radius: 5px; padding: 5px 8px;
+            display: none;
+        }
+        .draw-area-info b { color: #cde; }
+
+        /* ===== COMPARATIVO TEMPORAL ===== */
+        #btn-comparativo {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 7px; padding: 6px 12px;
+            color: #cde; font-size: 0.8em; font-weight: 500;
+            cursor: pointer; white-space: nowrap;
+            transition: background 0.2s, border-color 0.2s;
+            user-select: none; flex-shrink: 0;
+        }
+        #btn-comparativo:hover, #btn-comparativo.ativo {
+            background: rgba(155,89,182,0.25);
+            border-color: rgba(155,89,182,0.6);
+            color: #d7a8f0;
+        }
+        #btn-comparativo.ativo i { color: #9b59b6; }
+
+        #comparativo-wrapper {
+            display: none;
+            position: fixed;
+            top: var(--header-height);
+            left: 0; right: 0;
+            bottom: 0;
+            z-index: 900;
+            flex-direction: row;
+        }
+        #comparativo-wrapper.ativo { display: flex; }
+
+        .comp-pane {
+            flex: 1; position: relative; overflow: hidden;
+        }
+        #comp-map-left, #comp-map-right {
+            width: 100%; height: 100%;
+        }
+        .comp-divider {
+            width: 4px;
+            background: linear-gradient(180deg, #9b59b6, #3498db);
+            cursor: col-resize;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+        }
+        .comp-divider::after {
+            content: '⟺';
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            background: rgba(10,25,45,0.9);
+            border: 1px solid rgba(155,89,182,0.5);
+            border-radius: 50%;
+            width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85em; color: #d7a8f0;
+        }
+        .comp-label {
+            position: absolute; top: 10px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10,25,45,0.85);
+            border: 1px solid rgba(155,89,182,0.35);
+            border-radius: 20px; padding: 4px 14px;
+            font-size: 0.72em; color: #d7a8f0;
+            pointer-events: none; z-index: 5; white-space: nowrap;
+        }
+        .comp-base-sel {
+            position: absolute; bottom: 12px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10,25,45,0.92);
+            border: 1px solid rgba(155,89,182,0.35);
+            border-radius: 8px; padding: 6px 10px;
+            font-size: 0.75em; color: #cde;
+            z-index: 5; cursor: pointer;
+            display: flex; align-items: center; gap: 6px;
+            white-space: nowrap;
+        }
+        .comp-base-sel select {
+            background: transparent; border: none;
+            color: #cde; font-size: 1em; cursor: pointer; outline: none;
+        }
         </style>
         <title></title>
     </head>
@@ -1244,11 +1353,48 @@
                 </div>
             </div>
 
+            <div class="header-sep"></div>
+            <!-- Botão Comparativo Temporal -->
+            <button id="btn-comparativo" onclick="toggleComparativo()" title="Comparativo Temporal">
+                <i class="fas fa-columns"></i>
+                <span id="btn-comparativo-label">Comparativo</span>
+            </button>
             <!-- WebGIS label direita -->
             <div style="margin-left:auto;flex-shrink:0;font-size:0.68em;color:rgba(120,170,200,0.6);white-space:nowrap;letter-spacing:0.04em;">
                 WebGIS
             </div>
         </header>
+
+        <!-- Comparativo Temporal -->
+        <div id="comparativo-wrapper">
+            <div class="comp-pane" id="comp-pane-left">
+                <div id="comp-map-left"></div>
+                <div class="comp-label"><i class="fas fa-map"></i> Esquerda</div>
+                <div class="comp-base-sel">
+                    <i class="fas fa-layer-group"></i>
+                    <select id="comp-base-left" onchange="setCompBase('left', this.value)">
+                        <option value="openstreetmap">OpenStreetMap</option>
+                        <option value="googleearth">Google Earth</option>
+                        <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
+                        <option value="ortomosaico2020">Ortomosaico 2020</option>
+                    </select>
+                </div>
+            </div>
+            <div class="comp-divider" id="comp-divider"></div>
+            <div class="comp-pane" id="comp-pane-right">
+                <div id="comp-map-right"></div>
+                <div class="comp-label"><i class="fas fa-map"></i> Direita</div>
+                <div class="comp-base-sel">
+                    <i class="fas fa-layer-group"></i>
+                    <select id="comp-base-right" onchange="setCompBase('right', this.value)">
+                        <option value="openstreetmap">OpenStreetMap</option>
+                        <option value="googleearth" selected>Google Earth</option>
+                        <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
+                        <option value="ortomosaico2020">Ortomosaico 2020</option>
+                    </select>
+                </div>
+            </div>
+        </div>
 
         <div id="map"></div>
 
@@ -1281,7 +1427,7 @@
             <div class="dashboard-painel ativo" id="painel-controle">
                 <!-- CARD: Ferramenta de Ponto -->
                 <div class="dashboard-card card-ponto">
-                    <div class="card-header"><i class="fas fa-map-pin"></i> Marcação de Pontos</div>
+                    <div class="card-header"><i class="fas fa-map-pin"></i> Marcação e Desenho</div>
                     <div class="ferramenta-ponto">
                         <button class="ferramenta-btn" id="btnPonto" onclick="toggleFerramentaPonto()">
                             <i class="fas fa-map-pin"></i> Ponto
@@ -1289,6 +1435,41 @@
                         <button class="ferramenta-btn" onclick="limparTodosIcones()">
                             <i class="fas fa-trash"></i> Limpar <span class="contador-icones" id="contadorIcones">0</span>
                         </button>
+                    </div>
+                    <!-- Ferramenta de Desenho de Área -->
+                    <div style="border-top:1px solid rgba(255,255,255,0.07);margin-top:8px;padding-top:8px;">
+                        <div style="font-size:0.72em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">
+                            <i class="fas fa-draw-polygon"></i> Desenho de Área
+                        </div>
+                        <div class="draw-area-btns">
+                            <button class="ferramenta-btn" id="btnDesenhoArea" onclick="toggleDesenhoArea()">
+                                <i class="fas fa-draw-polygon"></i> Desenhar
+                            </button>
+                            <button class="ferramenta-btn" id="btnDesenhoUndo" onclick="desfazerPontoArea()" disabled>
+                                <i class="fas fa-undo"></i> Desfazer
+                            </button>
+                            <button class="ferramenta-btn" id="btnDesenhoFinalizar" onclick="finalizarDesenhoArea()" disabled style="background:rgba(46,204,113,0.15);border-color:rgba(46,204,113,0.4);color:#2ecc71;">
+                                <i class="fas fa-check"></i> Finalizar
+                            </button>
+                            <button class="ferramenta-btn" onclick="limparDesenhoArea()" style="background:rgba(231,76,60,0.1);border-color:rgba(231,76,60,0.3);color:#e74c3c;">
+                                <i class="fas fa-trash"></i> Limpar
+                            </button>
+                        </div>
+                        <div class="draw-area-info" id="drawAreaInfo"></div>
+                        <div class="draw-export-btns" id="drawExportBtns" style="display:none;">
+                            <button class="draw-export-btn" onclick="exportarMemorialPDF()" id="btnMemorialPDF">
+                                <i class="fas fa-file-pdf"></i> Memorial PDF
+                            </button>
+                            <button class="draw-export-btn verde" onclick="exportarDesenhoKML()">
+                                <i class="fas fa-file-code"></i> KML
+                            </button>
+                            <button class="draw-export-btn verde" onclick="exportarDesenhoSHP()">
+                                <i class="fas fa-file-archive"></i> SHP
+                            </button>
+                            <button class="draw-export-btn" onclick="usarDesenhoNoRelatorio()" style="background:rgba(241,196,15,0.1);border-color:rgba(241,196,15,0.3);color:#f1c40f;">
+                                <i class="fas fa-file-alt"></i> Rel. GIS
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1442,9 +1623,9 @@
                     <div id="reportUploadMode" style="display: block;">
                         <div class="upload-area" onclick="document.getElementById('kmlInput').click()">
                             <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Clique para selecionar arquivo KML</p>
-                            <p class="formatos">Formatos: KML, KMZ</p>
-                            <input type="file" id="kmlInput" accept=".kml,.kmz" style="display: none;" onchange="handleKMLUpload(this.files)">
+                            <p>Clique para selecionar arquivo</p>
+                            <p class="formatos">Formatos: KML, KMZ, GeoJSON, SHP (.zip)</p>
+                            <input type="file" id="kmlInput" accept=".kml,.kmz,.geojson,.json,.zip" style="display: none;" onchange="handleKMLUpload(this.files)">
                         </div>
                         <div id="uploadStatus" style="color: #888; font-size:0.9em; margin:10px 0;"></div>
                     </div>
@@ -2417,90 +2598,83 @@
                 setReportMode('upload');
             }
 
+            function _reportSetGeoJSON(geojson, filename) {
+                var hasPolygon = false;
+                if (geojson.features) {
+                    for (var i = 0; i < geojson.features.length; i++) {
+                        var gt = geojson.features[i].geometry && geojson.features[i].geometry.type;
+                        if (gt === 'Polygon' || gt === 'MultiPolygon') { hasPolygon = true; break; }
+                    }
+                }
+                if (!hasPolygon) alert('O arquivo não contém polígonos. O relatório usará apenas os polígonos presentes.');
+                uploadedGeoJSON = geojson;
+                document.getElementById('uploadStatus').innerHTML =
+                    '<i class="fas fa-check-circle" style="color:#27ae60"></i> ' + filename;
+                document.getElementById('generateReportBtn').disabled = false;
+            }
+
             function handleKMLUpload(files) {
                 if (files.length === 0) return;
                 var file = files[0];
                 var ext = file.name.split('.').pop().toLowerCase();
-                var reader = new FileReader();
+                var fname = file.name;
 
-                reader.onload = function(e) {
-                    var content = e.target.result;
-                    try {
-                        if (ext === 'kml') {
-                            var parser = new DOMParser();
-                            var kml = parser.parseFromString(content, 'text/xml');
-                            var parserError = kml.getElementsByTagName('parsererror');
-                            if (parserError.length > 0) throw new Error('Arquivo KML inválido');
-                            var geojson = toGeoJSON.kml(kml);
-                            
-                            // Verifica se o GeoJSON tem polígonos
-                            var hasPolygon = false;
-                            if (geojson.features) {
-                                for (var i = 0; i < geojson.features.length; i++) {
-                                    var geom = geojson.features[i].geometry;
-                                    if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
-                                        hasPolygon = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            if (!hasPolygon) {
-                                alert('O arquivo KML não contém polígonos. Serão considerados apenas os polígonos para o relatório.');
-                            }
-                            
-                            uploadedGeoJSON = geojson;
-                            document.getElementById('uploadStatus').innerHTML = 'Arquivo carregado: ' + file.name;
-                            document.getElementById('generateReportBtn').disabled = false;
-                        } else if (ext === 'kmz') {
-                            JSZip.loadAsync(content).then(function(zip) {
+                if (ext === 'geojson' || ext === 'json') {
+                    var r = new FileReader();
+                    r.onload = function(e) {
+                        try {
+                            var gj = JSON.parse(e.target.result);
+                            if (gj.type === 'Feature') gj = { type:'FeatureCollection', features:[gj] };
+                            if (gj.type !== 'FeatureCollection') throw new Error('GeoJSON inválido');
+                            _reportSetGeoJSON(gj, fname);
+                        } catch(err) { alert('Erro ao ler GeoJSON: ' + err.message); }
+                    };
+                    r.readAsText(file);
+                    return;
+                }
+
+                if (ext === 'zip') {
+                    var r2 = new FileReader();
+                    r2.onload = function(e) {
+                        shp(e.target.result).then(function(geojson) {
+                            if (!geojson.type) geojson = { type:'FeatureCollection', features: Array.isArray(geojson) ? geojson : [geojson] };
+                            _reportSetGeoJSON(geojson, fname);
+                        }).catch(function(err) {
+                            // Pode ser KMZ
+                            JSZip.loadAsync(e.target.result).then(function(zip) {
                                 var kmlFile = zip.file(/\.kml$/i)[0];
-                                if (!kmlFile) throw new Error('KMZ não contém arquivo KML');
+                                if (!kmlFile) throw new Error('ZIP não contém SHP nem KML');
                                 return kmlFile.async('string');
                             }).then(function(kmlStr) {
-                                var parser = new DOMParser();
-                                var kml = parser.parseFromString(kmlStr, 'text/xml');
-                                var parserError = kml.getElementsByTagName('parsererror');
-                                if (parserError.length > 0) throw new Error('Arquivo KML inválido');
-                                var geojson = toGeoJSON.kml(kml);
-                                
-                                // Verifica se o GeoJSON tem polígonos
-                                var hasPolygon = false;
-                                if (geojson.features) {
-                                    for (var i = 0; i < geojson.features.length; i++) {
-                                        var geom = geojson.features[i].geometry;
-                                        if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
-                                            hasPolygon = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                
-                                if (!hasPolygon) {
-                                    alert('O arquivo KMZ não contém polígonos. Serão considerados apenas os polígonos para o relatório.');
-                                }
-                                
-                                uploadedGeoJSON = geojson;
-                                document.getElementById('uploadStatus').innerHTML = 'Arquivo carregado: ' + file.name;
-                                document.getElementById('generateReportBtn').disabled = false;
-                            }).catch(function(err) {
-                                alert('Erro ao ler KMZ: ' + err.message);
-                            });
-                            return;
-                        } else {
-                            alert('Formato não suportado');
-                            return;
-                        }
-                    } catch (err) {
-                        alert('Erro ao processar arquivo: ' + err.message);
-                    }
-                };
-
-                if (ext === 'kmz') {
-                    reader.readAsArrayBuffer(file);
-                } else {
-                    reader.readAsText(file);
+                                var kml = new DOMParser().parseFromString(kmlStr, 'text/xml');
+                                _reportSetGeoJSON(toGeoJSON.kml(kml), fname);
+                            }).catch(function(e2) { alert('Erro ao ler arquivo ZIP: ' + err.message); });
+                        });
+                    };
+                    r2.readAsArrayBuffer(file);
+                    return;
                 }
+
+                var r3 = new FileReader();
+                r3.onload = function(e) {
+                    try {
+                        if (ext === 'kml') {
+                            var kml = new DOMParser().parseFromString(e.target.result, 'text/xml');
+                            if (kml.getElementsByTagName('parsererror').length) throw new Error('KML inválido');
+                            _reportSetGeoJSON(toGeoJSON.kml(kml), fname);
+                        } else if (ext === 'kmz') {
+                            JSZip.loadAsync(e.target.result).then(function(zip) {
+                                var kf = zip.file(/\.kml$/i)[0];
+                                if (!kf) throw new Error('KMZ sem KML');
+                                return kf.async('string');
+                            }).then(function(s) {
+                                var kml = new DOMParser().parseFromString(s, 'text/xml');
+                                _reportSetGeoJSON(toGeoJSON.kml(kml), fname);
+                            }).catch(function(e){ alert('Erro KMZ: '+e.message); });
+                        } else { alert('Formato não suportado: ' + ext); }
+                    } catch(err) { alert('Erro: ' + err.message); }
+                };
+                ext === 'kmz' ? r3.readAsArrayBuffer(file) : r3.readAsText(file);
             }
 
             function generateReport() {
@@ -6076,14 +6250,11 @@
             // Oculta mapa-base para a imagem aparecer sem cobertura
             _satHideBase();
 
-            // Centraliza no footprint
-            if (satLayers[id]) {
-                if (!map.hasLayer(satLayers[id])) {
-                    satLayers[id].addTo(map);
-                    var fpBtn = document.getElementById('sat-fp-' + idx);
-                    if (fpBtn) fpBtn.classList.add('ativo');
-                }
-                map.fitBounds(satLayers[id].getBounds(), { padding: [30, 30] });
+            // Adiciona footprint mas SEM mover o mapa
+            if (satLayers[id] && !map.hasLayer(satLayers[id])) {
+                satLayers[id].addTo(map);
+                var fpBtn = document.getElementById('sat-fp-' + idx);
+                if (fpBtn) fpBtn.classList.add('ativo');
             }
         }
 
@@ -6104,6 +6275,419 @@
             if (el && !el.value) el.value = new Date().toISOString().slice(0, 10);
         })();
 
+
+
+        // ========== FERRAMENTA DE DESENHO DE ÁREA ==========
+        var drawAreaAtivo    = false;
+        var drawAreaPontos   = [];   // L.LatLng[]
+        var drawAreaPolyline = null;
+        var drawAreaPolygon  = null;
+        var drawAreaMarkers  = [];
+        var drawAreaFinalizado = false;
+
+        function toggleDesenhoArea() {
+            if (drawAreaAtivo) {
+                _drawAreaDesativar();
+            } else {
+                _drawAreaAtivar();
+            }
+        }
+
+        function _drawAreaAtivar() {
+            drawAreaAtivo = true;
+            drawAreaFinalizado = false;
+            map.getContainer().style.cursor = 'crosshair';
+            document.getElementById('btnDesenhoArea').classList.add('ativa');
+            document.getElementById('btnDesenhoArea').innerHTML = '<i class="fas fa-times"></i> Cancelar';
+            document.getElementById('btnDesenhoUndo').disabled = false;
+            _drawAreaStatus('Clique no mapa para adicionar vértices. Clique duplo ou <b>Finalizar</b> para fechar.');
+            map.on('click', _drawAreaClick);
+            map.on('dblclick', _drawAreaDblClick);
+        }
+
+        function _drawAreaDesativar() {
+            drawAreaAtivo = false;
+            map.getContainer().style.cursor = '';
+            map.off('click', _drawAreaClick);
+            map.off('dblclick', _drawAreaDblClick);
+            document.getElementById('btnDesenhoArea').classList.remove('ativa');
+            document.getElementById('btnDesenhoArea').innerHTML = '<i class="fas fa-draw-polygon"></i> Desenhar';
+            document.getElementById('btnDesenhoFinalizar').disabled = true;
+        }
+
+        function _drawAreaClick(e) {
+            // Ignorar duplo clique
+            if (e.originalEvent && e.originalEvent.detail > 1) return;
+            drawAreaPontos.push(e.latlng);
+            // Marcador do vértice
+            var m = L.circleMarker(e.latlng, {
+                radius: 5, color: '#27ae60', fillColor: '#fff',
+                fillOpacity: 1, weight: 2, pane: 'markerPane'
+            }).addTo(map);
+            m.bindTooltip('V' + drawAreaPontos.length, { permanent: false, direction: 'top' });
+            drawAreaMarkers.push(m);
+            _drawAreaAtualizar();
+            if (drawAreaPontos.length >= 3) {
+                document.getElementById('btnDesenhoFinalizar').disabled = false;
+            }
+        }
+
+        function _drawAreaDblClick(e) {
+            if (drawAreaPontos.length >= 3) finalizarDesenhoArea();
+        }
+
+        function _drawAreaAtualizar() {
+            if (drawAreaPolyline) map.removeLayer(drawAreaPolyline);
+            if (drawAreaPolygon) map.removeLayer(drawAreaPolygon);
+            if (drawAreaPontos.length < 2) return;
+            var pts = drawAreaPontos.slice();
+            if (drawAreaFinalizado) {
+                drawAreaPolygon = L.polygon(pts, {
+                    color: '#27ae60', weight: 2.5,
+                    fillColor: '#27ae60', fillOpacity: 0.12
+                }).addTo(map);
+            } else {
+                drawAreaPolyline = L.polyline(pts, { color: '#27ae60', weight: 2.5, dashArray: '6,4' }).addTo(map);
+            }
+        }
+
+        function desfazerPontoArea() {
+            if (drawAreaPontos.length === 0) return;
+            drawAreaPontos.pop();
+            var m = drawAreaMarkers.pop();
+            if (m) map.removeLayer(m);
+            drawAreaFinalizado = false;
+            document.getElementById('drawExportBtns').style.display = 'none';
+            _drawAreaAtualizar();
+            if (drawAreaPontos.length < 3) document.getElementById('btnDesenhoFinalizar').disabled = true;
+            if (drawAreaPontos.length === 0) document.getElementById('btnDesenhoUndo').disabled = true;
+            _drawAreaStatus(drawAreaPontos.length + ' vértice(s). Clique no mapa para adicionar.');
+        }
+
+        function finalizarDesenhoArea() {
+            if (drawAreaPontos.length < 3) return;
+            drawAreaFinalizado = true;
+            _drawAreaDesativar();
+            _drawAreaAtualizar();
+            _drawAreaInfoUpdate();
+            document.getElementById('drawExportBtns').style.display = 'flex';
+        }
+
+        function limparDesenhoArea() {
+            _drawAreaDesativar();
+            drawAreaPontos = [];
+            drawAreaFinalizado = false;
+            drawAreaMarkers.forEach(function(m){ map.removeLayer(m); });
+            drawAreaMarkers = [];
+            if (drawAreaPolyline) { map.removeLayer(drawAreaPolyline); drawAreaPolyline = null; }
+            if (drawAreaPolygon) { map.removeLayer(drawAreaPolygon); drawAreaPolygon = null; }
+            document.getElementById('drawExportBtns').style.display = 'none';
+            document.getElementById('drawAreaInfo').style.display = 'none';
+            document.getElementById('btnDesenhoUndo').disabled = true;
+            document.getElementById('btnDesenhoFinalizar').disabled = true;
+        }
+
+        function _drawAreaStatus(msg) {
+            var el = document.getElementById('drawAreaInfo');
+            el.style.display = 'block';
+            el.innerHTML = msg;
+        }
+
+        // Utilitários geográficos
+        function _haversine(ll1, ll2) {
+            var R = 6371000, toRad = Math.PI/180;
+            var dLat = (ll2.lat - ll1.lat)*toRad, dLon = (ll2.lng - ll1.lng)*toRad;
+            var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(ll1.lat*toRad)*Math.cos(ll2.lat*toRad)*Math.sin(dLon/2)*Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        function _azimute(ll1, ll2) {
+            var toRad = Math.PI/180, toDeg = 180/Math.PI;
+            var dLon = (ll2.lng - ll1.lng)*toRad;
+            var lat1 = ll1.lat*toRad, lat2 = ll2.lat*toRad;
+            var y = Math.sin(dLon)*Math.cos(lat2);
+            var x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+            return ((Math.atan2(y,x)*toDeg) + 360) % 360;
+        }
+        function _latLngToUTM(lat, lng) {
+            // Aproximação UTM zona 22S (SIRGAS 2000)
+            var a=6378137, f=1/298.257222101, b=a*(1-f);
+            var e2=(a*a-b*b)/(a*a), e_=Math.sqrt(e2/(1-e2));
+            var k0=0.9996, lon0=-51*Math.PI/180;
+            var phi=lat*Math.PI/180, lam=lng*Math.PI/180;
+            var N=a/Math.sqrt(1-e2*Math.sin(phi)*Math.sin(phi));
+            var T=Math.tan(phi)*Math.tan(phi), C=e_*e_*Math.cos(phi)*Math.cos(phi);
+            var A=(lam-lon0)*Math.cos(phi);
+            var e2m=e2, e4m=e2m*e2m, e6m=e4m*e2m;
+            var M=a*((1-e2m/4-3*e4m/64-5*e6m/256)*phi - (3*e2m/8+3*e4m/32+45*e6m/1024)*Math.sin(2*phi) + (15*e4m/256+45*e6m/1024)*Math.sin(4*phi) - 35*e6m/3072*Math.sin(6*phi));
+            var x=k0*N*(A+(1-T+C)*A*A*A/6+(5-18*T+T*T+72*C-58*e_*e_)*A*A*A*A*A/120)+500000;
+            var y=k0*(M+N*Math.tan(phi)*(A*A/2+(5-T+9*C+4*C*C)*A*A*A*A/24+(61-58*T+T*T+600*C-330*e_*e_)*A*A*A*A*A*A/720));
+            if (lat < 0) y += 10000000;
+            return { e: x.toFixed(2), n: y.toFixed(2) };
+        }
+        function _areaPoligono(pts) {
+            // Área em m² usando shoelace em projeção UTM aproximada
+            var n = pts.length, area = 0;
+            var utm = pts.map(function(p){ return _latLngToUTM(p.lat, p.lng); });
+            for (var i=0,j=n-1; i<n; j=i++) {
+                area += parseFloat(utm[j].e)*parseFloat(utm[i].n) - parseFloat(utm[i].e)*parseFloat(utm[j].n);
+            }
+            return Math.abs(area/2);
+        }
+        function _formatDistancia(m) {
+            return m >= 1000 ? (m/1000).toFixed(3)+' km' : m.toFixed(2)+' m';
+        }
+        function _formatAz(az) {
+            var d=Math.floor(az), m2=Math.floor((az-d)*60), s=((az-d)*3600-m2*60).toFixed(1);
+            return d+'°'+String(m2).padStart(2,'0')+"'"+String(s).padStart(4,'0')+'"';
+        }
+
+        function _drawAreaInfoUpdate() {
+            var pts = drawAreaPontos;
+            if (pts.length < 3) return;
+            var perim = 0;
+            for (var i=0; i<pts.length; i++) perim += _haversine(pts[i], pts[(i+1)%pts.length]);
+            var area = _areaPoligono(pts);
+            var areaHa = area/10000;
+            _drawAreaStatus(
+                '<b>Vértices:</b> '+pts.length+' &nbsp;|&nbsp; ' +
+                '<b>Perímetro:</b> '+_formatDistancia(perim)+' &nbsp;|&nbsp; ' +
+                '<b>Área:</b> '+areaHa.toFixed(4)+' ha ('+area.toFixed(2)+' m²)'
+            );
+        }
+
+        // ── Exportações ────────────────────────────────────────────────────
+
+        function exportarMemorialPDF() {
+            if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
+            var pts = drawAreaPontos;
+            var doc = new window.jspdf.jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+            var margin=15, y=margin, pw=210-2*margin;
+
+            // Cabeçalho
+            doc.setFillColor(10,25,50);
+            doc.rect(0,0,210,28,'F');
+            doc.setTextColor(255,255,255);
+            doc.setFontSize(13); doc.setFont(undefined,'bold');
+            doc.text('MEMORIAL DESCRITIVO DE ÁREA', 105, 12, {align:'center'});
+            doc.setFontSize(9); doc.setFont(undefined,'normal');
+            doc.text('FUJAMA – Fundação Jaraguaense de Meio Ambiente', 105, 20, {align:'center'});
+            doc.setTextColor(0,0,0);
+            y = 34;
+
+            // Data
+            doc.setFontSize(9);
+            doc.text('Data de geração: ' + new Date().toLocaleDateString('pt-BR') + '   Hora: ' + new Date().toLocaleTimeString('pt-BR'), margin, y);
+            y += 6;
+
+            // Área e perímetro
+            var perim = 0;
+            for (var i=0; i<pts.length; i++) perim += _haversine(pts[i], pts[(i+1)%pts.length]);
+            var area = _areaPoligono(pts);
+            doc.setFontSize(10); doc.setFont(undefined,'bold');
+            doc.text('Resumo', margin, y); y+=5;
+            doc.setFont(undefined,'normal'); doc.setFontSize(9);
+            doc.text('Número de vértices: ' + pts.length, margin, y); y+=5;
+            doc.text('Perímetro total: ' + _formatDistancia(perim), margin, y); y+=5;
+            doc.text('Área: ' + (area/10000).toFixed(4) + ' ha  (' + area.toFixed(2) + ' m²)', margin, y); y+=8;
+
+            // Tabela de vértices
+            doc.setFontSize(10); doc.setFont(undefined,'bold');
+            doc.text('Coordenadas dos Vértices e Lados (SIRGAS 2000 / UTM zona 22S)', margin, y); y+=5;
+
+            var headers = ['Vértice','Lat (°)','Lon (°)','E (m)','N (m)','Dist. próx. (m)','Azimute'];
+            var colW = [14,22,22,26,26,28,22];
+            var xc = margin;
+            doc.setFillColor(30,60,100); doc.setTextColor(255,255,255);
+            doc.setFontSize(7.5);
+            headers.forEach(function(h,i){ doc.rect(xc,y,colW[i],6,'F'); doc.text(h,xc+colW[i]/2,y+4,{align:'center'}); xc+=colW[i]; });
+            y+=6;
+
+            doc.setTextColor(0,0,0);
+            pts.forEach(function(p, idx){
+                var utmP = _latLngToUTM(p.lat, p.lng);
+                var next = pts[(idx+1)%pts.length];
+                var dist = _haversine(p, next).toFixed(2);
+                var az   = _formatAz(_azimute(p, next));
+                var row  = ['V'+(idx+1), p.lat.toFixed(6), p.lng.toFixed(6), utmP.e, utmP.n, dist, az];
+                if (idx%2===0) { doc.setFillColor(240,245,255); doc.rect(margin,y,pw,5,'F'); }
+                xc = margin;
+                row.forEach(function(val,ci){
+                    doc.setFontSize(7);
+                    doc.text(String(val), xc+colW[ci]/2, y+3.5, {align:'center'});
+                    xc+=colW[ci];
+                });
+                y+=5;
+                if (y > 270) { doc.addPage(); y=margin; }
+            });
+
+            y+=8;
+            doc.setFontSize(8); doc.setTextColor(100,100,100);
+            doc.text('Gerado por FUJAMA WebGIS – dados de uso interno', 105, y, {align:'center'});
+
+            doc.save('memorial_descritivo_' + new Date().toISOString().slice(0,10) + '.pdf');
+        }
+
+        function exportarDesenhoKML() {
+            if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
+            var pts = drawAreaPontos;
+            var coords = pts.map(function(p){ return p.lng+','+p.lat+',0'; }).join('\n                ');
+            coords += '\n                ' + pts[0].lng+','+pts[0].lat+',0'; // fechar
+            var kml = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>Área Desenhada FUJAMA</name>\n    <Placemark>\n      <name>Área</name>\n      <Polygon><outerBoundaryIs><LinearRing><coordinates>\n                '+coords+'\n      </coordinates></LinearRing></outerBoundaryIs></Polygon>\n    </Placemark>\n  </Document>\n</kml>';
+            var blob = new Blob([kml], {type:'application/vnd.google-earth.kml+xml'});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'area_' + new Date().toISOString().slice(0,10) + '.kml';
+            a.click();
+        }
+
+        function exportarDesenhoSHP() {
+            if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
+            alert('Exportação SHP requer biblioteca adicional (shpwrite.js).\nUse a exportação KML ou GeoJSON e converta no QGIS com "Salvar como → Shapefile".');
+        }
+
+        function usarDesenhoNoRelatorio() {
+            if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
+            var coords = drawAreaPontos.map(function(p){ return [p.lng, p.lat]; });
+            coords.push(coords[0]); // fechar
+            uploadedGeoJSON = {
+                type: 'FeatureCollection',
+                features: [{ type:'Feature', geometry:{ type:'Polygon', coordinates:[coords] }, properties:{} }]
+            };
+            // Desenhar no mapa de relatório
+            if (window.reportLayer) map.removeLayer(window.reportLayer);
+            window.reportLayer = L.geoJSON(uploadedGeoJSON, { style:{ color:'#e74c3c', weight:2, fillOpacity:0.1 }}).addTo(map);
+            document.getElementById('generateReportBtn').disabled = false;
+            document.getElementById('uploadStatus').innerHTML =
+                '<i class="fas fa-check-circle" style="color:#27ae60"></i> Área desenhada carregada no Relatório GIS';
+            trocarAba('controle');
+            setReportMode('upload');
+            setTimeout(function(){ trocarAba('controle'); }, 100);
+        }
+
+        // ========== COMPARATIVO TEMPORAL ==========
+        var compAtivo     = false;
+        var compMapLeft   = null;
+        var compMapRight  = null;
+        var compSync      = false; // flag anti-loop na sincronização
+        var compBaseUrls  = {
+            openstreetmap:   'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            googleearth:     'https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}',
+            ortomosaico2010: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms',
+            ortomosaico2020: 'https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png'
+        };
+        var compBaseLayers = { left: null, right: null };
+
+        function toggleComparativo() {
+            if (compAtivo) {
+                _fecharComparativo();
+            } else {
+                _abrirComparativo();
+            }
+        }
+
+        function _abrirComparativo() {
+            compAtivo = true;
+            var wrapper = document.getElementById('comparativo-wrapper');
+            wrapper.classList.add('ativo');
+            document.getElementById('map').style.display = 'none';
+            document.getElementById('btn-comparativo').classList.add('ativo');
+            document.getElementById('btn-comparativo-label').textContent = 'Fechar';
+
+            // Inicializar mapas se ainda não existirem
+            if (!compMapLeft) {
+                compMapLeft = L.map('comp-map-left', {
+                    center: map.getCenter(), zoom: map.getZoom(),
+                    zoomControl: true, attributionControl: false
+                });
+                compMapRight = L.map('comp-map-right', {
+                    center: map.getCenter(), zoom: map.getZoom(),
+                    zoomControl: true, attributionControl: false
+                });
+                _compAddBase('left',  document.getElementById('comp-base-left').value);
+                _compAddBase('right', document.getElementById('comp-base-right').value);
+
+                // Sincronização bidirecional de posição
+                compMapLeft.on('moveend zoomend', function() {
+                    if (compSync) return; compSync = true;
+                    compMapRight.setView(compMapLeft.getCenter(), compMapLeft.getZoom(), {animate:false});
+                    compSync = false;
+                });
+                compMapRight.on('moveend zoomend', function() {
+                    if (compSync) return; compSync = true;
+                    compMapLeft.setView(compMapRight.getCenter(), compMapRight.getZoom(), {animate:false});
+                    compSync = false;
+                });
+            } else {
+                // Sincronizar posição com mapa principal
+                compMapLeft.setView(map.getCenter(), map.getZoom(), {animate:false});
+                compMapRight.setView(map.getCenter(), map.getZoom(), {animate:false});
+            }
+
+            // Adicionar camadas vetoriais em ambos os mapas
+            _compSincronizarVetoriais();
+
+            // Redimensionar
+            setTimeout(function(){ compMapLeft.invalidateSize(); compMapRight.invalidateSize(); }, 100);
+
+            // Divisor arrastável
+            _initCompDivider();
+        }
+
+        function _fecharComparativo() {
+            compAtivo = false;
+            document.getElementById('comparativo-wrapper').classList.remove('ativo');
+            document.getElementById('map').style.display = 'block';
+            document.getElementById('btn-comparativo').classList.remove('ativo');
+            document.getElementById('btn-comparativo-label').textContent = 'Comparativo';
+            // Sincronizar posição de volta ao mapa principal
+            if (compMapLeft) map.setView(compMapLeft.getCenter(), compMapLeft.getZoom(), {animate:false});
+            map.invalidateSize();
+        }
+
+        function _compAddBase(side, baseKey) {
+            var m = side === 'left' ? compMapLeft : compMapRight;
+            if (compBaseLayers[side]) m.removeLayer(compBaseLayers[side]);
+            if (baseKey === 'ortomosaico2010') {
+                compBaseLayers[side] = L.tileLayer.wms('http://sigsc.sc.gov.br/sigserver/SIGSC/wms', {
+                    layers: 'OrtoRGB-Landsat-2012', format:'image/png', transparent:false
+                }).addTo(m);
+            } else {
+                compBaseLayers[side] = L.tileLayer(compBaseUrls[baseKey], {
+                    maxZoom:22, attribution:''
+                }).addTo(m);
+            }
+        }
+
+        function setCompBase(side, baseKey) {
+            _compAddBase(side, baseKey);
+        }
+
+        function _compSincronizarVetoriais() {
+            // Os vetoriais permanecem no mapa principal — os mapas de comparativo
+            // mostram apenas as bases. Sincronização de posição garante a referência visual.
+            // Para evitar complexidade de duplicar todas as camadas, usamos overlay CSS.
+        }
+
+        function _initCompDivider() {
+            var divider = document.getElementById('comp-divider');
+            var wrapper = document.getElementById('comparativo-wrapper');
+            var dragging = false;
+            divider.onmousedown = function(e) {
+                dragging = true;
+                e.preventDefault();
+            };
+            document.onmousemove = function(e) {
+                if (!dragging || !compAtivo) return;
+                var rect = wrapper.getBoundingClientRect();
+                var pct = Math.max(15, Math.min(85, (e.clientX - rect.left) / rect.width * 100));
+                document.getElementById('comp-pane-left').style.flex = 'none';
+                document.getElementById('comp-pane-left').style.width = pct + '%';
+                document.getElementById('comp-pane-right').style.flex = '1';
+                compMapLeft.invalidateSize();
+                compMapRight.invalidateSize();
+            };
+            document.onmouseup = function() { dragging = false; };
+        }
 
         // ========== ESTATÍSTICAS DE LICENÇAS AMBIENTAIS ==========
         // Paleta de cores consistente para os gráficos
