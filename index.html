@@ -1532,6 +1532,11 @@
                         <span class="sat-resultados-title"><i class="fas fa-images"></i> Cenas Encontradas</span>
                         <span class="sat-count-badge" id="sat-count-badge">0 cenas</span>
                     </div>
+                    <!-- Badge: aviso de mapa-base oculto -->
+                    <div id="sat-base-badge" style="display:none; align-items:center; gap:8px; background:rgba(243,156,18,0.12); border:1px solid rgba(243,156,18,0.35); border-radius:6px; padding:7px 10px; font-size:0.75em; color:#f39c12; flex-shrink:0;">
+                        <i class="fas fa-eye-slash"></i>
+                        <span>Mapa-base ocultado para exibir a imagem de satélite. <b>Selecione outro mapa-base</b> no cabeçalho ou clique em <b>Visualizar</b> novamente para restaurar.</span>
+                    </div>
                     <div class="sat-progress" id="sat-progress">
                         <span id="sat-progress-txt">Consultando STAC API do INPE...</span>
                         <div class="sat-progress-bar"><div class="sat-progress-fill" id="sat-progress-fill"></div></div>
@@ -1681,17 +1686,41 @@
             }
         })();
 
+        // Base ativa no momento (para restaurar após visualização de satélite)
+        var activeBaseKey = 'openstreetmap';
+
         function setBaseMap(base) {
+            activeBaseKey = base;
             map.removeLayer(layer_OpenStreetMap_0);
             map.removeLayer(layer_Ortomosaico2010SC_1);
             map.removeLayer(layer_GoogleEarth_2);
             map.removeLayer(layer_Ortomosaico2020_3);
             switch(base) {
-                case 'openstreetmap':  map.addLayer(layer_OpenStreetMap_0);   break;
+                case 'openstreetmap':   map.addLayer(layer_OpenStreetMap_0);    break;
                 case 'ortomosaico2010': map.addLayer(layer_Ortomosaico2010SC_1); break;
-                case 'googleearth':    map.addLayer(layer_GoogleEarth_2);     break;
-                case 'ortomosaico2020': map.addLayer(layer_Ortomosaico2020_3); break;
+                case 'googleearth':     map.addLayer(layer_GoogleEarth_2);      break;
+                case 'ortomosaico2020': map.addLayer(layer_Ortomosaico2020_3);  break;
             }
+            // Se havia visualização ativa, remove o badge e restaura a base normalmente
+            _satRestoreBaseBadge(false);
+        }
+
+        function _satHideBase() {
+            map.removeLayer(layer_OpenStreetMap_0);
+            map.removeLayer(layer_Ortomosaico2010SC_1);
+            map.removeLayer(layer_GoogleEarth_2);
+            map.removeLayer(layer_Ortomosaico2020_3);
+            _satRestoreBaseBadge(true);
+        }
+
+        function _satRestoreBase() {
+            setBaseMap(activeBaseKey);
+        }
+
+        function _satRestoreBaseBadge(show) {
+            var badge = document.getElementById('sat-base-badge');
+            if (!badge) return;
+            badge.style.display = show ? 'flex' : 'none';
         }
         // ========== FUNÇÕES DO DASHBOARD ==========
         window.toggleDashboard = function() {
@@ -5959,11 +5988,13 @@
             var assets = entry.assets;
             var btn    = document.getElementById('sat-tms-' + idx);
 
-            // Desativa se já estiver ativo
+            // Desativa se já estiver ativo — restaura mapa-base
             if (satTmsLayers[id]) {
                 map.removeLayer(satTmsLayers[id]);
                 delete satTmsLayers[id];
                 if (btn) btn.classList.remove('ativo');
+                // Só restaura base se não houver outra cena ativa
+                if (Object.keys(satTmsLayers).length === 0) _satRestoreBase();
                 return;
             }
 
@@ -6042,6 +6073,8 @@
             tmsLayer.addTo(map);
             satTmsLayers[id] = tmsLayer;
             if (btn) btn.classList.add('ativo');
+            // Oculta mapa-base para a imagem aparecer sem cobertura
+            _satHideBase();
 
             // Centraliza no footprint
             if (satLayers[id]) {
@@ -6057,7 +6090,8 @@
         function limparResultadosSatelite() {
             Object.values(satLayers).forEach(function(l) { if (map.hasLayer(l)) map.removeLayer(l); });
             Object.values(satTmsLayers).forEach(function(l) { if (map.hasLayer(l)) map.removeLayer(l); });
-            satLayers = {}; satTmsLayers = {}; satFeatures = [];
+            satLayers = {}; satTmsLayers = {}; satFeatures = {}; satAssetsMap = {};
+            _satRestoreBase();
             document.getElementById('sat-lista').innerHTML =
                 '<div class="sat-status"><i class="fas fa-satellite-dish"></i>' +
                 '<span>Configure os filtros e busque novamente.</span></div>';
