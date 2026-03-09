@@ -1709,6 +1709,38 @@
             }
         };
 
+        // ========== ABAS DO DASHBOARD ==========
+        window.trocarAba = function(aba) {
+            document.querySelectorAll('.dashboard-aba-btn').forEach(function(btn) {
+                btn.classList.remove('ativa');
+            });
+            document.querySelectorAll('.dashboard-painel').forEach(function(p) {
+                p.classList.remove('ativo');
+            });
+            document.getElementById('aba-btn-' + aba).classList.add('ativa');
+            document.getElementById('painel-' + aba).classList.add('ativo');
+
+            // Garante que o dashboard esteja aberto ao trocar de aba
+            var dashboard = document.getElementById('dashboard');
+            if (dashboard.classList.contains('dashboard-minimizado')) {
+                dashboard.classList.remove('dashboard-minimizado');
+                document.getElementById('dashboardToggle').innerHTML = '▼';
+                var abas = document.querySelector('.dashboard-abas');
+                if (abas) abas.style.display = 'flex';
+            }
+
+            if (aba === 'estatisticas') {
+                inicializarEstatisticas();
+            }
+            if (aba === 'satelite') {
+                var b = map.getBounds();
+                var info = document.getElementById('sat-aoi-status');
+                if (info && !satAoiBbox) {
+                    info.textContent = 'Usando extensão atual do mapa';
+                }
+            }
+        };
+
         // ========== FERRAMENTA DE PONTO (ALFINETES) ==========
         var ferramentaPontoAtiva = false;
         var iconesAlfinete = [];
