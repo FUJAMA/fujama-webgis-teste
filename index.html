@@ -1235,63 +1235,69 @@
         #comparativo-wrapper {
             display: none;
             position: fixed;
-            top: var(--header-height);
-            left: 0; right: 0;
-            bottom: 0;
-            z-index: 900;
+            top: var(--header-height); left: 0; right: 0; bottom: 0;
+            z-index: 410; /* abaixo do dashboard e header, acima do mapa base */
             flex-direction: row;
         }
         #comparativo-wrapper.ativo { display: flex; }
 
-        .comp-pane {
-            flex: 1; position: relative; overflow: hidden;
-        }
-        #comp-map-left, #comp-map-right {
-            width: 100%; height: 100%;
-        }
+        .comp-pane { flex: 1; position: relative; overflow: hidden; }
+        #comp-map-left, #comp-map-right { position: absolute; inset: 0; }
+
         .comp-divider {
-            width: 4px;
+            width: 6px;
             background: linear-gradient(180deg, #9b59b6, #3498db);
-            cursor: col-resize;
-            flex-shrink: 0;
-            position: relative;
-            z-index: 10;
+            cursor: col-resize; flex-shrink: 0;
+            position: relative; z-index: 20;
+            box-shadow: 0 0 10px rgba(155,89,182,0.5);
         }
         .comp-divider::after {
             content: '⟺';
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%,-50%);
-            background: rgba(10,25,45,0.9);
-            border: 1px solid rgba(155,89,182,0.5);
-            border-radius: 50%;
-            width: 28px; height: 28px;
+            background: rgba(10,25,45,0.95);
+            border: 1px solid rgba(155,89,182,0.6);
+            border-radius: 50%; width: 30px; height: 30px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.85em; color: #d7a8f0;
+            font-size: 0.9em; color: #d7a8f0;
         }
         .comp-label {
             position: absolute; top: 10px; left: 50%;
             transform: translateX(-50%);
-            background: rgba(10,25,45,0.85);
-            border: 1px solid rgba(155,89,182,0.35);
+            background: rgba(10,25,45,0.88);
+            border: 1px solid rgba(155,89,182,0.4);
             border-radius: 20px; padding: 4px 14px;
             font-size: 0.72em; color: #d7a8f0;
-            pointer-events: none; z-index: 5; white-space: nowrap;
+            pointer-events: none;
+            z-index: 600; white-space: nowrap;
         }
         .comp-base-sel {
-            position: absolute; bottom: 12px; left: 50%;
+            position: absolute; bottom: 14px; left: 50%;
             transform: translateX(-50%);
-            background: rgba(10,25,45,0.92);
-            border: 1px solid rgba(155,89,182,0.35);
-            border-radius: 8px; padding: 6px 10px;
-            font-size: 0.75em; color: #cde;
-            z-index: 5; cursor: pointer;
-            display: flex; align-items: center; gap: 6px;
+            background: rgba(10,25,45,0.96);
+            border: 1px solid rgba(155,89,182,0.55);
+            border-radius: 8px; padding: 7px 12px;
+            font-size: 0.8em; color: #cde;
+            z-index: 600; /* acima de todo conteúdo do mapa Leaflet */
+            pointer-events: all;
+            display: flex; align-items: center; gap: 7px;
             white-space: nowrap;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.55);
         }
         .comp-base-sel select {
-            background: transparent; border: none;
-            color: #cde; font-size: 1em; cursor: pointer; outline: none;
+            background: rgba(10,25,45,0.9);
+            border: 1px solid rgba(155,89,182,0.4);
+            border-radius: 5px; color: #cde;
+            font-size: 1em; cursor: pointer; outline: none;
+            padding: 2px 6px;
         }
+        /* Quando comparativo ativo: mapa principal fica invisível mas ainda recebe eventos */
+        #map.comp-overlay {
+            z-index: 420;
+            background: transparent !important;
+        }
+        #map.comp-overlay .leaflet-tile-pane,
+        #map.comp-overlay .leaflet-shadow-pane { opacity: 0; pointer-events: none; }
         </style>
         <title></title>
     </head>
@@ -6565,95 +6571,116 @@
         }
 
         // ========== COMPARATIVO TEMPORAL ==========
-        var compAtivo     = false;
-        var compMapLeft   = null;
-        var compMapRight  = null;
-        var compSync      = false; // flag anti-loop na sincronização
-        var compBaseUrls  = {
-            openstreetmap:   'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            googleearth:     'https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}',
-            ortomosaico2010: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms',
-            ortomosaico2020: 'https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png'
-        };
+        var compAtivo    = false;
+        var compMapLeft  = null;
+        var compMapRight = null;
+        var compSync     = false;
         var compBaseLayers = { left: null, right: null };
 
+        var compBaseConfigs = {
+            openstreetmap:   { type: 'tile', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' },
+            googleearth:     { type: 'tile', url: 'https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}' },
+            ortomosaico2010: { type: 'wms',  url: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms', layers: 'OrtoRGB-Landsat-2012' },
+            ortomosaico2020: { type: 'tile', url: 'https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png' }
+        };
+
         function toggleComparativo() {
-            if (compAtivo) {
-                _fecharComparativo();
-            } else {
-                _abrirComparativo();
-            }
+            compAtivo ? _fecharComparativo() : _abrirComparativo();
         }
 
         function _abrirComparativo() {
             compAtivo = true;
-            var wrapper = document.getElementById('comparativo-wrapper');
-            wrapper.classList.add('ativo');
-            document.getElementById('map').style.display = 'none';
+            document.getElementById('comparativo-wrapper').classList.add('ativo');
             document.getElementById('btn-comparativo').classList.add('ativo');
             document.getElementById('btn-comparativo-label').textContent = 'Fechar';
 
-            // Inicializar mapas se ainda não existirem
+            // Mapa principal vira overlay transparente — mantém vetoriais e eventos (pontos/desenho)
+            var mapEl = document.getElementById('map');
+            mapEl.classList.add('comp-overlay');
+            mapEl.style.display = 'block'; // NUNCA esconder
+
             if (!compMapLeft) {
                 compMapLeft = L.map('comp-map-left', {
                     center: map.getCenter(), zoom: map.getZoom(),
-                    zoomControl: true, attributionControl: false
+                    zoomControl: false, attributionControl: false
                 });
+                L.control.zoom({ position: 'topleft' }).addTo(compMapLeft);
+
                 compMapRight = L.map('comp-map-right', {
                     center: map.getCenter(), zoom: map.getZoom(),
-                    zoomControl: true, attributionControl: false
+                    zoomControl: false, attributionControl: false
                 });
+                L.control.zoom({ position: 'topleft' }).addTo(compMapRight);
+
                 _compAddBase('left',  document.getElementById('comp-base-left').value);
                 _compAddBase('right', document.getElementById('comp-base-right').value);
 
-                // Sincronização bidirecional de posição
-                compMapLeft.on('moveend zoomend', function() {
+                // Sync esquerda → direita e mapa principal
+                compMapLeft.on('move zoom', function() {
                     if (compSync) return; compSync = true;
-                    compMapRight.setView(compMapLeft.getCenter(), compMapLeft.getZoom(), {animate:false});
+                    var c = compMapLeft.getCenter(), z = compMapLeft.getZoom();
+                    compMapRight.setView(c, z, { animate: false });
+                    map.setView(c, z, { animate: false });
                     compSync = false;
                 });
-                compMapRight.on('moveend zoomend', function() {
+                // Sync direita → esquerda e mapa principal
+                compMapRight.on('move zoom', function() {
                     if (compSync) return; compSync = true;
-                    compMapLeft.setView(compMapRight.getCenter(), compMapRight.getZoom(), {animate:false});
+                    var c = compMapRight.getCenter(), z = compMapRight.getZoom();
+                    compMapLeft.setView(c, z, { animate: false });
+                    map.setView(c, z, { animate: false });
+                    compSync = false;
+                });
+                // Sync mapa principal (pontos/desenho) → ambos comparativos
+                map.on('move zoom', function() {
+                    if (!compAtivo || compSync) return; compSync = true;
+                    var c = map.getCenter(), z = map.getZoom();
+                    compMapLeft.setView(c, z, { animate: false });
+                    compMapRight.setView(c, z, { animate: false });
                     compSync = false;
                 });
             } else {
-                // Sincronizar posição com mapa principal
-                compMapLeft.setView(map.getCenter(), map.getZoom(), {animate:false});
-                compMapRight.setView(map.getCenter(), map.getZoom(), {animate:false});
+                compMapLeft.setView(map.getCenter(), map.getZoom(), { animate: false });
+                compMapRight.setView(map.getCenter(), map.getZoom(), { animate: false });
             }
 
-            // Adicionar camadas vetoriais em ambos os mapas
-            _compSincronizarVetoriais();
+            setTimeout(function() {
+                compMapLeft.invalidateSize();
+                compMapRight.invalidateSize();
+                map.invalidateSize();
+            }, 150);
 
-            // Redimensionar
-            setTimeout(function(){ compMapLeft.invalidateSize(); compMapRight.invalidateSize(); }, 100);
-
-            // Divisor arrastável
             _initCompDivider();
         }
 
         function _fecharComparativo() {
             compAtivo = false;
             document.getElementById('comparativo-wrapper').classList.remove('ativo');
-            document.getElementById('map').style.display = 'block';
             document.getElementById('btn-comparativo').classList.remove('ativo');
             document.getElementById('btn-comparativo-label').textContent = 'Comparativo';
-            // Sincronizar posição de volta ao mapa principal
-            if (compMapLeft) map.setView(compMapLeft.getCenter(), compMapLeft.getZoom(), {animate:false});
-            map.invalidateSize();
+            // Restaurar mapa principal
+            var mapEl = document.getElementById('map');
+            mapEl.classList.remove('comp-overlay');
+            if (compMapLeft) map.setView(compMapLeft.getCenter(), compMapLeft.getZoom(), { animate: false });
+            setTimeout(function() { map.invalidateSize(); }, 100);
         }
 
         function _compAddBase(side, baseKey) {
             var m = side === 'left' ? compMapLeft : compMapRight;
-            if (compBaseLayers[side]) m.removeLayer(compBaseLayers[side]);
-            if (baseKey === 'ortomosaico2010') {
-                compBaseLayers[side] = L.tileLayer.wms('http://sigsc.sc.gov.br/sigserver/SIGSC/wms', {
-                    layers: 'OrtoRGB-Landsat-2012', format:'image/png', transparent:false
+            if (!m) return;
+            if (compBaseLayers[side]) {
+                try { m.removeLayer(compBaseLayers[side]); } catch(e) {}
+            }
+            var cfg = compBaseConfigs[baseKey];
+            if (!cfg) return;
+            if (cfg.type === 'wms') {
+                compBaseLayers[side] = L.tileLayer.wms(cfg.url, {
+                    layers: cfg.layers, format: 'image/png',
+                    transparent: false, maxZoom: 22
                 }).addTo(m);
             } else {
-                compBaseLayers[side] = L.tileLayer(compBaseUrls[baseKey], {
-                    maxZoom:22, attribution:''
+                compBaseLayers[side] = L.tileLayer(cfg.url, {
+                    maxZoom: 22, attribution: ''
                 }).addTo(m);
             }
         }
@@ -6662,31 +6689,28 @@
             _compAddBase(side, baseKey);
         }
 
-        function _compSincronizarVetoriais() {
-            // Os vetoriais permanecem no mapa principal — os mapas de comparativo
-            // mostram apenas as bases. Sincronização de posição garante a referência visual.
-            // Para evitar complexidade de duplicar todas as camadas, usamos overlay CSS.
-        }
-
         function _initCompDivider() {
             var divider = document.getElementById('comp-divider');
             var wrapper = document.getElementById('comparativo-wrapper');
+            // Remover listeners anteriores clonando o nó
+            var newDiv = divider.cloneNode(true);
+            divider.parentNode.replaceChild(newDiv, divider);
+            divider = newDiv;
+
             var dragging = false;
-            divider.onmousedown = function(e) {
-                dragging = true;
-                e.preventDefault();
-            };
-            document.onmousemove = function(e) {
+            divider.addEventListener('mousedown', function(e) {
+                dragging = true; e.preventDefault();
+            });
+            window.addEventListener('mousemove', function(e) {
                 if (!dragging || !compAtivo) return;
                 var rect = wrapper.getBoundingClientRect();
                 var pct = Math.max(15, Math.min(85, (e.clientX - rect.left) / rect.width * 100));
-                document.getElementById('comp-pane-left').style.flex = 'none';
-                document.getElementById('comp-pane-left').style.width = pct + '%';
-                document.getElementById('comp-pane-right').style.flex = '1';
+                document.getElementById('comp-pane-left').style.cssText = 'flex:none;width:'+pct+'%';
+                document.getElementById('comp-pane-right').style.cssText = 'flex:1';
                 compMapLeft.invalidateSize();
                 compMapRight.invalidateSize();
-            };
-            document.onmouseup = function() { dragging = false; };
+            });
+            window.addEventListener('mouseup', function() { dragging = false; });
         }
 
         // ========== ESTATÍSTICAS DE LICENÇAS AMBIENTAIS ==========
