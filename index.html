@@ -1976,8 +1976,12 @@
 
             function generateReport() {
                 // ══════════════════════════════════════════════════════════════
-                //  RELATÓRIO GIS – SOBREPOSIÇÃO GEOMÉTRICA REAL
+                //  RELATÓRIO GIS – SOBREPOSIÇÃO GEOMÉTRICA REAL + WMS
                 //  FUJAMA – Fundação Jaraguaense de Meio Ambiente
+                //
+                //  % de cobertura = baseada em amostragem de pontos dentro do
+                //  polígono de referência → cada ponto "vota" na tipologia que
+                //  o contém → resultado: % real da área coberta por tipologia
                 // ══════════════════════════════════════════════════════════════
 
                 // ── 1. Polígono de referência ─────────────────────────────────
@@ -1998,9 +2002,8 @@
                     };
                 } else { alert('Nenhuma geometria definida.'); return; }
 
-                // ── 2. Funções de geometria – sobreposição REAL ───────────────
+                // ── 2. Funções de geometria ───────────────────────────────────
 
-                // Ray-casting: ponto dentro de anel
                 function ptInRing(px, py, ring) {
                     var inside = false;
                     for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -2010,600 +2013,666 @@
                     return inside;
                 }
 
-                // Interseção de dois segmentos
-                function segsIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
-                    var d1x = bx-ax, d1y = by-ay, d2x = dx-cx, d2y = dy-cy;
-                    var cross = d1x*d2y - d1y*d2x;
-                    if (Math.abs(cross) < 1e-12) return false;
-                    var t = ((cx-ax)*d2y - (cy-ay)*d2x) / cross;
-                    var u = ((cx-ax)*d1y - (cy-ay)*d1x) / cross;
-                    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+                function segsIntersect(ax,ay,bx,by,cx,cy,dx,dy) {
+                    var d1x=bx-ax,d1y=by-ay,d2x=dx-cx,d2y=dy-cy;
+                    var cross=d1x*d2y-d1y*d2x;
+                    if (Math.abs(cross)<1e-12) return false;
+                    var t=((cx-ax)*d2y-(cy-ay)*d2x)/cross;
+                    var u=((cx-ax)*d1y-(cy-ay)*d1x)/cross;
+                    return t>=0&&t<=1&&u>=0&&u<=1;
                 }
 
-                // Bordas de dois anéis se cruzam?
-                function ringsEdgesIntersect(rA, rB) {
-                    for (var i = 0; i < rA.length - 1; i++)
-                        for (var j = 0; j < rB.length - 1; j++)
-                            if (segsIntersect(rA[i][0],rA[i][1],rA[i+1][0],rA[i+1][1],
-                                              rB[j][0],rB[j][1],rB[j+1][0],rB[j+1][1])) return true;
+                function ringsEdgesIntersect(rA,rB) {
+                    for (var i=0;i<rA.length-1;i++)
+                        for (var j=0;j<rB.length-1;j++)
+                            if (segsIntersect(rA[i][0],rA[i][1],rA[i+1][0],rA[i+1][1],rB[j][0],rB[j][1],rB[j+1][0],rB[j+1][1])) return true;
                     return false;
                 }
 
-                // Coleta anéis exteriores do polígono de referência
                 var refRings = refGeoJSON.geometry.type === 'Polygon'
                     ? [refGeoJSON.geometry.coordinates[0]]
                     : refGeoJSON.geometry.coordinates.map(function(p){ return p[0]; });
 
-                // Testa se um ponto está dentro do ref
-                function ptInRef(px, py) {
-                    return refRings.some(function(ring){ return ptInRing(px, py, ring); });
+                function ptInRef(px,py) {
+                    return refRings.some(function(ring){ return ptInRing(px,py,ring); });
                 }
 
-                // Testa sobreposição de um anel (polígono) com o ref
                 function ringIntersectsRef(ring) {
-                    // Algum vértice do anel dentro do ref
-                    for (var i = 0; i < ring.length; i++)
-                        if (ptInRef(ring[i][0], ring[i][1])) return true;
-                    // Algum vértice do ref dentro do anel
-                    for (var ri = 0; ri < refRings.length; ri++)
-                        for (var rj = 0; rj < refRings[ri].length; rj++)
-                            if (ptInRing(refRings[ri][rj][0], refRings[ri][rj][1], ring)) return true;
-                    // Bordas se cruzam
-                    for (var rk = 0; rk < refRings.length; rk++)
-                        if (ringsEdgesIntersect(ring, refRings[rk])) return true;
+                    for (var i=0;i<ring.length;i++) if (ptInRef(ring[i][0],ring[i][1])) return true;
+                    for (var ri=0;ri<refRings.length;ri++)
+                        for (var rj=0;rj<refRings[ri].length;rj++)
+                            if (ptInRing(refRings[ri][rj][0],refRings[ri][rj][1],ring)) return true;
+                    for (var rk=0;rk<refRings.length;rk++)
+                        if (ringsEdgesIntersect(ring,refRings[rk])) return true;
                     return false;
                 }
 
-                // Testa sobreposição de uma linha com o ref
                 function lineIntersectsRef(line) {
-                    for (var i = 0; i < line.length; i++)
-                        if (ptInRef(line[i][0], line[i][1])) return true;
-                    for (var ri = 0; ri < refRings.length; ri++)
-                        for (var j = 0; j < line.length - 1; j++)
-                            for (var k = 0; k < refRings[ri].length - 1; k++)
+                    for (var i=0;i<line.length;i++) if (ptInRef(line[i][0],line[i][1])) return true;
+                    for (var ri=0;ri<refRings.length;ri++)
+                        for (var j=0;j<line.length-1;j++)
+                            for (var k=0;k<refRings[ri].length-1;k++)
                                 if (segsIntersect(line[j][0],line[j][1],line[j+1][0],line[j+1][1],
                                                   refRings[ri][k][0],refRings[ri][k][1],refRings[ri][k+1][0],refRings[ri][k+1][1])) return true;
                     return false;
                 }
 
-                // Função principal: feição toca ou sobrepõe o polígono de referência?
                 function featureIntersectsRef(feat) {
-                    var g = feat.geometry;
-                    if (!g) return false;
-                    if (g.type === 'Point')
-                        return ptInRef(g.coordinates[0], g.coordinates[1]);
-                    if (g.type === 'MultiPoint')
-                        return g.coordinates.some(function(c){ return ptInRef(c[0], c[1]); });
-                    if (g.type === 'Polygon')
-                        return ringIntersectsRef(g.coordinates[0]);
-                    if (g.type === 'MultiPolygon')
-                        return g.coordinates.some(function(poly){ return ringIntersectsRef(poly[0]); });
-                    if (g.type === 'LineString')
-                        return lineIntersectsRef(g.coordinates);
-                    if (g.type === 'MultiLineString')
-                        return g.coordinates.some(function(l){ return lineIntersectsRef(l); });
+                    var g=feat.geometry; if(!g) return false;
+                    if(g.type==='Point') return ptInRef(g.coordinates[0],g.coordinates[1]);
+                    if(g.type==='MultiPoint') return g.coordinates.some(function(c){return ptInRef(c[0],c[1]);});
+                    if(g.type==='Polygon') return ringIntersectsRef(g.coordinates[0]);
+                    if(g.type==='MultiPolygon') return g.coordinates.some(function(p){return ringIntersectsRef(p[0]);});
+                    if(g.type==='LineString') return lineIntersectsRef(g.coordinates);
+                    if(g.type==='MultiLineString') return g.coordinates.some(function(l){return lineIntersectsRef(l);});
                     return false;
                 }
 
-                // ── 3. Extração de tipologia por camada ──────────────────────
+                // ── 3. Grade de amostragem dentro do polígono de referência ──
+                //  Gera N×N pontos na bbox do ref, filtra apenas os que estão
+                //  dentro do anel do polígono. Estes pontos são usados para:
+                //   a) calcular % de cobertura por tipologia (vetorial)
+                //   b) consultas GetFeatureInfo ao WMS
+                var GRID_N = 8; // 8×8 = 64 pontos → bom equilíbrio precisão/velocidade
+                var refBb = (function(){
+                    var cs=[];
+                    function col(c){if(typeof c[0]==='number')cs.push(c);else c.forEach(col);}
+                    col(refGeoJSON.geometry.coordinates);
+                    var mn=[Infinity,Infinity],mx=[-Infinity,-Infinity];
+                    cs.forEach(function(c){
+                        if(c[0]<mn[0])mn[0]=c[0];if(c[0]>mx[0])mx[0]=c[0];
+                        if(c[1]<mn[1])mn[1]=c[1];if(c[1]>mx[1])mx[1]=c[1];
+                    });
+                    return {minLon:mn[0],maxLon:mx[0],minLat:mn[1],maxLat:mx[1]};
+                })();
+
+                var samplePoints = []; // [{lon, lat}]
+                var stepLon = (refBb.maxLon - refBb.minLon) / (GRID_N + 1);
+                var stepLat = (refBb.maxLat - refBb.minLat) / (GRID_N + 1);
+                for (var gi = 1; gi <= GRID_N; gi++) {
+                    for (var gj = 1; gj <= GRID_N; gj++) {
+                        var lon = refBb.minLon + gi * stepLon;
+                        var lat = refBb.minLat + gj * stepLat;
+                        if (ptInRef(lon, lat)) samplePoints.push({lon:lon, lat:lat});
+                    }
+                }
+                // Garante ao menos 1 ponto (centro do bbox)
+                if (samplePoints.length === 0) {
+                    samplePoints.push({
+                        lon: (refBb.minLon+refBb.maxLon)/2,
+                        lat: (refBb.minLat+refBb.maxLat)/2
+                    });
+                }
+                var totalSamples = samplePoints.length;
+
+                // ── 4. Tipologia por camada + % por amostragem ────────────────
                 function getTipologia(feat, layerName) {
-                    var p = feat.properties || {};
-                    // Mapeamento direto por camada
-                    var val = null;
-                    if (layerName === 'Vegetação')
-                        val = p['LEGENDA'] || p['legenda'] || p['classe'] || p['CLASSE'] || p['nom_cober'] || p['fisiognom'];
-                    else if (layerName === 'Pedologia')
-                        val = p['legenda'] || p['LEGENDA'] || p['sg_simbol'] || p['NM_SIMBOL'] || p['NOME'];
-                    else if (layerName === 'Geomorfologia')
-                        val = p['nm_dominio'] || p['leg_sup'] || p['nm_unidade'] || p['legenda'] || p['LEGENDA'];
-                    else if (layerName === 'CAR – Área de Imóvel')
-                        val = p['TIPO_IMOVE'] || p['SITUACAO'] || p['CONDICAO_I'] || p['IND_STATUS'];
-                    else if (layerName === 'CAR – Reserva Legal')
-                        val = p['NOM_TEMA'] || p['SITUACAO'] || p['COD_ESTADO'];
-                    else if (layerName === 'Proc. Minerários (ANM)')
-                        val = p['SUBSTANCIA'] || p['FASE'] || p['PROCESSO'] || p['USO'];
-                    else if (layerName === 'LAP')
-                        val = p['atividade'] || p['Atividade'] || p['descricao'] || p['tipologia'];
-                    else if (layerName === 'LAI')
-                        val = p['Atividade'] || p['atividade'] || p['descricao'] || p['tipologia'];
-                    else if (layerName === 'LAO')
-                        val = p['atividade'] || p['Atividade'] || p['descricao'];
-                    else if (layerName === 'Autorização Ambiental')
-                        val = p['atividade'] || p['Atividade'] || p['tipo'];
-                    else if (layerName === 'Cadastramento Ambiental')
-                        val = p['Atividade'] || p['atividade'];
-                    else if (layerName === 'SINAFLOR')
-                        val = p['atividade'] || p['Atividade'] || p['finalidade'];
-                    else if (layerName === 'Aut. Corte Simplificada')
-                        val = p['Empreended'] || p['empreendimento'] || p['finalidade'] || p['processo'];
-                    else if (layerName === 'Corte Eventual')
-                        val = p['Empreended'] || p['empreendimento'] || p['processo'] || p['finalidade'];
-                    else if (layerName === 'Licenciamento Ambiental (IMA)')
-                        val = p['atividade'] || p['tipo_licen'] || p['nome_empre'] || p['Atividade'];
-                    else if (layerName === 'AIA 2025')
-                        val = p['Assunto'] || p['assunto'] || p['Nome'] || p['nome'] || p['tipo'];
-
-                    // Fallback genérico se não encontrou
-                    if (!val || String(val).trim() === '' || String(val) === 'null' || String(val) === 'undefined')
-                        val = p['atividade'] || p['Atividade'] || p['legenda'] || p['LEGENDA'] ||
-                              p['tipo'] || p['TIPO'] || p['nome'] || p['NOME'] ||
-                              p['descricao'] || p['classe'] || p['CLASSE'] || null;
-
-                    return (val && String(val).trim() && String(val) !== 'null') ? String(val).trim() : null;
+                    var p = feat.properties || {}, val = null;
+                    if (layerName==='Vegetação')
+                        val=p['LEGENDA']||p['legenda']||p['classe']||p['CLASSE']||p['nom_cober']||p['fisiognom'];
+                    else if (layerName==='Pedologia')
+                        val=p['legenda']||p['LEGENDA']||p['sg_simbol']||p['NM_SIMBOL']||p['NOME'];
+                    else if (layerName==='Geomorfologia')
+                        val=p['nm_dominio']||p['leg_sup']||p['nm_unidade']||p['legenda']||p['LEGENDA'];
+                    else if (layerName==='CAR – Área de Imóvel')
+                        val=p['TIPO_IMOVE']||p['SITUACAO']||p['CONDICAO_I']||p['IND_STATUS'];
+                    else if (layerName==='CAR – Reserva Legal')
+                        val=p['NOM_TEMA']||p['SITUACAO']||p['COD_ESTADO'];
+                    else if (layerName==='Proc. Minerários (ANM)')
+                        val=p['SUBSTANCIA']||p['FASE']||p['PROCESSO']||p['USO'];
+                    else if (layerName==='LAP')
+                        val=p['atividade']||p['Atividade']||p['descricao']||p['tipologia'];
+                    else if (layerName==='LAI')
+                        val=p['Atividade']||p['atividade']||p['descricao']||p['tipologia'];
+                    else if (layerName==='LAO')
+                        val=p['atividade']||p['Atividade']||p['descricao'];
+                    else if (layerName==='Autorização Ambiental')
+                        val=p['atividade']||p['Atividade']||p['tipo'];
+                    else if (layerName==='Cadastramento Ambiental')
+                        val=p['Atividade']||p['atividade'];
+                    else if (layerName==='SINAFLOR')
+                        val=p['atividade']||p['Atividade']||p['finalidade'];
+                    else if (layerName==='Aut. Corte Simplificada')
+                        val=p['Empreended']||p['empreendimento']||p['finalidade']||p['processo'];
+                    else if (layerName==='Corte Eventual')
+                        val=p['Empreended']||p['empreendimento']||p['processo']||p['finalidade'];
+                    else if (layerName==='Licenciamento Ambiental (IMA)')
+                        val=p['atividade']||p['tipo_licen']||p['nome_empre']||p['Atividade'];
+                    else if (layerName==='AIA 2025')
+                        val=p['Assunto']||p['assunto']||p['Nome']||p['nome']||p['tipo'];
+                    if (!val||String(val).trim()===''||String(val)==='null'||String(val)==='undefined')
+                        val=p['atividade']||p['Atividade']||p['legenda']||p['LEGENDA']||
+                            p['tipo']||p['TIPO']||p['nome']||p['NOME']||
+                            p['descricao']||p['classe']||p['CLASSE']||null;
+                    return (val&&String(val).trim()&&String(val)!=='null') ? String(val).trim() : null;
                 }
 
-                // ── 4. Identificador da feição (para mostrar nas tabelas) ─────
-                function getIdentificador(feat, layerName) {
-                    var p = feat.properties || {};
-                    // Campos comuns de identificação
-                    return p['processo'] || p['PROCESSO'] || p['cod_licenc'] || p['numero'] || p['NUMERO'] ||
-                           p['protocolo'] || p['cod_imovel'] || p['COD_IMOVEL'] || p['id'] || p['ID'] ||
-                           p['gid'] || p['nome'] || p['NOME'] || p['nm_municip'] || null;
+                function getIdentificador(feat) {
+                    var p=feat.properties||{};
+                    return p['processo']||p['PROCESSO']||p['cod_licenc']||p['numero']||p['NUMERO']||
+                           p['protocolo']||p['cod_imovel']||p['COD_IMOVEL']||p['id']||p['ID']||
+                           p['gid']||p['nome']||p['NOME']||p['nm_municip']||null;
                 }
 
-                // ── 5. Camadas vetoriais GeoJSON (analisáveis) ────────────────
-                var vectorLayers = [
-                    // BDiA / Embrapa
-                    { name: 'Vegetação',                    layer: window.layer_Vegetao_31,                      grupo: 'BDiA / Embrapa',     tipoCamada: 'polígono' },
-                    { name: 'Pedologia',                    layer: window.layer_Pedologia_32,                    grupo: 'BDiA / Embrapa',     tipoCamada: 'polígono' },
-                    { name: 'Geomorfologia',                layer: window.layer_Geomorfologia_33,                grupo: 'BDiA / Embrapa',     tipoCamada: 'polígono' },
-                    // CAR
-                    { name: 'CAR – Área de Imóvel',         layer: window.layer_AREA_IMOVEL_34,                  grupo: 'CAR / SICAR',        tipoCamada: 'polígono' },
-                    { name: 'CAR – Reserva Legal',          layer: window.layer_RESERVA_LEGAL_35,                grupo: 'CAR / SICAR',        tipoCamada: 'polígono' },
-                    // ANM
-                    { name: 'Proc. Minerários (ANM)',        layer: window.layer_Processosminerriosativos_30,     grupo: 'ANM',                tipoCamada: 'polígono' },
-                    // IMA
-                    { name: 'Licenciamento Ambiental (IMA)',layer: window.layer_LicenciamentoAmbiental_37,        grupo: 'Instituto do Meio Ambiente', tipoCamada: 'ponto' },
-                    // Fiscalização
-                    { name: 'AIA 2025',                     layer: window.layer_AIA_2025_38,                     grupo: 'Fiscalização Ambiental', tipoCamada: 'ponto' },
-                    // Licenças Ambientais 2026
-                    { name: 'LAP',                          layer: window.layer_LAP_39,                          grupo: 'Licenças Ambientais 2026', tipoCamada: 'ponto' },
-                    { name: 'LAI',                          layer: window.layer_LAI_40,                          grupo: 'Licenças Ambientais 2026', tipoCamada: 'ponto' },
-                    { name: 'LAO',                          layer: window.layer_LAO_41,                          grupo: 'Licenças Ambientais 2026', tipoCamada: 'ponto' },
-                    { name: 'Autorização Ambiental',        layer: window.layer_AutorizaoAmbiental_42,           grupo: 'Licenças Ambientais 2026', tipoCamada: 'ponto' },
-                    { name: 'Cadastramento Ambiental',      layer: window.layer_CadastramentoAmbiental_43,       grupo: 'Licenças Ambientais 2026', tipoCamada: 'ponto' },
-                    { name: 'SINAFLOR',                     layer: window.layer_SINAFLOR_44,                     grupo: 'Licenças Ambientais 2026', tipoCamada: 'ponto' },
-                    { name: 'Aut. Corte Simplificada',      layer: window.layer_AutorizaodeCorteSimplificada_45, grupo: 'Licenças Ambientais 2026', tipoCamada: 'ponto' },
-                    { name: 'Corte Eventual',               layer: window.layer_CorteEventual_46,                grupo: 'Licenças Ambientais 2026', tipoCamada: 'ponto' },
-                ].filter(function(it){ return it.layer && it.layer.eachLayer; });
+                // ── 5. Análise vetorial com % por amostragem ─────────────────
+                // Para cada camada:
+                //   - detecta feições que tocam/sobrepõem o ref (geometria real)
+                //   - para cada ponto amostrado, identifica em qual tipologia ele cai
+                //   - % de cada tipologia = (pontos nessa tipologia / total amostras) × 100
+                //   - pontos que caem em 2+ feições são contados na primeira encontrada
+                //   - pontos fora de qualquer feição da camada = "Sem cobertura"
+                function analisarCamadaVetorial(item) {
+                    var allF=[], interF=[];
+                    item.layer.eachLayer(function(l){
+                        var feat=l.feature;
+                        if(!feat||!feat.geometry) return;
+                        allF.push(feat);
+                        if(featureIntersectsRef(feat)) interF.push(feat);
+                    });
 
-                // Camadas WMS – listadas no relatório com aviso explicativo
-                var wmsLayers = [
-                    { name: 'Hidrografia de 2020',                              grupo: 'GeoJaraguá' },
-                    { name: 'APP Hidrografia 2020',                             grupo: 'GeoJaraguá' },
-                    { name: 'APP Nascentes 2020',                               grupo: 'GeoJaraguá' },
-                    { name: 'Hidrografia Urbana 1998',                          grupo: 'GeoJaraguá' },
-                    { name: 'Tubulação de Drenagem',                            grupo: 'GeoJaraguá' },
-                    { name: 'AUC – Linha Média Consolidada (LMC)',              grupo: 'GeoJaraguá' },
-                    { name: 'AUC MA 2017',                                      grupo: 'GeoJaraguá' },
-                    { name: 'AUC PI 2017',                                      grupo: 'GeoJaraguá' },
-                    { name: 'Franjas Verdes (LC 234/2019)',                     grupo: 'GeoJaraguá' },
-                    { name: 'ZEIA (LC 234/2019)',                               grupo: 'GeoJaraguá' },
-                    { name: 'Limite de Lotes Urbanos',                          grupo: 'GeoJaraguá' },
-                    { name: 'Limite de Lotes Rurais',                           grupo: 'GeoJaraguá' },
-                    { name: 'Limite de Bairros',                                grupo: 'GeoJaraguá' },
-                    { name: 'Limite Municipal',                                 grupo: 'GeoJaraguá' },
-                    { name: 'Inundações Esporádicas',                           grupo: 'GeoJaraguá' },
-                    { name: 'Inundações Recorrentes',                           grupo: 'GeoJaraguá' },
-                    { name: 'Susc. Mov. Gravitacionais de Massa e Inundações',  grupo: 'GeoJaraguá' },
-                    { name: 'Suscetibilidade Enxurrada',                        grupo: 'GeoJaraguá' },
-                    { name: 'Suscetibilidade Inundação',                        grupo: 'GeoJaraguá' },
-                    { name: 'Suscetibilidade Movimento de Massa',               grupo: 'GeoJaraguá' },
-                    { name: 'Curvas de Nível',                                  grupo: 'GeoJaraguá' },
-                    { name: 'Área de Tombamento IPHAN',                         grupo: 'GeoJaraguá' },
-                    { name: 'Erodibilidade dos Solos (CNPS / Embrapa)',         grupo: 'Geoinfo Embrapa' },
-                    { name: 'INDE Trecho de Drenagem (SIG-SC)',                 grupo: 'SIG-SC' },
-                    { name: 'ANA Curso D\'Água (SIG-SC)',                       grupo: 'SIG-SC' },
-                    { name: 'ANA Nascente (SIG-SC)',                            grupo: 'SIG-SC' },
-                    { name: 'MDT-2012 (SIG-SC)',                                grupo: 'SIG-SC' },
-                    { name: 'Processos Minerários Ativos (ANM)',                grupo: 'ANM – WMS' },
+                    // Para cada ponto amostrado, descobre a tipologia
+                    var tipVotos = {}; // tipologia → contagem de pontos
+                    var pontosComCobertura = 0;
+
+                    samplePoints.forEach(function(pt) {
+                        // Procura qual feição da camada contém este ponto
+                        var tipEncontrada = null;
+                        for (var fi=0; fi<allF.length; fi++) {
+                            var g = allF[fi].geometry;
+                            var dentro = false;
+                            if (g.type==='Polygon') dentro = ptInRing(pt.lon,pt.lat,g.coordinates[0]);
+                            else if (g.type==='MultiPolygon')
+                                dentro = g.coordinates.some(function(p){return ptInRing(pt.lon,pt.lat,p[0]);});
+                            else if (g.type==='Point')
+                                dentro = (Math.abs(pt.lon-g.coordinates[0])<0.0001 && Math.abs(pt.lat-g.coordinates[1])<0.0001);
+                            if (dentro) {
+                                tipEncontrada = getTipologia(allF[fi], item.name) || '(sem classificação)';
+                                break;
+                            }
+                        }
+                        if (tipEncontrada) {
+                            tipVotos[tipEncontrada] = (tipVotos[tipEncontrada]||0) + 1;
+                            pontosComCobertura++;
+                        }
+                    });
+
+                    // Constrói lista de tipologias com % real de cobertura da área
+                    var tipList = Object.keys(tipVotos).map(function(k){
+                        return {
+                            nome: k,
+                            votos: tipVotos[k],
+                            pctArea: ((tipVotos[k]/totalSamples)*100).toFixed(1)
+                        };
+                    }).sort(function(a,b){return b.votos-a.votos;});
+
+                    // % total de sobreposição = pontos dentro de alguma feição / total
+                    var pctSobrep = ((pontosComCobertura/totalSamples)*100).toFixed(1);
+
+                    return {
+                        name: item.name, grupo: item.grupo,
+                        total: allF.length, sob: interF.length,
+                        pctSobrep: pctSobrep,
+                        allF: allF, interF: interF, tipList: tipList,
+                        tipo: 'vetorial'
+                    };
+                }
+
+                // ── 6. Camadas WMS e seus GetFeatureInfo ─────────────────────
+                var wmsQueryLayers = [
+                    { name: 'Hidrografia de 2020',          wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'hidro_hidrografia_2020',                                 grupo: 'GeoJaraguá', campoTip: 'nome' },
+                    { name: 'APP Hidrografia 2020',          wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'app_cursos_de_agua_geral_em_estudo_ano_2020',            grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'APP Nascentes 2020',            wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'app_ 50m_nascentes-vistoriadas_preservadas_ano_2020',   grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'Hidrografia Urbana 1998',       wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'hid_hidrografia_urbana_1998',                          grupo: 'GeoJaraguá', campoTip: 'nome' },
+                    { name: 'Tubulação de Drenagem',         wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'tubulacoes_drenagem_urbana',                           grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'AUC – LMC',                     wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'lim_lmc',                                              grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'AUC MA 2017',                   wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'auc_ma_2017',                                         grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'AUC PI 2017',                   wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'auc_pi_2017',                                         grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'Franjas Verdes (LC 234/2019)',  wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'zon_franjas_verdes_lc_234_2019',                      grupo: 'GeoJaraguá', campoTip: 'descricao' },
+                    { name: 'ZEIA (LC 234/2019)',            wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'zon_zeia_lc_234_2019',                                grupo: 'GeoJaraguá', campoTip: 'descricao' },
+                    { name: 'Limite de Lotes Urbanos',       wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'lim_lotes_urbanos',                                   grupo: 'GeoJaraguá', campoTip: 'uso' },
+                    { name: 'Limite de Lotes Rurais',        wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'lim_lotes_rurais',                                    grupo: 'GeoJaraguá', campoTip: 'uso' },
+                    { name: 'Limite de Bairros',             wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'lim_bairros',                                         grupo: 'GeoJaraguá', campoTip: 'nm_bairro' },
+                    { name: 'Inundações Esporádicas',        wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'inundacoes_esporadicas',                              grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'Inundações Recorrentes',        wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'inundacoes_recorrentes',                              grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'Susc. Mov. Gravitacionais',     wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'grupo_pdo16_suscetibilidade_movimentos_gravitacionais', grupo: 'GeoJaraguá', campoTip: 'grau' },
+                    { name: 'Susc. Enxurrada',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'pdo16_suscetibilidade_enxurrada',                     grupo: 'GeoJaraguá', campoTip: 'grau' },
+                    { name: 'Susc. Inundação',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'pdo16_suscetibilidade_inundacao',                     grupo: 'GeoJaraguá', campoTip: 'grau' },
+                    { name: 'Susc. Movimento de Massa',      wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'pdo16_suscetibilidade_movimento_de_massa',            grupo: 'GeoJaraguá', campoTip: 'grau' },
+                    { name: 'Tombamento IPHAN',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'grupo_iphan_tombamento_rio_da_luz',                   grupo: 'GeoJaraguá', campoTip: 'nome' },
+                    { name: 'Curvas de Nível',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'curvas_de_nivel',                                    grupo: 'GeoJaraguá', campoTip: 'altitude' },
+                    { name: 'Erodibilidade dos Solos (Embrapa)', wmsUrl: 'https://geoinfo.dados.embrapa.br/geoserver/ows',            layer: 'geonode:bra_erodibilidade_2024_sirgas2000',            grupo: 'Embrapa',    campoTip: 'classe' },
+                    { name: 'INDE Trecho Drenagem (SIG-SC)', wmsUrl: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms',                    layer: 'INDE_trecho_drenagem',                                 grupo: 'SIG-SC',     campoTip: 'nome' },
+                    { name: 'ANA Curso D\'Água (SIG-SC)',    wmsUrl: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms',                    layer: 'ANA_curso_dagua',                                      grupo: 'SIG-SC',     campoTip: 'nome' },
+                    { name: 'ANA Nascente (SIG-SC)',         wmsUrl: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms',                    layer: 'ANA_nascente',                                         grupo: 'SIG-SC',     campoTip: 'nome' },
                 ];
 
-                // ── 6. Bbox e funções de canvas ───────────────────────────────
-                var CW = 560, CH = 340;
+                // Consulta GetFeatureInfo para UM ponto em UMA camada WMS
+                // Retorna Promise<{tipologia, props} | null>
+                function queryWMSPoint(wmsLayer, lon, lat) {
+                    // Monta bbox pequena ao redor do ponto (1m aprox em graus)
+                    var delta = 0.00005;
+                    var bbox = (lon-delta)+','+(lat-delta)+','+(lon+delta)+','+(lat+delta);
+                    var url = wmsLayer.wmsUrl +
+                        '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo' +
+                        '&LAYERS=' + encodeURIComponent(wmsLayer.layer) +
+                        '&QUERY_LAYERS=' + encodeURIComponent(wmsLayer.layer) +
+                        '&BBOX=' + bbox +
+                        '&WIDTH=3&HEIGHT=3&SRS=EPSG:4326' +
+                        '&INFO_FORMAT=application/json' +
+                        '&X=1&Y=1&FEATURE_COUNT=1';
 
-                function bboxGeom(geom) {
-                    var cs = [];
-                    function col(c) { if (typeof c[0] === 'number') cs.push(c); else c.forEach(col); }
-                    col(geom.coordinates);
-                    var mn = [Infinity, Infinity], mx = [-Infinity, -Infinity];
-                    cs.forEach(function(c){
-                        if(c[0]<mn[0])mn[0]=c[0]; if(c[0]>mx[0])mx[0]=c[0];
-                        if(c[1]<mn[1])mn[1]=c[1]; if(c[1]>mx[1])mx[1]=c[1];
-                    });
-                    return { minLon:mn[0], maxLon:mx[0], minLat:mn[1], maxLat:mx[1] };
+                    return fetch(url, {mode:'cors'})
+                        .then(function(res){
+                            if(!res.ok) return null;
+                            return res.json();
+                        })
+                        .then(function(data){
+                            if(!data||!data.features||data.features.length===0) return null;
+                            var props = data.features[0].properties || {};
+                            var tip = props[wmsLayer.campoTip] ||
+                                      props['nome']||props['NOME']||props['tipo']||props['TIPO']||
+                                      props['grau']||props['descricao']||props['classe']||
+                                      props['nm_bairro']||null;
+                            return { tipologia: tip ? String(tip).trim() : '(detectado)', props: props };
+                        })
+                        .catch(function(){ return null; }); // CORS ou erro → ignora
                 }
 
-                var refBb = bboxGeom(refGeoJSON.geometry);
-                var spanLon = refBb.maxLon - refBb.minLon || 0.002;
-                var spanLat = refBb.maxLat - refBb.minLat || 0.002;
-                var pad = Math.max(spanLon, spanLat) * 0.2;
-                var vBb = { minLon: refBb.minLon-pad, maxLon: refBb.maxLon+pad,
-                            minLat: refBb.minLat-pad, maxLat: refBb.maxLat+pad };
+                // Analisa uma camada WMS: consulta todos os samplePoints em paralelo
+                // Agrega votos por tipologia → % de cobertura
+                function analisarCamadaWMS(wmsLayer) {
+                    var promises = samplePoints.map(function(pt){
+                        return queryWMSPoint(wmsLayer, pt.lon, pt.lat);
+                    });
+                    return Promise.all(promises).then(function(results){
+                        var tipVotos={}, hits=0, corsBlocked=true;
+                        results.forEach(function(r){
+                            if (r === null) return; // CORS ou sem feição
+                            corsBlocked = false;
+                            hits++;
+                            var chave = r.tipologia || '(sem classificação)';
+                            tipVotos[chave] = (tipVotos[chave]||0)+1;
+                        });
+                        var tipList = Object.keys(tipVotos).map(function(k){
+                            return {nome:k, votos:tipVotos[k], pctArea:((tipVotos[k]/totalSamples)*100).toFixed(1)};
+                        }).sort(function(a,b){return b.votos-a.votos;});
+                        return {
+                            name: wmsLayer.name, grupo: wmsLayer.grupo,
+                            pctSobrep: ((hits/totalSamples)*100).toFixed(1),
+                            tipList: tipList, hits: hits,
+                            corsBlocked: corsBlocked && results.length>0,
+                            tipo: 'wms'
+                        };
+                    });
+                }
 
-                function proj(lon, lat, bb) {
+                // ── 7. Canvas / PDF helpers ───────────────────────────────────
+                var CW=560, CH=340;
+                var pad = Math.max((refBb.maxLon-refBb.minLon),(refBb.maxLat-refBb.minLat))*0.2||0.001;
+                var vBb={minLon:refBb.minLon-pad,maxLon:refBb.maxLon+pad,minLat:refBb.minLat-pad,maxLat:refBb.maxLat+pad};
+
+                function proj(lon,lat,bb){
                     return [(lon-bb.minLon)/(bb.maxLon-bb.minLon)*CW,
                             CH-(lat-bb.minLat)/(bb.maxLat-bb.minLat)*CH];
                 }
-
-                function drawGeom(ctx, geom, bb, fill, stroke, ptR) {
-                    ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 1.4;
-                    var r = ptR || 4;
-                    function doRing(ring) {
-                        if (ring.length < 2) return;
-                        var p0 = proj(ring[0][0],ring[0][1],bb);
-                        ctx.beginPath(); ctx.moveTo(p0[0],p0[1]);
-                        for (var k=1;k<ring.length;k++){var p=proj(ring[k][0],ring[k][1],bb);ctx.lineTo(p[0],p[1]);}
-                        ctx.closePath(); ctx.fill(); ctx.stroke();
-                    }
-                    function doLine(ln) {
-                        ctx.beginPath();
-                        ln.forEach(function(c,i){var p=proj(c[0],c[1],bb);i===0?ctx.moveTo(p[0],p[1]):ctx.lineTo(p[0],p[1]);});
-                        ctx.stroke();
-                    }
-                    function doPt(c) { var p=proj(c[0],c[1],bb);ctx.beginPath();ctx.arc(p[0],p[1],r,0,Math.PI*2);ctx.fill();ctx.stroke(); }
-                    if (geom.type==='Point') doPt(geom.coordinates);
-                    else if (geom.type==='MultiPoint') geom.coordinates.forEach(doPt);
-                    else if (geom.type==='Polygon') geom.coordinates.forEach(doRing);
-                    else if (geom.type==='MultiPolygon') geom.coordinates.forEach(function(p){p.forEach(doRing);});
-                    else if (geom.type==='LineString') doLine(geom.coordinates);
-                    else if (geom.type==='MultiLineString') geom.coordinates.forEach(doLine);
+                function drawGeom(ctx,geom,bb,fill,stroke,ptR){
+                    ctx.fillStyle=fill;ctx.strokeStyle=stroke;ctx.lineWidth=1.4;var r=ptR||4;
+                    function doRing(ring){if(ring.length<2)return;var p0=proj(ring[0][0],ring[0][1],bb);ctx.beginPath();ctx.moveTo(p0[0],p0[1]);for(var k=1;k<ring.length;k++){var p=proj(ring[k][0],ring[k][1],bb);ctx.lineTo(p[0],p[1]);}ctx.closePath();ctx.fill();ctx.stroke();}
+                    function doLine(ln){ctx.beginPath();ln.forEach(function(c,i){var p=proj(c[0],c[1],bb);i===0?ctx.moveTo(p[0],p[1]):ctx.lineTo(p[0],p[1]);});ctx.stroke();}
+                    function doPt(c){var p=proj(c[0],c[1],bb);ctx.beginPath();ctx.arc(p[0],p[1],r,0,Math.PI*2);ctx.fill();ctx.stroke();}
+                    if(geom.type==='Point')doPt(geom.coordinates);
+                    else if(geom.type==='MultiPoint')geom.coordinates.forEach(doPt);
+                    else if(geom.type==='Polygon')geom.coordinates.forEach(doRing);
+                    else if(geom.type==='MultiPolygon')geom.coordinates.forEach(function(p){p.forEach(doRing);});
+                    else if(geom.type==='LineString')doLine(geom.coordinates);
+                    else if(geom.type==='MultiLineString')geom.coordinates.forEach(doLine);
                 }
-
-                function buildMinimap(allF, interF, refGeom, bb) {
-                    var cv = document.createElement('canvas'); cv.width=CW; cv.height=CH;
-                    var ctx = cv.getContext('2d');
-                    // Fundo
-                    ctx.fillStyle='#0b1828'; ctx.fillRect(0,0,CW,CH);
-                    // Grade leve
-                    ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.lineWidth=1;
+                function buildMinimap(allF,interF,refGeom,bb) {
+                    var cv=document.createElement('canvas');cv.width=CW;cv.height=CH;
+                    var ctx=cv.getContext('2d');
+                    ctx.fillStyle='#0b1828';ctx.fillRect(0,0,CW,CH);
+                    ctx.strokeStyle='rgba(255,255,255,0.03)';ctx.lineWidth=1;
                     for(var x=0;x<CW;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.stroke();}
                     for(var y=0;y<CH;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CW,y);ctx.stroke();}
-                    // Todas as feições da camada (azul acinzentado)
-                    allF.forEach(function(f){ drawGeom(ctx,f.geometry,bb,'rgba(70,110,170,0.18)','rgba(80,130,200,0.4)',3); });
-                    // Feições sobrepostas (vermelho/laranja intenso)
-                    interF.forEach(function(f){ drawGeom(ctx,f.geometry,bb,'rgba(220,60,50,0.5)','rgba(240,80,60,1)',6); });
-                    // Polígono de referência (verde tracejado)
-                    ctx.setLineDash([8,4]); ctx.lineWidth=2.5;
+                    allF.forEach(function(f){drawGeom(ctx,f.geometry,bb,'rgba(70,110,170,0.18)','rgba(80,130,200,0.4)',3);});
+                    interF.forEach(function(f){drawGeom(ctx,f.geometry,bb,'rgba(220,60,50,0.5)','rgba(240,80,60,1)',6);});
+                    // Pontos amostrados
+                    samplePoints.forEach(function(pt){
+                        var p=proj(pt.lon,pt.lat,bb);
+                        ctx.fillStyle='rgba(255,255,100,0.4)';ctx.strokeStyle='rgba(255,255,100,0.8)';ctx.lineWidth=0.5;
+                        ctx.beginPath();ctx.arc(p[0],p[1],2.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+                    });
+                    ctx.setLineDash([8,4]);ctx.lineWidth=2.5;
                     drawGeom(ctx,refGeom,bb,'rgba(46,204,113,0.1)','#2ecc71',0);
                     ctx.setLineDash([]);
-                    // Legenda interna
-                    var lx=8, ly=CH-58;
-                    ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(lx,ly,230,52);
-                    ctx.font='bold 11px Arial';
-                    ctx.fillStyle='rgba(70,110,170,0.85)';  ctx.fillRect(lx+6,ly+8,13,11);
-                    ctx.fillStyle='#ccc'; ctx.fillText('Feições da camada (sem sobreposição)',lx+24,ly+19);
-                    ctx.fillStyle='rgba(220,60,50,0.85)';   ctx.fillRect(lx+6,ly+26,13,11);
-                    ctx.fillStyle='#ccc'; ctx.fillText('Sobreposição com área de análise',lx+24,ly+37);
-                    ctx.strokeStyle='#2ecc71'; ctx.lineWidth=2; ctx.setLineDash([6,3]);
-                    ctx.strokeRect(lx+6,ly+43,13,7); ctx.setLineDash([]);
-                    ctx.fillStyle='#ccc'; ctx.fillText('Área de referência',lx+24,ly+50);
+                    var lx=8,ly=CH-70;
+                    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(lx,ly,240,64);
+                    ctx.font='bold 10px Arial';
+                    ctx.fillStyle='rgba(70,110,170,0.85)';ctx.fillRect(lx+6,ly+7,12,10);
+                    ctx.fillStyle='#bbb';ctx.fillText('Feições da camada',lx+22,ly+17);
+                    ctx.fillStyle='rgba(220,60,50,0.85)';ctx.fillRect(lx+6,ly+24,12,10);
+                    ctx.fillStyle='#bbb';ctx.fillText('Sobreposição detectada',lx+22,ly+34);
+                    ctx.fillStyle='rgba(255,255,100,0.7)';ctx.fillRect(lx+6,ly+41,12,10);
+                    ctx.fillStyle='#bbb';ctx.fillText('Pontos de amostragem ('+totalSamples+')',lx+22,ly+51);
+                    ctx.strokeStyle='#2ecc71';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+                    ctx.strokeRect(lx+6,ly+55,12,7);ctx.setLineDash([]);
+                    ctx.fillStyle='#bbb';ctx.fillText('Área de referência',lx+22,ly+61);
                     return cv;
                 }
 
-                // ── 7. Processar camadas e gerar PDF ─────────────────────────
-                var btn = document.getElementById('generateReportBtn');
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analisando geometrias...';
+                function buildMinimapWMS(refGeom, bb, pts, hits) {
+                    var cv=document.createElement('canvas');cv.width=CW;cv.height=CH;
+                    var ctx=cv.getContext('2d');
+                    ctx.fillStyle='#0b1828';ctx.fillRect(0,0,CW,CH);
+                    ctx.strokeStyle='rgba(255,255,255,0.03)';ctx.lineWidth=1;
+                    for(var x=0;x<CW;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.stroke();}
+                    for(var y=0;y<CH;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CW,y);ctx.stroke();}
+                    // Pontos sem hit (cinza) e com hit (vermelho)
+                    pts.forEach(function(pt,idx){
+                        var p=proj(pt.lon,pt.lat,bb);
+                        var hit=hits[idx];
+                        ctx.fillStyle=hit?'rgba(220,60,50,0.85)':'rgba(80,100,140,0.5)';
+                        ctx.strokeStyle=hit?'rgba(240,80,60,1)':'rgba(100,130,170,0.6)';
+                        ctx.lineWidth=0.8;
+                        ctx.beginPath();ctx.arc(p[0],p[1],hit?5:3,0,Math.PI*2);ctx.fill();ctx.stroke();
+                    });
+                    ctx.setLineDash([8,4]);ctx.lineWidth=2.5;
+                    drawGeom(ctx,refGeom,bb,'rgba(46,204,113,0.1)','#2ecc71',0);
+                    ctx.setLineDash([]);
+                    var lx=8,ly=CH-55;
+                    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(lx,ly,220,50);
+                    ctx.font='bold 10px Arial';
+                    ctx.fillStyle='rgba(220,60,50,0.85)';ctx.fillRect(lx+6,ly+7,12,10);
+                    ctx.fillStyle='#bbb';ctx.fillText('Ponto com feição detectada',lx+22,ly+17);
+                    ctx.fillStyle='rgba(80,100,140,0.7)';ctx.fillRect(lx+6,ly+24,12,10);
+                    ctx.fillStyle='#bbb';ctx.fillText('Ponto sem feição',lx+22,ly+34);
+                    ctx.strokeStyle='#2ecc71';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+                    ctx.strokeRect(lx+6,ly+40,12,7);ctx.setLineDash([]);
+                    ctx.fillStyle='#bbb';ctx.fillText('Área de referência',lx+22,ly+47);
+                    return cv;
+                }
+
+                // ── 8. Geração do PDF ─────────────────────────────────────────
+                function renderPDF(resultadosVet, resultadosWMS) {
+                    var { jsPDF } = window.jspdf;
+                    var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+                    var PW=297,PH=210;
+                    var dataHoje=new Date().toLocaleDateString('pt-BR');
+
+                    var todos = resultadosVet.concat(resultadosWMS);
+                    var comSob = todos.filter(function(r){return parseFloat(r.pctSobrep)>0;});
+
+                    // ─── CAPA ────────────────────────────────────────────────
+                    doc.setFillColor(8,18,42);doc.rect(0,0,PW,PH,'F');
+                    doc.setFillColor(46,204,113);doc.rect(0,0,7,PH,'F');
+                    doc.setFillColor(14,32,68);doc.rect(7,0,PW-7,26,'F');
+
+                    doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(255,255,255);
+                    doc.text('RELATÓRIO DE SOBREPOSIÇÃO GIS',PW/2,11,{align:'center'});
+                    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(140,190,160);
+                    doc.text('Análise de interseção espacial – Camadas vetoriais (geometria real) + WMS (amostragem de pontos)',PW/2,18,{align:'center'});
+                    doc.setFontSize(7.5);doc.setTextColor(90,140,110);
+                    doc.text('Gerado em: '+dataHoje+'   |   FUJAMA – Fundação Jaraguaense de Meio Ambiente',PW/2,24,{align:'center'});
+
+                    doc.setDrawColor(46,204,113);doc.setLineWidth(0.3);doc.line(10,28,PW-10,28);
+
+                    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(46,204,113);
+                    doc.text('RESUMO EXECUTIVO',12,35);
+                    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160,200,180);
+                    doc.text('Vetoriais: geometria real (bordas+interior). WMS: GetFeatureInfo em '+totalSamples+' pontos amostrados dentro da área de referência.',12,41);
+                    doc.text('% de cobertura = pontos da amostra dentro de cada tipologia / total de pontos amostrados.',12,47);
+                    doc.text('Camadas analisadas: '+todos.length+
+                             '  |  Com sobreposição: '+comSob.length+
+                             '  |  Vetoriais: '+resultadosVet.length+
+                             '  |  WMS: '+resultadosWMS.length,12,53);
+
+                    // Tabela resumo capa
+                    var tY=59;
+                    doc.setFillColor(12,35,72);doc.rect(10,tY-4.5,PW-20,7,'F');
+                    doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(46,204,113);
+                    doc.text('Camada',12,tY);doc.text('Grupo',90,tY);doc.text('Tipo',140,tY);
+                    doc.text('% Cobertura',158,tY);doc.text('Tipologias Dominantes',185,tY);
+
+                    doc.setFont('helvetica','normal');
+                    todos.forEach(function(r,idx){
+                        var ry=tY+5+idx*5.8;
+                        if(ry>PH-20) return;
+                        var pNum=parseFloat(r.pctSobrep);
+                        doc.setFillColor(idx%2===0?10:16,idx%2===0?24:32,idx%2===0?50:62);
+                        doc.rect(10,ry-4,PW-20,5.8,'F');
+                        doc.setFontSize(6.2);
+                        doc.setTextColor(pNum>0?220:120,pNum>0?100:155,pNum>0?80:140);
+                        doc.text(r.name.substring(0,32),12,ry);
+                        doc.setTextColor(110,145,130);
+                        doc.text(r.grupo.substring(0,18),90,ry);
+                        doc.text(r.tipo==='wms'?'WMS':'Vetorial',140,ry);
+                        doc.setTextColor(pNum>0?220:100,pNum>0?100:150,pNum>0?80:130);
+                        doc.text(r.pctSobrep+'%',158,ry);
+                        doc.setTextColor(160,190,175);
+                        var tipStr=r.tipList.slice(0,3).map(function(t){
+                            return t.nome.substring(0,18)+' ('+t.pctArea+'%)';
+                        }).join(' • ');
+                        if(r.corsBlocked) tipStr='⚠ CORS bloqueado pelo servidor';
+                        doc.text(tipStr.substring(0,80),185,ry);
+                    });
+
+                    doc.setFontSize(6);doc.setTextColor(45,75,60);
+                    doc.text('FUJAMA – Fundação Jaraguaense de Meio Ambiente  |  WebGIS  |  '+dataHoje,PW/2,PH-3,{align:'center'});
+
+                    // ─── PÁGINAS POR CAMADA ───────────────────────────────────
+                    function renderPagina(r) {
+                        doc.addPage();
+                        doc.setFillColor(8,18,42);doc.rect(0,0,PW,PH,'F');
+                        var cor=parseFloat(r.pctSobrep)>0?[220,60,50]:[46,120,160];
+                        if(r.corsBlocked) cor=[180,140,30];
+                        doc.setFillColor(cor[0],cor[1],cor[2]);doc.rect(0,0,7,PH,'F');
+                        doc.setFillColor(14,32,68);doc.rect(7,0,PW-7,22,'F');
+
+                        doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(255,255,255);
+                        doc.text(r.name.toUpperCase(),14,9);
+                        doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(90,130,110);
+                        var metodo=r.tipo==='wms'?'GetFeatureInfo WMS – '+totalSamples+' pontos amostrados':'Interseção geométrica real';
+                        doc.text(r.grupo+' – '+metodo+'  |  '+dataHoje+'  |  FUJAMA',14,16);
+                        doc.setFont('helvetica','bold');doc.setFontSize(13);
+                        doc.setTextColor(cor[0],cor[1],cor[2]);
+                        doc.text(r.pctSobrep+'%',PW-12,10,{align:'right'});
+                        doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(90,130,110);
+                        doc.text('cobertura da área',PW-12,16,{align:'right'});
+
+                        // Minimap
+                        var mX=10,mY=25,mW=148,mH=93,mc;
+                        if(r.tipo==='vetorial') {
+                            mc=buildMinimap(r.allF,r.interF,refGeoJSON.geometry,vBb);
+                        } else {
+                            mc=buildMinimapWMS(refGeoJSON.geometry,vBb,samplePoints,r.hitMap||[]);
+                        }
+                        doc.addImage(mc.toDataURL('image/png'),'PNG',mX,mY,mW,mH);
+                        doc.setDrawColor(cor[0],cor[1],cor[2]);doc.setLineWidth(0.3);doc.rect(mX,mY,mW,mH);
+                        doc.setFontSize(5.5);doc.setTextColor(70,110,90);
+                        doc.text(r.tipo==='wms'?
+                            'Pontos vermelhos = feição detectada pelo GetFeatureInfo  |  Cinza = sem feição no ponto':
+                            'Vermelho = sobreposição real  |  Azul = camada  |  Verde = área de referência  |  Amarelo = pontos amostrados',
+                            mX,mY+mH+3.5);
+
+                        // Cards estatística
+                        var sx=mX+mW+8,sy=mY;
+                        // Card % cobertura
+                        doc.setFillColor(14,35,70);doc.roundedRect(sx,sy,114,21,1.5,1.5,'F');
+                        doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(cor[0],cor[1],cor[2]);
+                        doc.text(r.pctSobrep+'%',sx+57,sy+13,{align:'center'});
+                        doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(90,130,110);
+                        doc.text('da área de referência com cobertura desta camada',sx+57,sy+19,{align:'center'});
+
+                        // Barra de progresso grande
+                        var pNum=parseFloat(r.pctSobrep);
+                        doc.setFillColor(14,35,70);doc.roundedRect(sx,sy+25,114,12,1.5,1.5,'F');
+                        doc.setFontSize(6);doc.setTextColor(80,120,100);
+                        doc.text('% cobertura (por amostragem de '+totalSamples+' pontos)',sx+4,sy+31);
+                        doc.setFillColor(22,50,90);doc.rect(sx+4,sy+33,96,5,'F');
+                        if(pNum>0){doc.setFillColor(cor[0],cor[1],cor[2]);doc.rect(sx+4,sy+33,Math.min(pNum/100*96,96),5,'F');}
+                        doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(255,255,255);
+                        doc.text(r.pctSobrep+'%',sx+104,sy+38,{align:'right'});
+
+                        // Donut
+                        if(r.tipList.length>0||r.corsBlocked) {
+                            var pc=document.createElement('canvas');pc.width=120;pc.height=120;
+                            var pctx=pc.getContext('2d');
+                            pctx.fillStyle='#080e1c';pctx.fillRect(0,0,120,120);
+                            if(!r.corsBlocked&&r.tipList.length>0) {
+                                var CORES=['rgba(220,60,50,0.9)','rgba(52,152,219,0.9)','rgba(46,204,113,0.9)',
+                                           'rgba(241,196,15,0.9)','rgba(155,89,182,0.9)','rgba(230,126,34,0.9)',
+                                           'rgba(26,188,156,0.9)','rgba(231,76,60,0.9)'];
+                                var ang=-Math.PI/2,total2=r.tipList.reduce(function(s,t){return s+t.votos;},0);
+                                r.tipList.forEach(function(tip,ti){
+                                    var sw=(tip.votos/total2)*Math.PI*2;
+                                    pctx.beginPath();pctx.moveTo(60,60);pctx.arc(60,60,52,ang,ang+sw);pctx.closePath();
+                                    pctx.fillStyle=CORES[ti%CORES.length];pctx.fill();
+                                    pctx.strokeStyle='#080e1c';pctx.lineWidth=2;pctx.stroke();
+                                    ang+=sw;
+                                });
+                            }
+                            pctx.beginPath();pctx.arc(60,60,28,0,Math.PI*2);
+                            pctx.fillStyle='#080e1c';pctx.fill();
+                            pctx.font='bold 11px Arial';pctx.fillStyle='#fff';pctx.textAlign='center';
+                            pctx.fillText(r.corsBlocked?'CORS':r.pctSobrep+'%',60,64);
+                            doc.addImage(pc.toDataURL('image/png'),'PNG',sx,sy+41,38,38);
+                            doc.setFontSize(5.5);doc.setTextColor(70,105,85);
+                            doc.text('Cobertura/Tipologias',sx+19,sy+82,{align:'center'});
+                        }
+
+                        // ─── Tabela de tipologias ─────────────────────────────
+                        var tY2=mY+mH+10;
+                        if(r.corsBlocked) {
+                            doc.setFillColor(40,30,10);doc.rect(10,tY2,PW-20,16,'F');
+                            doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(255,200,50);
+                            doc.text('⚠  CORS BLOQUEADO PELO SERVIDOR WMS',PW/2,tY2+7,{align:'center'});
+                            doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,160,100);
+                            doc.text('O servidor não permite consultas GetFeatureInfo do browser. Para análise, utilize QGIS ou ArcGIS com acesso direto ao GeoServer.',PW/2,tY2+13,{align:'center'});
+                        } else if(r.tipList.length===0) {
+                            doc.setFillColor(12,28,52);doc.rect(10,tY2,PW-20,11,'F');
+                            doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(90,130,110);
+                            doc.text('Nenhuma feição detectada dentro da área de análise.',PW/2,tY2+7,{align:'center'});
+                        } else {
+                            doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(46,204,113);
+                            doc.text('TIPOLOGIAS / CLASSES DETECTADAS NA ÁREA DE ANÁLISE',10,tY2);
+                            doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(100,140,120);
+                            doc.text('(% = proporção da área de referência coberta por cada tipologia, baseada em '+totalSamples+' pontos amostrados)',10,tY2+5);
+                            tY2+=9;
+
+                            var CORES2=['rgba(220,60,50,1)','rgba(52,152,219,1)','rgba(46,204,113,1)',
+                                        'rgba(241,196,15,1)','rgba(155,89,182,1)','rgba(230,126,34,1)',
+                                        'rgba(26,188,156,1)','rgba(231,76,60,1)'];
+
+                            doc.setFillColor(12,35,72);doc.rect(10,tY2-4,PW-20,6.5,'F');
+                            doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(46,204,113);
+                            doc.text('Tipologia / Classe',12,tY2);
+                            doc.text('Pts',215,tY2);doc.text('% Área',228,tY2);doc.text('Cobertura visual',248,tY2);
+                            tY2+=4;
+
+                            r.tipList.forEach(function(tip,ti){
+                                var ry3=tY2+ti*7;
+                                if(ry3>PH-10) return;
+                                doc.setFillColor(ti%2===0?10:16,ti%2===0?24:32,ti%2===0?50:62);
+                                doc.rect(10,ry3-4.5,PW-20,7,'F');
+                                // Cor da tipologia
+                                var rgb=CORES2[ti%CORES2.length].match(/\d+/g);
+                                doc.setFillColor(parseInt(rgb[0]),parseInt(rgb[1]),parseInt(rgb[2]));
+                                doc.rect(10,ry3-4,5,6,'F');
+                                doc.setFont('helvetica','normal');doc.setFontSize(7);
+                                doc.setTextColor(170,200,185);
+                                doc.text(tip.nome.substring(0,90),17,ry3);
+                                doc.setFont('helvetica','bold');
+                                doc.setTextColor(parseInt(rgb[0]),parseInt(rgb[1]),parseInt(rgb[2]));
+                                doc.text(String(tip.votos),215,ry3);
+                                doc.setTextColor(46,204,113);
+                                doc.text(tip.pctArea+'%',228,ry3);
+                                // Barra de área
+                                doc.setFillColor(20,45,80);doc.rect(248,ry3-3.5,40,5,'F');
+                                doc.setFillColor(parseInt(rgb[0]),parseInt(rgb[1]),parseInt(rgb[2]));
+                                doc.rect(248,ry3-3.5,Math.min(parseFloat(tip.pctArea)/100*40,40),5,'F');
+                            });
+                        }
+
+                        doc.setDrawColor(cor[0],cor[1],cor[2]);doc.setLineWidth(0.2);doc.line(10,PH-7,PW-10,PH-7);
+                        doc.setFontSize(5.5);doc.setTextColor(45,75,60);
+                        doc.text(r.name+' – '+r.grupo+'  |  FUJAMA – Fundação Jaraguaense de Meio Ambiente  |  '+dataHoje,PW/2,PH-3,{align:'center'});
+                    }
+
+                    resultadosVet.forEach(renderPagina);
+                    resultadosWMS.forEach(renderPagina);
+
+                    doc.save('relatorio_sobreposicao_GIS_'+dataHoje.replace(/\//g,'-')+'.pdf');
+                }
+
+                // ── 9. Orquestração: vetorial primeiro, WMS em paralelo ───────
+                var btn=document.getElementById('generateReportBtn');
+                btn.disabled=true;
+                btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analisando camadas vetoriais...';
+
+                // Barra de progresso visual no card do relatório
+                var progressEl=document.getElementById('reportProgress');
+                if(!progressEl){
+                    progressEl=document.createElement('div');
+                    progressEl.id='reportProgress';
+                    progressEl.style.cssText='margin-top:8px;background:#0a1929;border-radius:4px;padding:8px;font-size:11px;color:#7fb;display:none;';
+                    btn.parentNode.insertBefore(progressEl,btn.nextSibling);
+                }
+                function setProgress(txt,pct){
+                    progressEl.style.display='block';
+                    progressEl.innerHTML='<div style="margin-bottom:4px">'+txt+'</div>'+
+                        '<div style="background:#1a3a2a;border-radius:3px;height:6px;">'+
+                        '<div style="background:#2ecc71;height:6px;border-radius:3px;width:'+pct+'%;transition:width 0.3s"></div></div>';
+                }
+                function hideProgress(){progressEl.style.display='none';}
 
                 setTimeout(function(){
                 try {
-                    var { jsPDF } = window.jspdf;
-                    var doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-                    var PW=297, PH=210;
-                    var dataHoje = new Date().toLocaleDateString('pt-BR');
-                    var resultados = [];
-
+                    // FASE 1: camadas vetoriais (síncrono, instantâneo)
+                    setProgress('Analisando camadas vetoriais locais...',10);
+                    var resultadosVet=[];
                     vectorLayers.forEach(function(item){
-                        var allF=[], interF=[], tipContagem={}, feicoes=[];
-                        item.layer.eachLayer(function(l){
-                            var feat = l.feature;
-                            if (!feat || !feat.geometry) return;
-                            allF.push(feat);
-                            if (featureIntersectsRef(feat)) {
-                                interF.push(feat);
-                                var tip = getTipologia(feat, item.name);
-                                var chave = tip || '(não classificado)';
-                                tipContagem[chave] = (tipContagem[chave]||0) + 1;
-                                feicoes.push({
-                                    id:  getIdentificador(feat, item.name) || String(interF.length),
-                                    tip: tip || '—',
-                                    props: feat.properties || {}
-                                });
-                            }
-                        });
-                        var total=allF.length, sob=interF.length;
-                        var pct = total>0 ? ((sob/total)*100).toFixed(1) : '0.0';
-                        var tipList = Object.keys(tipContagem)
-                            .map(function(k){return{nome:k, qtd:tipContagem[k]};})
-                            .sort(function(a,b){return b.qtd-a.qtd;});
-                        resultados.push({
-                            name:item.name, grupo:item.grupo, tipoCamada:item.tipoCamada,
-                            total:total, sob:sob, pct:pct,
-                            allF:allF, interF:interF, tipList:tipList, feicoes:feicoes
+                        resultadosVet.push(analisarCamadaVetorial(item));
+                    });
+                    setProgress('Vetoriais concluídas. Consultando camadas WMS...',25);
+                    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Consultando WMS ('+(wmsQueryLayers.length)+' camadas)...';
+
+                    // FASE 2: WMS em paralelo (assíncrono)
+                    var wmsPromises=wmsQueryLayers.map(function(wl,idx){
+                        return analisarCamadaWMS(wl).then(function(result){
+                            var pct=25+Math.round(((idx+1)/wmsQueryLayers.length)*70);
+                            setProgress('WMS: '+result.name+' concluída ('+(idx+1)+'/'+wmsQueryLayers.length+')',pct);
+                            // Guarda mapa de hits por ponto para o minimap
+                            return result;
                         });
                     });
 
-                    // ─── CAPA ────────────────────────────────────────────────
-                    doc.setFillColor(8,18,42);  doc.rect(0,0,PW,PH,'F');
-                    doc.setFillColor(46,204,113); doc.rect(0,0,7,PH,'F');
-                    doc.setFillColor(14,32,68);  doc.rect(7,0,PW-7,26,'F');
-
-                    doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(255,255,255);
-                    doc.text('RELATÓRIO DE SOBREPOSIÇÃO GIS', PW/2, 11, {align:'center'});
-                    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(140,190,160);
-                    doc.text('Análise de interseção geométrica real entre área de referência e camadas vetoriais', PW/2, 18, {align:'center'});
-                    doc.setFontSize(7.5); doc.setTextColor(90,140,110);
-                    doc.text('Gerado em: '+dataHoje+'   |   FUJAMA – Fundação Jaraguaense de Meio Ambiente', PW/2, 24, {align:'center'});
-
-                    doc.setDrawColor(46,204,113); doc.setLineWidth(0.3); doc.line(10,28,PW-10,28);
-
-                    // Resumo executivo
-                    var comSob = resultados.filter(function(r){return r.sob>0;});
-                    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(46,204,113);
-                    doc.text('RESUMO EXECUTIVO', 12,35);
-                    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(160,200,180);
-                    doc.text('Metodologia: interseção geométrica real — bordas, interior e vértices de polígonos, linhas e pontos.', 12,41);
-                    doc.text('Camadas vetoriais analisadas: '+vectorLayers.length+
-                             '   |   Com sobreposição: '+comSob.length+
-                             '   |   Sem sobreposição: '+(resultados.length-comSob.length), 12,47);
-                    doc.text('Camadas WMS (análise vetorial server-side necessária – listadas na última página): '+wmsLayers.length, 12,53);
-
-                    // Tabela resumo
-                    var tY=59;
-                    doc.setFillColor(12,35,72); doc.rect(10,tY-4.5,PW-20,7,'F');
-                    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(46,204,113);
-                    doc.text('Camada',12,tY); doc.text('Grupo',88,tY);
-                    doc.text('Total',137,tY); doc.text('Sobr.',157,tY); doc.text('%',172,tY);
-                    doc.text('Principais Tipologias Sobrepostas',182,tY);
-
-                    doc.setFont('helvetica','normal');
-                    resultados.forEach(function(r,idx){
-                        var ry = tY+5+idx*6;
-                        if (ry > PH-26) return;
-                        doc.setFillColor(idx%2===0?10:16, idx%2===0?24:32, idx%2===0?50:62);
-                        doc.rect(10,ry-4.5,PW-20,6,'F');
-                        doc.setFontSize(6.5);
-                        if (r.sob>0) doc.setTextColor(240,120,80); else doc.setTextColor(140,175,160);
-                        doc.text(r.name.substring(0,28),12,ry);
-                        doc.setTextColor(120,155,140);
-                        doc.text(r.grupo.substring(0,20),88,ry);
-                        doc.setTextColor(r.sob>0?240:120, r.sob>0?120:155, r.sob>0?80:140);
-                        doc.text(String(r.total),137,ry);
-                        doc.text(String(r.sob),157,ry);
-                        doc.text(r.pct+'%',172,ry);
-                        doc.setTextColor(180,210,195);
-                        var tipStr = r.tipList.slice(0,3).map(function(t){
-                            return t.nome.substring(0,22)+' ('+t.qtd+')';
-                        }).join(' • ');
-                        doc.text(tipStr.substring(0,80),182,ry);
+                    Promise.all(wmsPromises).then(function(resultadosWMS){
+                        setProgress('Gerando PDF...',98);
+                        try {
+                            renderPDF(resultadosVet, resultadosWMS);
+                            hideProgress();
+                        } catch(err){
+                            hideProgress();
+                            alert('Erro ao gerar PDF: '+err.message);
+                            console.error(err);
+                        }
+                        btn.disabled=false;
+                        btn.innerHTML='<i class="fas fa-file-download"></i> Gerar Relatório';
+                    }).catch(function(err){
+                        hideProgress();
+                        alert('Erro nas consultas WMS: '+err.message);
+                        btn.disabled=false;
+                        btn.innerHTML='<i class="fas fa-file-download"></i> Gerar Relatório';
                     });
 
-                    // Nota WMS resumida na capa
-                    var wmY = tY+5+resultados.length*6+3;
-                    if (wmY < PH-28) {
-                        doc.setFillColor(12,28,52); doc.rect(10,wmY,PW-20,14,'F');
-                        doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(255,200,50);
-                        doc.text('⚠  CAMADAS WMS – servidas remotamente, sem acesso vetorial no browser. Ver última página para lista completa.',12,wmY+6);
-                        doc.setFont('helvetica','normal'); doc.setTextColor(110,145,130); doc.setFontSize(6);
-                        doc.text('Estas camadas incluem: Hidrografia, AUC, Inundações, APP, Suscetibilidades, Bairros, Lotes, Curvas de nível, Tombamento IPHAN, entre outras.',12,wmY+11);
-                    }
-                    doc.setFontSize(6); doc.setTextColor(45,75,60);
-                    doc.text('FUJAMA – Fundação Jaraguaense de Meio Ambiente  |  WebGIS  |  '+dataHoje, PW/2,PH-3,{align:'center'});
-
-                    // ─── PÁGINAS POR CAMADA ───────────────────────────────────
-                    resultados.forEach(function(r){
-                        doc.addPage();
-                        doc.setFillColor(8,18,42); doc.rect(0,0,PW,PH,'F');
-
-                        var cor = r.sob>0 ? [220,60,50] : [46,120,160];
-                        doc.setFillColor(cor[0],cor[1],cor[2]); doc.rect(0,0,7,PH,'F');
-                        doc.setFillColor(14,32,68); doc.rect(7,0,PW-7,22,'F');
-
-                        // Cabeçalho
-                        doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(255,255,255);
-                        doc.text(r.name.toUpperCase(), 14, 9);
-                        doc.setFontSize(7); doc.setTextColor(90,130,110);
-                        doc.text(r.grupo+' – Análise geométrica real  |  '+dataHoje+'  |  FUJAMA – Fundação Jaraguaense de Meio Ambiente', 14,16);
-                        doc.setFont('helvetica','bold'); doc.setFontSize(13);
-                        doc.setTextColor(r.sob>0?220:60, r.sob>0?60:140, r.sob>0?50:200);
-                        doc.text(r.pct+'%', PW-12,10,{align:'right'});
-                        doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(90,130,110);
-                        doc.text('sobreposição', PW-12,16,{align:'right'});
-
-                        // Minimap
-                        var mX=10, mY=25, mW=148, mH=93;
-                        var mc = buildMinimap(r.allF, r.interF, refGeoJSON.geometry, vBb);
-                        doc.addImage(mc.toDataURL('image/png'),'PNG',mX,mY,mW,mH);
-                        doc.setDrawColor(r.sob>0?220:46, r.sob>0?60:150, r.sob>0?50:160); doc.setLineWidth(0.35);
-                        doc.rect(mX,mY,mW,mH);
-                        doc.setFontSize(5.5); doc.setTextColor(70,110,90);
-                        doc.text('Mapa de sobreposição — verde=área de análise  |  vermelho=sobreposição  |  azul=camada', mX, mY+mH+3.5);
-
-                        // Cards de estatística
-                        var sx=mX+mW+8, sy=mY;
-
-                        // Card total
-                        doc.setFillColor(14,35,70); doc.roundedRect(sx,sy,55,21,1.5,1.5,'F');
-                        doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(52,152,219);
-                        doc.text(String(r.total), sx+27.5, sy+13, {align:'center'});
-                        doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(90,130,110);
-                        doc.text('Total de Feições', sx+27.5, sy+19, {align:'center'});
-
-                        // Card sobrepostas
-                        doc.setFillColor(r.sob>0?45:14, r.sob>0?18:35, r.sob>0?15:70);
-                        doc.roundedRect(sx+59,sy,55,21,1.5,1.5,'F');
-                        doc.setFont('helvetica','bold'); doc.setFontSize(17);
-                        doc.setTextColor(cor[0],cor[1],cor[2]);
-                        doc.text(String(r.sob), sx+86.5, sy+13, {align:'center'});
-                        doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(90,130,110);
-                        doc.text('Sobrepostas', sx+86.5, sy+19, {align:'center'});
-
-                        // Barra de progresso
-                        var pNum = parseFloat(r.pct);
-                        doc.setFillColor(14,35,70); doc.roundedRect(sx,sy+25,114,16,1.5,1.5,'F');
-                        doc.setFontSize(6.5); doc.setTextColor(80,120,100);
-                        doc.text('% de feições sobrepostas à área de referência', sx+4,sy+31);
-                        doc.setFillColor(22,50,90); doc.rect(sx+4,sy+33,88,5,'F');
-                        if (pNum>0) {
-                            doc.setFillColor(cor[0],cor[1],cor[2]);
-                            doc.rect(sx+4,sy+33,Math.min(pNum/100*88,88),5,'F');
-                        }
-                        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(255,255,255);
-                        doc.text(r.pct+'%', sx+96,sy+38,{align:'right'});
-
-                        // Donut
-                        if (r.total>0) {
-                            var pc=document.createElement('canvas'); pc.width=120; pc.height=120;
-                            var pctx=pc.getContext('2d');
-                            pctx.fillStyle='#080e1c'; pctx.fillRect(0,0,120,120);
-                            var ang=-Math.PI/2, sem=r.total-r.sob;
-                            [[r.sob,'rgba(220,60,50,0.9)'],[sem,'rgba(30,90,160,0.75)']].forEach(function(sl){
-                                if(sl[0]<=0) return;
-                                var sw=(sl[0]/r.total)*Math.PI*2;
-                                pctx.beginPath(); pctx.moveTo(60,60); pctx.arc(60,60,52,ang,ang+sw); pctx.closePath();
-                                pctx.fillStyle=sl[1]; pctx.fill();
-                                pctx.strokeStyle='#080e1c'; pctx.lineWidth=2.5; pctx.stroke();
-                                ang+=sw;
-                            });
-                            pctx.beginPath(); pctx.arc(60,60,28,0,Math.PI*2);
-                            pctx.fillStyle='#080e1c'; pctx.fill();
-                            pctx.font='bold 12px Arial'; pctx.fillStyle='#fff'; pctx.textAlign='center';
-                            pctx.fillText(r.pct+'%',60,64);
-                            doc.addImage(pc.toDataURL('image/png'),'PNG',sx,sy+45,40,40);
-                            doc.setFontSize(6); doc.setTextColor(70,105,85);
-                            doc.text('Sobrep./Total',sx+20,sy+88,{align:'center'});
-                            var lx2=sx+44, lly2=sy+53;
-                            doc.setFillColor(220,60,50); doc.rect(lx2,lly2,7,5,'F');
-                            doc.setTextColor(160,195,180); doc.setFontSize(6.5);
-                            doc.text('Sobrepostas ('+r.sob+')',lx2+9,lly2+4);
-                            doc.setFillColor(30,90,160); doc.rect(lx2,lly2+9,7,5,'F');
-                            doc.text('Sem sobrep. ('+sem+')',lx2+9,lly2+13);
-                        }
-
-                        // ─── Seção de tipologias ou feições ──────────────────
-                        var tY2 = mY+mH+10;
-                        if (r.sob === 0) {
-                            // Camada sem sobreposição
-                            doc.setFillColor(12,28,52); doc.rect(10,tY2,PW-20,11,'F');
-                            doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(90,130,110);
-                            doc.text('Nenhuma feição desta camada se sobrepõe ou toca a área de análise.', PW/2, tY2+7, {align:'center'});
-
-                        } else if (r.tipList.length>0 && r.tipList[0].nome !== '(não classificado)') {
-                            // Camadas com tipologia (Vegetação, Pedologia, Geomorfologia, licenças, etc.)
-                            doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(46,204,113);
-                            doc.text('TIPOLOGIAS / CLASSES SOBREPOSTAS À ÁREA DE ANÁLISE', 10, tY2);
-                            tY2 += 5;
-
-                            // Header tabela tipologias
-                            doc.setFillColor(12,35,72); doc.rect(10,tY2-4,PW-20,6.5,'F');
-                            doc.setFontSize(7); doc.setTextColor(46,204,113);
-                            doc.text('Tipologia / Classificação',12,tY2);
-                            doc.text('Feições',215,tY2); doc.text('%',240,tY2); doc.text('Barra',255,tY2);
-                            tY2 += 4;
-
-                            var tipTotal = r.tipList.reduce(function(s,t){return s+t.qtd;},0);
-                            r.tipList.forEach(function(tip,ti){
-                                var ry3 = tY2+ti*7;
-                                if (ry3 > PH-10) return;
-                                doc.setFillColor(ti%2===0?10:16, ti%2===0?24:32, ti%2===0?50:62);
-                                doc.rect(10,ry3-4.5,PW-20,7,'F');
-                                doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
-                                doc.setTextColor(170,200,185);
-                                doc.text(tip.nome.substring(0,90),12,ry3);
-                                doc.setFont('helvetica','bold'); doc.setTextColor(220,60,50);
-                                doc.text(String(tip.qtd),215,ry3);
-                                doc.setTextColor(46,204,113);
-                                var pTip = ((tip.qtd/tipTotal)*100).toFixed(1);
-                                doc.text(pTip+'%',240,ry3);
-                                // Barra inline
-                                doc.setFillColor(20,45,80); doc.rect(255,ry3-3.5,30,4,'F');
-                                doc.setFillColor(220,60,50);
-                                doc.rect(255,ry3-3.5,Math.min(parseFloat(pTip)/100*30,30),4,'F');
-                            });
-
-                        } else {
-                            // Camadas sem tipologia: tabela de feições com atributos
-                            doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(46,204,113);
-                            doc.text('FEIÇÕES SOBREPOSTAS À ÁREA DE ANÁLISE', 10, tY2);
-                            tY2 += 5;
-
-                            var keys3 = r.interF.length>0 ? Object.keys(r.interF[0].properties||{}).slice(0,7) : [];
-                            if (keys3.length>0) {
-                                var cw3 = Math.floor((PW-22)/keys3.length);
-                                doc.setFillColor(12,35,72); doc.rect(10,tY2-4,PW-20,6.5,'F');
-                                doc.setFontSize(7); doc.setTextColor(46,204,113);
-                                keys3.forEach(function(k,ki){doc.text(k.substring(0,15),12+ki*cw3,tY2);});
-                                tY2 += 4;
-                                r.interF.slice(0,10).forEach(function(feat,fi){
-                                    var ry4=tY2+fi*6.5;
-                                    if(ry4>PH-10) return;
-                                    doc.setFillColor(fi%2===0?10:16, fi%2===0?24:32, fi%2===0?50:62);
-                                    doc.rect(10,ry4-4.5,PW-20,7,'F');
-                                    doc.setTextColor(150,185,170); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-                                    keys3.forEach(function(k,ki){
-                                        var v=feat.properties[k]; var s=v!=null?String(v).substring(0,18):'-';
-                                        doc.text(s,12+ki*cw3,ry4);
-                                    });
-                                });
-                                if(r.sob>10){
-                                    doc.setFontSize(6.5); doc.setTextColor(80,115,100);
-                                    doc.text('... e mais '+(r.sob-10)+' feição(ões) sobrepostas.',12,tY2+10*6.5+2);
-                                }
-                            }
-                        }
-
-                        // Rodapé
-                        doc.setDrawColor(cor[0],cor[1],cor[2]); doc.setLineWidth(0.2); doc.line(10,PH-7,PW-10,PH-7);
-                        doc.setFontSize(5.5); doc.setTextColor(45,75,60);
-                        doc.text(r.name+' – '+r.grupo+'  |  FUJAMA – Fundação Jaraguaense de Meio Ambiente  |  '+dataHoje, PW/2,PH-3,{align:'center'});
-                    });
-
-                    // ─── PÁGINA FINAL: WMS ────────────────────────────────────
-                    doc.addPage();
-                    doc.setFillColor(8,18,42); doc.rect(0,0,PW,PH,'F');
-                    doc.setFillColor(255,200,50); doc.rect(0,0,7,PH,'F');
-                    doc.setFillColor(14,32,68); doc.rect(7,0,PW-7,22,'F');
-
-                    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(255,255,255);
-                    doc.text('CAMADAS WMS – ANÁLISE VETORIAL NÃO DISPONÍVEL NO BROWSER', 14,10);
-                    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(90,130,110);
-                    doc.text('Estas camadas são servidas via protocolo WMS e não possuem dados vetoriais acessíveis via JavaScript. Para análise de sobreposição, utilize um SIG desktop (QGIS/ArcGIS) ou serviços WFS.', 14,17);
-
-                    doc.setDrawColor(255,200,50); doc.setLineWidth(0.3); doc.line(10,24,PW-10,24);
-
-                    doc.setFillColor(12,35,72); doc.rect(10,27,PW-20,8,'F');
-                    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(255,200,50);
-                    doc.text('Camada',12,32); doc.text('Grupo / Fonte',180,32); doc.text('Tipo',250,32);
-
-                    var wY=36;
-                    wmsLayers.forEach(function(w,wi){
-                        var ry5=wY+wi*7;
-                        if(ry5>PH-15) return;
-                        doc.setFillColor(wi%2===0?10:16, wi%2===0?24:32, wi%2===0?50:62);
-                        doc.rect(10,ry5-4.5,PW-20,7,'F');
-                        doc.setFont('helvetica','normal'); doc.setFontSize(6.8); doc.setTextColor(160,195,178);
-                        doc.text(w.name,12,ry5);
-                        doc.setTextColor(110,150,135);
-                        doc.text(w.grupo,180,ry5);
-                        doc.text('WMS',250,ry5);
-                    });
-
-                    doc.setFontSize(7); doc.setTextColor(90,130,110);
-                    doc.text('Para analisar estas camadas, acesse o GeoServer de Jaraguá do Sul: https://geo.jaraguadosul.sc.gov.br', PW/2,PH-10,{align:'center'});
-                    doc.setFontSize(5.5); doc.setTextColor(45,75,60);
-                    doc.text('FUJAMA – Fundação Jaraguaense de Meio Ambiente  |  WebGIS  |  '+dataHoje, PW/2,PH-3,{align:'center'});
-
-                    doc.save('relatorio_sobreposicao_GIS_'+dataHoje.replace(/\//g,'-')+'.pdf');
-
-                } catch(err) {
-                    alert('Erro ao gerar PDF: '+err.message);
+                } catch(err){
+                    hideProgress();
+                    alert('Erro: '+err.message);
                     console.error(err);
-                } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-file-download"></i> Gerar Relatório';
+                    btn.disabled=false;
+                    btn.innerHTML='<i class="fas fa-file-download"></i> Gerar Relatório';
                 }
-                }, 200);
+                },150);
             }
         // ========== MAPA ==========
         var map = L.map('map', { zoomControl: false, maxZoom: 28, minZoom: 1 })
