@@ -6026,11 +6026,18 @@
             var tmsUrl = SAT_TMS_BASE.replace(/^http:\/\//i, 'https://') + encodeURIComponent(cogHref);
             console.log('[SAT TMS] URL final:', tmsUrl);
 
+            // Pane dedicado acima de todos os vetoriais (z-index ~400-500)
+            if (!map.getPane('satTmsPane')) {
+                map.createPane('satTmsPane');
+                map.getPane('satTmsPane').style.zIndex = 250;
+                map.getPane('satTmsPane').style.pointerEvents = 'none';
+            }
             var tmsLayer = L.tileLayer(tmsUrl, {
                 opacity: 0.9,
                 attribution: 'INPE – CBERS-4A / BDC',
                 maxNativeZoom: 18, maxZoom: 22,
-                tms: false
+                tms: false,
+                pane: 'satTmsPane'
             });
             tmsLayer.addTo(map);
             satTmsLayers[id] = tmsLayer;
