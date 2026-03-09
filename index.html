@@ -2154,7 +2154,27 @@
                            p['gid']||p['nome']||p['NOME']||p['nm_municip']||null;
                 }
 
-                // ── 5. Análise vetorial com % por amostragem ─────────────────
+                // ── 5. Lista de camadas vetoriais GeoJSON analisáveis ─────────
+                var vectorLayers = [
+                    { name: 'Vegetação',                    layer: window.layer_Vegetao_31,                      grupo: 'BDiA / Embrapa' },
+                    { name: 'Pedologia',                    layer: window.layer_Pedologia_32,                    grupo: 'BDiA / Embrapa' },
+                    { name: 'Geomorfologia',                layer: window.layer_Geomorfologia_33,                grupo: 'BDiA / Embrapa' },
+                    { name: 'CAR – Área de Imóvel',         layer: window.layer_AREA_IMOVEL_34,                  grupo: 'CAR / SICAR' },
+                    { name: 'CAR – Reserva Legal',          layer: window.layer_RESERVA_LEGAL_35,                grupo: 'CAR / SICAR' },
+                    { name: 'Proc. Minerários (ANM)',        layer: window.layer_Processosminerriosativos_30,     grupo: 'ANM' },
+                    { name: 'Licenciamento Ambiental (IMA)',layer: window.layer_LicenciamentoAmbiental_37,        grupo: 'Instituto do Meio Ambiente' },
+                    { name: 'AIA 2025',                     layer: window.layer_AIA_2025_38,                     grupo: 'Fiscalização Ambiental' },
+                    { name: 'LAP',                          layer: window.layer_LAP_39,                          grupo: 'Licenças Ambientais 2026' },
+                    { name: 'LAI',                          layer: window.layer_LAI_40,                          grupo: 'Licenças Ambientais 2026' },
+                    { name: 'LAO',                          layer: window.layer_LAO_41,                          grupo: 'Licenças Ambientais 2026' },
+                    { name: 'Autorização Ambiental',        layer: window.layer_AutorizaoAmbiental_42,           grupo: 'Licenças Ambientais 2026' },
+                    { name: 'Cadastramento Ambiental',      layer: window.layer_CadastramentoAmbiental_43,       grupo: 'Licenças Ambientais 2026' },
+                    { name: 'SINAFLOR',                     layer: window.layer_SINAFLOR_44,                     grupo: 'Licenças Ambientais 2026' },
+                    { name: 'Aut. Corte Simplificada',      layer: window.layer_AutorizaodeCorteSimplificada_45, grupo: 'Licenças Ambientais 2026' },
+                    { name: 'Corte Eventual',               layer: window.layer_CorteEventual_46,                grupo: 'Licenças Ambientais 2026' },
+                ].filter(function(it){ return it.layer && it.layer.eachLayer; });
+
+                // ── 6. Análise vetorial com % por amostragem ─────────────────
                 // Para cada camada:
                 //   - detecta feições que tocam/sobrepõem o ref (geometria real)
                 //   - para cada ponto amostrado, identifica em qual tipologia ele cai
