@@ -1231,58 +1231,80 @@
         }
         #btn-comparativo.ativo i { color: #9b59b6; }
 
-        #comparativo-wrapper {
+
+        /* ===== COMPARATIVO TEMPORAL ===== */
+        /* Quando ativo: o #map se divide em dois via clip-path */
+        #map { transition: none; }
+
+        /* Painel espelho — cópia visual da base direita, posicionada sobre o mapa */
+        #comp-right-panel {
             display: none;
             position: fixed;
-            top: var(--header-height); left: 0; right: 0; bottom: 0;
-            z-index: 490; /* abaixo do #map normal (500), mas o overlay sobe para 520 */
-            flex-direction: row;
+            top: var(--header-height);
+            right: 0; bottom: 0;
+            z-index: 501;  /* acima do #map (500) */
+            pointer-events: none; /* deixa eventos passarem para o mapa */
         }
-        #comparativo-wrapper.ativo { display: flex; }
+        #comp-right-panel.ativo {
+            display: block;
+        }
+        #comp-right-map {
+            width: 100%; height: 100%;
+            pointer-events: all;
+        }
 
-        .comp-pane { flex: 1; position: relative; overflow: hidden; }
-        #comp-map-left, #comp-map-right { position: absolute; inset: 0; }
-
-        .comp-divider {
+        /* Divisor arrastável */
+        #comp-divider {
+            display: none;
+            position: fixed;
+            top: var(--header-height); bottom: 0;
             width: 6px;
             background: linear-gradient(180deg, #9b59b6, #3498db);
-            cursor: col-resize; flex-shrink: 0;
-            position: relative; z-index: 20;
-            box-shadow: 0 0 10px rgba(155,89,182,0.5);
+            cursor: col-resize;
+            z-index: 502;
+            box-shadow: 0 0 12px rgba(155,89,182,0.6);
         }
-        .comp-divider::after {
+        #comp-divider.ativo { display: block; }
+        #comp-divider::after {
             content: '⟺';
             position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%,-50%);
+            transform: translate(-50%, -50%);
             background: rgba(10,25,45,0.95);
-            border: 1px solid rgba(155,89,182,0.6);
+            border: 1px solid rgba(155,89,182,0.7);
             border-radius: 50%; width: 30px; height: 30px;
             display: flex; align-items: center; justify-content: center;
             font-size: 0.9em; color: #d7a8f0;
+            pointer-events: none;
         }
+
+        /* Labels e seletores flutuantes */
         .comp-label {
-            position: absolute; top: 10px; left: 50%;
-            transform: translateX(-50%);
+            position: fixed;
+            top: calc(var(--header-height) + 10px);
             background: rgba(10,25,45,0.88);
             border: 1px solid rgba(155,89,182,0.4);
             border-radius: 20px; padding: 4px 14px;
             font-size: 0.72em; color: #d7a8f0;
-            pointer-events: none;
-            z-index: 530; white-space: nowrap;
+            pointer-events: none; z-index: 503;
+            white-space: nowrap;
         }
+        #comp-label-left  { display: none; }
+        #comp-label-right { display: none; }
+        #comp-label-left.ativo, #comp-label-right.ativo { display: block; }
+
         .comp-base-sel {
-            position: absolute; bottom: 14px; left: 50%;
-            transform: translateX(-50%);
+            position: fixed;
+            bottom: 14px;
             background: rgba(10,25,45,0.96);
             border: 1px solid rgba(155,89,182,0.55);
             border-radius: 8px; padding: 7px 12px;
             font-size: 0.8em; color: #cde;
-            z-index: 530; /* acima do map overlay (520) */
-            pointer-events: all;
-            display: flex; align-items: center; gap: 7px;
+            z-index: 503;
+            display: none; align-items: center; gap: 7px;
             white-space: nowrap;
             box-shadow: 0 4px 16px rgba(0,0,0,0.55);
         }
+        .comp-base-sel.ativo { display: flex; }
         .comp-base-sel select {
             background: rgba(10,25,45,0.9);
             border: 1px solid rgba(155,89,182,0.4);
@@ -1290,13 +1312,7 @@
             font-size: 1em; cursor: pointer; outline: none;
             padding: 2px 6px;
         }
-        /* Quando comparativo ativo: mapa principal fica invisível mas ainda recebe eventos */
-        #map.comp-overlay {
-            z-index: 520; /* acima do comparativo-wrapper (490) */
-            background: transparent !important;
-        }
-        #map.comp-overlay .leaflet-tile-pane,
-        #map.comp-overlay .leaflet-shadow-pane { opacity: 0; pointer-events: none; }
+
         </style>
         <title></title>
     </head>
@@ -1370,35 +1386,28 @@
             </div>
         </header>
 
-        <!-- Comparativo Temporal -->
-        <div id="comparativo-wrapper">
-            <div class="comp-pane" id="comp-pane-left">
-                <div id="comp-map-left"></div>
-                <div class="comp-label"><i class="fas fa-map"></i> Esquerda</div>
-                <div class="comp-base-sel">
-                    <i class="fas fa-layer-group"></i>
-                    <select id="comp-base-left" onchange="setCompBase('left', this.value)">
-                        <option value="openstreetmap">OpenStreetMap</option>
-                        <option value="googleearth">Google Earth</option>
-                        <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
-                        <option value="ortomosaico2020">Ortomosaico 2020</option>
-                    </select>
-                </div>
-            </div>
-            <div class="comp-divider" id="comp-divider"></div>
-            <div class="comp-pane" id="comp-pane-right">
-                <div id="comp-map-right"></div>
-                <div class="comp-label"><i class="fas fa-map"></i> Direita</div>
-                <div class="comp-base-sel">
-                    <i class="fas fa-layer-group"></i>
-                    <select id="comp-base-right" onchange="setCompBase('right', this.value)">
-                        <option value="openstreetmap">OpenStreetMap</option>
-                        <option value="googleearth" selected>Google Earth</option>
-                        <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
-                        <option value="ortomosaico2020">Ortomosaico 2020</option>
-                    </select>
-                </div>
-            </div>
+        <!-- Comparativo Temporal: painel direito independente + divisor -->
+        <div id="comp-right-panel"><div id="comp-right-map"></div></div>
+        <div id="comp-divider"></div>
+        <div class="comp-label" id="comp-label-left">◀ Esquerda</div>
+        <div class="comp-label" id="comp-label-right">Direita ▶</div>
+        <div class="comp-base-sel" id="comp-base-sel-left">
+            <i class="fas fa-layer-group"></i>
+            <select id="comp-base-left" onchange="setCompBase('left', this.value)">
+                <option value="openstreetmap">OpenStreetMap</option>
+                <option value="googleearth">Google Earth</option>
+                <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
+                <option value="ortomosaico2020">Ortomosaico 2020</option>
+            </select>
+        </div>
+        <div class="comp-base-sel" id="comp-base-sel-right">
+            <i class="fas fa-layer-group"></i>
+            <select id="comp-base-right" onchange="setCompBase('right', this.value)">
+                <option value="openstreetmap">OpenStreetMap</option>
+                <option value="googleearth" selected>Google Earth</option>
+                <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
+                <option value="ortomosaico2020">Ortomosaico 2020</option>
+            </select>
         </div>
 
         <div id="map"></div>
@@ -6570,147 +6579,168 @@
         }
 
         // ========== COMPARATIVO TEMPORAL ==========
-        var compAtivo    = false;
-        var compMapLeft  = null;
-        var compMapRight = null;
-        var compSync     = false;
-        var compBaseLayers = { left: null, right: null };
+        // Abordagem: divide o #map em metade esquerda (clip-path) e coloca
+        // um segundo mapa Leaflet independente na metade direita.
+        // Pontos e desenho continuam no mapa principal normalmente.
+        var compAtivo     = false;
+        var compRightMap  = null;
+        var compRightBase = null;
+        var compSync      = false;
+        var compSplit     = 50; // % da divisão
+        var compDragging  = false;
 
         var compBaseConfigs = {
-            openstreetmap:   { type: 'tile', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' },
-            googleearth:     { type: 'tile', url: 'https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}' },
-            ortomosaico2010: { type: 'wms',  url: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms', layers: 'OrtoRGB-Landsat-2012' },
-            ortomosaico2020: { type: 'tile', url: 'https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png' }
+            openstreetmap:   { type:'tile', url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png' },
+            googleearth:     { type:'tile', url:'https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}' },
+            ortomosaico2010: { type:'wms',  url:'http://sigsc.sc.gov.br/sigserver/SIGSC/wms', layers:'OrtoRGB-Landsat-2012' },
+            ortomosaico2020: { type:'tile', url:'https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png' }
         };
 
         function toggleComparativo() {
             compAtivo ? _fecharComparativo() : _abrirComparativo();
         }
 
+        function _compApplyLayout(pct) {
+            var mapEl = document.getElementById('map');
+            var rpEl  = document.getElementById('comp-right-panel');
+            var divEl = document.getElementById('comp-divider');
+            var vw = window.innerWidth;
+            var px = Math.round(vw * pct / 100);
+
+            // Mapa principal: clip para metade esquerda
+            mapEl.style.clipPath = 'inset(0 ' + (vw - px) + 'px 0 0)';
+
+            // Painel direito: ocupa o lado direito
+            rpEl.style.left  = px + 'px';
+            rpEl.style.width = (vw - px) + 'px';
+
+            // Divisor: posicionado na fronteira
+            divEl.style.left = (px - 3) + 'px';
+
+            // Labels
+            var lblL = document.getElementById('comp-label-left');
+            var lblR = document.getElementById('comp-label-right');
+            lblL.style.left = Math.max(10, px/2 - 50) + 'px';
+            lblR.style.left = (px + (vw-px)/2 - 50) + 'px';
+
+            // Seletores de base
+            var selL = document.getElementById('comp-base-sel-left');
+            var selR = document.getElementById('comp-base-sel-right');
+            selL.style.left = Math.max(10, px/2 - 100) + 'px';
+            selR.style.left = (px + (vw-px)/2 - 100) + 'px';
+
+            if (compRightMap) {
+                setTimeout(function(){ compRightMap.invalidateSize(); }, 50);
+            }
+            map.invalidateSize();
+        }
+
         function _abrirComparativo() {
             compAtivo = true;
-            document.getElementById('comparativo-wrapper').classList.add('ativo');
             document.getElementById('btn-comparativo').classList.add('ativo');
             document.getElementById('btn-comparativo-label').textContent = 'Fechar';
 
-            // Mapa principal vira overlay transparente — mantém vetoriais e eventos (pontos/desenho)
-            var mapEl = document.getElementById('map');
-            mapEl.classList.add('comp-overlay');
-            mapEl.style.display = 'block'; // NUNCA esconder
+            // Mostrar elementos
+            document.getElementById('comp-right-panel').classList.add('ativo');
+            document.getElementById('comp-divider').classList.add('ativo');
+            document.getElementById('comp-label-left').classList.add('ativo');
+            document.getElementById('comp-label-right').classList.add('ativo');
+            document.getElementById('comp-base-sel-left').classList.add('ativo');
+            document.getElementById('comp-base-sel-right').classList.add('ativo');
 
-            if (!compMapLeft) {
-                compMapLeft = L.map('comp-map-left', {
+            // Sincronizar seletor esquerdo com mapa base atual
+            var curBase = activeBaseKey || 'openstreetmap';
+            document.getElementById('comp-base-left').value = curBase;
+
+            // Criar mapa direito
+            if (!compRightMap) {
+                compRightMap = L.map('comp-right-map', {
                     center: map.getCenter(), zoom: map.getZoom(),
                     zoomControl: false, attributionControl: false
                 });
-                L.control.zoom({ position: 'topleft' }).addTo(compMapLeft);
+                L.control.zoom({ position: 'topright' }).addTo(compRightMap);
+                _compSetBase('right', document.getElementById('comp-base-right').value);
 
-                compMapRight = L.map('comp-map-right', {
-                    center: map.getCenter(), zoom: map.getZoom(),
-                    zoomControl: false, attributionControl: false
-                });
-                L.control.zoom({ position: 'topleft' }).addTo(compMapRight);
-
-                _compAddBase('left',  document.getElementById('comp-base-left').value);
-                _compAddBase('right', document.getElementById('comp-base-right').value);
-
-                // Sync esquerda → direita e mapa principal
-                compMapLeft.on('move zoom', function() {
+                // Sync: direito → principal
+                compRightMap.on('move zoom', function() {
                     if (compSync) return; compSync = true;
-                    var c = compMapLeft.getCenter(), z = compMapLeft.getZoom();
-                    compMapRight.setView(c, z, { animate: false });
-                    map.setView(c, z, { animate: false });
+                    map.setView(compRightMap.getCenter(), compRightMap.getZoom(), {animate:false});
                     compSync = false;
                 });
-                // Sync direita → esquerda e mapa principal
-                compMapRight.on('move zoom', function() {
-                    if (compSync) return; compSync = true;
-                    var c = compMapRight.getCenter(), z = compMapRight.getZoom();
-                    compMapLeft.setView(c, z, { animate: false });
-                    map.setView(c, z, { animate: false });
-                    compSync = false;
-                });
-                // Sync mapa principal (pontos/desenho) → ambos comparativos
+                // Sync: principal → direito
                 map.on('move zoom', function() {
                     if (!compAtivo || compSync) return; compSync = true;
-                    var c = map.getCenter(), z = map.getZoom();
-                    compMapLeft.setView(c, z, { animate: false });
-                    compMapRight.setView(c, z, { animate: false });
+                    compRightMap.setView(map.getCenter(), map.getZoom(), {animate:false});
                     compSync = false;
                 });
             } else {
-                compMapLeft.setView(map.getCenter(), map.getZoom(), { animate: false });
-                compMapRight.setView(map.getCenter(), map.getZoom(), { animate: false });
+                compRightMap.setView(map.getCenter(), map.getZoom(), {animate:false});
             }
 
-            setTimeout(function() {
-                compMapLeft.invalidateSize();
-                compMapRight.invalidateSize();
-                map.invalidateSize();
-            }, 150);
-
+            // Aplicar layout e divisor
+            _compApplyLayout(compSplit);
             _initCompDivider();
         }
 
         function _fecharComparativo() {
             compAtivo = false;
-            document.getElementById('comparativo-wrapper').classList.remove('ativo');
             document.getElementById('btn-comparativo').classList.remove('ativo');
             document.getElementById('btn-comparativo-label').textContent = 'Comparativo';
+
+            ['comp-right-panel','comp-divider','comp-label-left','comp-label-right',
+             'comp-base-sel-left','comp-base-sel-right'].forEach(function(id){
+                document.getElementById(id).classList.remove('ativo');
+            });
+
             // Restaurar mapa principal
-            var mapEl = document.getElementById('map');
-            mapEl.classList.remove('comp-overlay');
-            if (compMapLeft) map.setView(compMapLeft.getCenter(), compMapLeft.getZoom(), { animate: false });
-            setTimeout(function() { map.invalidateSize(); }, 100);
+            document.getElementById('map').style.clipPath = '';
+            map.invalidateSize();
         }
 
-        function _compAddBase(side, baseKey) {
-            var m = side === 'left' ? compMapLeft : compMapRight;
-            if (!m) return;
-            if (compBaseLayers[side]) {
-                try { m.removeLayer(compBaseLayers[side]); } catch(e) {}
+        function _compSetBase(side, baseKey) {
+            if (side === 'left') {
+                // Lado esquerdo = mapa principal: troca via setBaseMap existente
+                setBaseMap(baseKey);
+                setHeaderBaseLabel(
+                    document.querySelector('#comp-base-left option[value="'+baseKey+'"]').textContent,
+                    'hdrbase-' + (baseKey === 'openstreetmap' ? 'osm' :
+                                  baseKey === 'ortomosaico2010' ? 'orto2010' :
+                                  baseKey === 'googleearth' ? 'google' : 'orto2020')
+                );
+                return;
             }
+            // Lado direito = compRightMap
+            if (!compRightMap) return;
+            if (compRightBase) { try { compRightMap.removeLayer(compRightBase); } catch(e){} }
             var cfg = compBaseConfigs[baseKey];
             if (!cfg) return;
             if (cfg.type === 'wms') {
-                compBaseLayers[side] = L.tileLayer.wms(cfg.url, {
-                    layers: cfg.layers, format: 'image/png',
-                    transparent: false, maxZoom: 22
-                }).addTo(m);
+                compRightBase = L.tileLayer.wms(cfg.url, {
+                    layers: cfg.layers, format:'image/png', transparent:false, maxZoom:22
+                }).addTo(compRightMap);
             } else {
-                compBaseLayers[side] = L.tileLayer(cfg.url, {
-                    maxZoom: 22, attribution: ''
-                }).addTo(m);
+                compRightBase = L.tileLayer(cfg.url, { maxZoom:22, attribution:'' }).addTo(compRightMap);
             }
         }
 
-        function setCompBase(side, baseKey) {
-            _compAddBase(side, baseKey);
-        }
+        function setCompBase(side, baseKey) { _compSetBase(side, baseKey); }
 
         function _initCompDivider() {
-            var divider = document.getElementById('comp-divider');
-            var wrapper = document.getElementById('comparativo-wrapper');
-            // Remover listeners anteriores clonando o nó
-            var newDiv = divider.cloneNode(true);
-            divider.parentNode.replaceChild(newDiv, divider);
-            divider = newDiv;
-
-            var dragging = false;
-            divider.addEventListener('mousedown', function(e) {
-                dragging = true; e.preventDefault();
-            });
-            window.addEventListener('mousemove', function(e) {
-                if (!dragging || !compAtivo) return;
-                var rect = wrapper.getBoundingClientRect();
-                var pct = Math.max(15, Math.min(85, (e.clientX - rect.left) / rect.width * 100));
-                document.getElementById('comp-pane-left').style.cssText = 'flex:none;width:'+pct+'%';
-                document.getElementById('comp-pane-right').style.cssText = 'flex:1';
-                compMapLeft.invalidateSize();
-                compMapRight.invalidateSize();
-            });
-            window.addEventListener('mouseup', function() { dragging = false; });
+            var divEl = document.getElementById('comp-divider');
+            divEl.onmousedown = function(e) {
+                compDragging = true; e.preventDefault();
+            };
+            window.addEventListener('mousemove', _compDragMove);
+            window.addEventListener('mouseup',   _compDragUp);
         }
+        function _compDragMove(e) {
+            if (!compDragging || !compAtivo) return;
+            var pct = Math.max(15, Math.min(85, e.clientX / window.innerWidth * 100));
+            compSplit = pct;
+            _compApplyLayout(pct);
+        }
+        function _compDragUp() { compDragging = false; }
+
 
         // ========== ESTATÍSTICAS DE LICENÇAS AMBIENTAIS ==========
         // Paleta de cores consistente para os gráficos
