@@ -27,11 +27,10 @@
             overflow: hidden;
         }
         #map {
-            position: absolute;
+            position: fixed;
             top: var(--header-height);
-            left: 0;
-            right: 0;
-            bottom: 0;
+            left: 0; right: 0; bottom: 0;
+            z-index: 500; /* base; sobe para 520 como overlay */
         }
 
         /* ===== CABEÇALHO PRINCIPAL ===== */
@@ -1236,7 +1235,7 @@
             display: none;
             position: fixed;
             top: var(--header-height); left: 0; right: 0; bottom: 0;
-            z-index: 410; /* abaixo do dashboard e header, acima do mapa base */
+            z-index: 490; /* abaixo do #map normal (500), mas o overlay sobe para 520 */
             flex-direction: row;
         }
         #comparativo-wrapper.ativo { display: flex; }
@@ -1269,7 +1268,7 @@
             border-radius: 20px; padding: 4px 14px;
             font-size: 0.72em; color: #d7a8f0;
             pointer-events: none;
-            z-index: 600; white-space: nowrap;
+            z-index: 530; white-space: nowrap;
         }
         .comp-base-sel {
             position: absolute; bottom: 14px; left: 50%;
@@ -1278,7 +1277,7 @@
             border: 1px solid rgba(155,89,182,0.55);
             border-radius: 8px; padding: 7px 12px;
             font-size: 0.8em; color: #cde;
-            z-index: 600; /* acima de todo conteúdo do mapa Leaflet */
+            z-index: 530; /* acima do map overlay (520) */
             pointer-events: all;
             display: flex; align-items: center; gap: 7px;
             white-space: nowrap;
@@ -1293,7 +1292,7 @@
         }
         /* Quando comparativo ativo: mapa principal fica invisível mas ainda recebe eventos */
         #map.comp-overlay {
-            z-index: 420;
+            z-index: 520; /* acima do comparativo-wrapper (490) */
             background: transparent !important;
         }
         #map.comp-overlay .leaflet-tile-pane,
@@ -1338,6 +1337,12 @@
                 </div>
             </div>
 
+            <!-- Botão Comparativo Temporal — ao lado do seletor de bases -->
+            <button id="btn-comparativo" onclick="toggleComparativo()" title="Comparativo Temporal">
+                <i class="fas fa-columns"></i>
+                <span id="btn-comparativo-label">Comparativo</span>
+            </button>
+
             <div class="header-sep"></div>
 
             <!-- Painel de Coordenadas integrado -->
@@ -1359,12 +1364,6 @@
                 </div>
             </div>
 
-            <div class="header-sep"></div>
-            <!-- Botão Comparativo Temporal -->
-            <button id="btn-comparativo" onclick="toggleComparativo()" title="Comparativo Temporal">
-                <i class="fas fa-columns"></i>
-                <span id="btn-comparativo-label">Comparativo</span>
-            </button>
             <!-- WebGIS label direita -->
             <div style="margin-left:auto;flex-shrink:0;font-size:0.68em;color:rgba(120,170,200,0.6);white-space:nowrap;letter-spacing:0.04em;">
                 WebGIS
