@@ -15,137 +15,182 @@
         <!-- Font Awesome para ícones adicionais -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
         <style>
-        html, body, #map {
+        :root {
+            --header-height: 56px;
+        }
+        html, body {
             width: 100%;
             height: 100%;
             padding: 0;
             margin: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        #map {
+            position: absolute;
+            top: var(--header-height);
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
 
-        /* ===== PAINEL DE COORDENADAS (Canto esquerdo centralizado) ===== */
-        .painel-coordenadas {
-            position: absolute;
-            top: 50%;
-            left: 20px;
-            transform: translateY(-50%);
-            z-index: 2000;
-            background: rgba(20, 20, 30, 0.85);
-            backdrop-filter: blur(5px);
-            border-radius: 8px;
-            padding: 15px;
-            border-left: 4px solid #3498db;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            color: white;
-            font-size: 0.9em;
-            min-width: 280px;
-            border: 1px solid #444;
-            pointer-events: none;
-        }
-        .coord-linha {
+        /* ===== CABEÇALHO PRINCIPAL ===== */
+        #app-header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--header-height);
+            z-index: 5000;
+            background: linear-gradient(135deg, #0a1929 0%, #0d2137 60%, #102840 100%);
+            border-bottom: 1px solid rgba(52,152,219,0.35);
+            box-shadow: 0 2px 16px rgba(0,0,0,0.55);
             display: flex;
             align-items: center;
-            margin: 5px 0;
-            padding: 3px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 0 14px;
+            gap: 14px;
         }
-        .coord-linha:last-child { border-bottom: none; }
-        .coord-icone { width: 30px; color: #3498db; font-size: 1em; }
-        .coord-tipo { width: 50px; color: #aaa; font-size: 0.85em; font-weight: 600; }
-        .coord-valor {
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            color: #fff;
-            flex: 1;
-            text-align: right;
-            font-size: 0.95em;
-        }
-        .coord-utm { background: rgba(52, 152, 219, 0.1); border-radius: 4px; padding: 2px 5px; }
-
-        /* ===== SELETOR DE BASE CARTOGRÁFICA ===== */
-        .base-selector {
-            position: absolute;
-            top: 200px;
-            left: 20px;
-            z-index: 2000;
-            background: rgba(20, 20, 30, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 8px;
-            border: 1px solid #444;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            color: white;
-            min-width: 220px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .base-header {
-            padding: 12px 15px;
+        #header-logo {
             display: flex;
             align-items: center;
             gap: 10px;
-            cursor: pointer;
-            background: rgba(0,0,0,0.2);
-            border-bottom: 1px solid #444;
+            flex-shrink: 0;
+        }
+        #header-logo img {
+            height: 38px;
+            width: auto;
+            filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+        }
+        #header-logo-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.15;
+        }
+        #header-logo-text .logo-title {
+            font-size: 0.82em;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        #header-logo-text .logo-sub {
+            font-size: 0.65em;
+            color: #7ab8d9;
+            letter-spacing: 0.02em;
+        }
+        .header-sep {
+            width: 1px;
+            height: 32px;
+            background: rgba(255,255,255,0.12);
+            flex-shrink: 0;
         }
 
-        .base-header i:first-child {
-            color: #3498db;
-            font-size: 1.1em;
+        /* Seletor de Mapas Base no header */
+        #header-base-selector {
+            position: relative;
+            flex-shrink: 0;
         }
-
-        .base-header span {
-            flex-grow: 1;
+        #header-base-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 7px;
+            padding: 6px 12px;
+            color: #cde;
+            font-size: 0.8em;
             font-weight: 500;
-            color: #fff;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s, border-color 0.2s;
+            user-select: none;
         }
-
-        .base-header #baseToggle {
-            color: #888;
-            font-size: 0.9em;
-            transition: transform 0.3s;
+        #header-base-btn:hover, #header-base-btn.open {
+            background: rgba(52,152,219,0.2);
+            border-color: rgba(52,152,219,0.5);
         }
-
-        .base-content {
-            max-height: 300px;
+        #header-base-btn i.chev {
+            font-size: 0.75em;
+            color: #7ab;
+            transition: transform 0.25s;
+        }
+        #header-base-btn.open i.chev { transform: rotate(180deg); }
+        #header-base-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            background: rgba(10,25,45,0.97);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(52,152,219,0.3);
+            border-radius: 8px;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+            min-width: 200px;
             overflow: hidden;
-            transition: max-height 0.3s ease;
+            z-index: 6000;
         }
-
-        .base-content.collapsed {
-            max-height: 0;
-        }
-
-        .base-option {
-            padding: 10px 15px;
+        #header-base-dropdown.open { display: block; }
+        .hdr-base-opt {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 9px;
+            padding: 10px 14px;
+            color: #bcd;
+            font-size: 0.82em;
             cursor: pointer;
-            transition: background 0.2s;
-            border-bottom: 1px solid #333;
+            transition: background 0.15s;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-
-        .base-option:last-child {
-            border-bottom: none;
+        .hdr-base-opt:last-child { border-bottom: none; }
+        .hdr-base-opt:hover { background: rgba(52,152,219,0.18); color: #fff; }
+        .hdr-base-opt.active {
+            background: rgba(52,152,219,0.22);
+            color: #fff;
+            font-weight: 600;
         }
+        .hdr-base-opt i { color: #3498db; width: 15px; text-align: center; }
 
-        .base-option:hover {
-            background: #2a2a2a;
+        /* Painel de Coordenadas no Header */
+        #header-coords {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
         }
-
-        .base-option.active {
-            background: #3498db;
+        .hdr-coord-block {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            min-width: 0;
+            flex-shrink: 1;
         }
-
-        .base-option i {
-            width: 20px;
+        .hdr-coord-block:last-child { border-right: none; }
+        .hdr-coord-label {
+            font-size: 0.62em;
+            font-weight: 700;
             color: #3498db;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .hdr-coord-icon { color: #3498db; font-size: 0.78em; flex-shrink: 0; }
+        .hdr-coord-val {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75em;
+            font-weight: 600;
+            color: #e0eeff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .base-option.active i {
-            color: white;
-        }
+        /* coordenadas movidas para o header */
+
+        /* base-selector movido para header */
+
         /* ===== DASHBOARD INFERIOR ===== */
         .dashboard-inferior {
             position: absolute;
@@ -535,35 +580,6 @@
         /* ===== MEDIA QUERY: MOBILE (≤ 768px) ===== */
         @media (max-width: 768px) {
 
-            /* Oculta painel de coordenadas lateral fixo */
-            .painel-coordenadas {
-                display: none;
-            }
-
-            /* Seletor de base: menor, recolhido, canto superior esquerdo */
-            .base-selector {
-                top: 10px;
-                left: 10px;
-                min-width: 160px;
-                font-size: 0.85em;
-            }
-            .base-content {
-                max-height: 0;
-            }
-            .base-content.collapsed {
-                max-height: 0;
-            }
-
-            /* Logo menor */
-            #logo-fujama {
-                top: 10px !important;
-                right: 60px !important;
-                padding: 3px !important;
-            }
-            #logo-fujama img {
-                height: 38px !important;
-            }
-
             /* Dashboard: ocupa mais espaço vertical */
             .dashboard-inferior {
                 width: 100%;
@@ -643,10 +659,6 @@
 
         /* ===== MEDIA QUERY: TELAS MUITO PEQUENAS (≤ 400px) ===== */
         @media (max-width: 400px) {
-            .base-selector {
-                min-width: 140px;
-                font-size: 0.8em;
-            }
             .dashboard-conteudo {
                 max-height: 60vh;
                 padding: 8px;
@@ -818,58 +830,100 @@
             .stats-card-wide { min-width: unset; flex: 1 1 100%; }
             .stats-canvas-wrap { height: 160px; }
         }
+
+        /* ===== AJUSTES PARA O CABEÇALHO FIXO ===== */
+        /* Empurra controles Leaflet top-left/top-right para baixo do header */
+        .leaflet-top { top: calc(var(--header-height) + 8px); }
+
+        /* Header no mobile: reduzir e ocultar coords extensas */
+        @media (max-width: 600px) {
+            :root { --header-height: 48px; }
+            #header-logo-text { display: none; }
+            #header-logo img { height: 30px; }
+            .hdr-coord-block:nth-child(2),
+            .hdr-coord-block:nth-child(3) { display: none; }
+            .hdr-coord-label { display: none; }
+            #header-base-btn span { display: none; }
+            #header-base-btn { padding: 5px 8px; }
+        }
+        @media (max-width: 400px) {
+            #header-coords { display: none; }
+        }
         </style>
         <title></title>
     </head>
     <body>
+        <!-- ===== CABEÇALHO PRINCIPAL ===== -->
+        <header id="app-header">
+            <!-- Logo -->
+            <div id="header-logo">
+                <img src="images/logo.png" alt="Logo FUJAMA">
+                <div id="header-logo-text">
+                    <span class="logo-title">FUJAMA</span>
+                    <span class="logo-sub">Fundação Jaraguaense de Meio Ambiente</span>
+                </div>
+            </div>
+
+            <div class="header-sep"></div>
+
+            <!-- Seletor de Mapas Base -->
+            <div id="header-base-selector">
+                <div id="header-base-btn" onclick="toggleHeaderBase()">
+                    <i class="fas fa-layer-group"></i>
+                    <span id="header-base-label">OpenStreetMap</span>
+                    <i class="fas fa-chevron-down chev"></i>
+                </div>
+                <div id="header-base-dropdown">
+                    <div class="hdr-base-opt active" id="hdrbase-osm" onclick="setBaseMap('openstreetmap'); setHeaderBaseLabel('OpenStreetMap','hdrbase-osm')">
+                        <i class="fas fa-map"></i> OpenStreetMap
+                    </div>
+                    <div class="hdr-base-opt" id="hdrbase-orto2010" onclick="setBaseMap('ortomosaico2010'); setHeaderBaseLabel('Ortomosaico 2010 (SC)','hdrbase-orto2010')">
+                        <i class="fas fa-satellite"></i> Ortomosaico 2010 (SC)
+                    </div>
+                    <div class="hdr-base-opt" id="hdrbase-google" onclick="setBaseMap('googleearth'); setHeaderBaseLabel('Google Earth','hdrbase-google')">
+                        <i class="fas fa-globe"></i> Google Earth
+                    </div>
+                    <div class="hdr-base-opt" id="hdrbase-orto2020" onclick="setBaseMap('ortomosaico2020'); setHeaderBaseLabel('Ortomosaico 2020','hdrbase-orto2020')">
+                        <i class="fas fa-satellite"></i> Ortomosaico 2020
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-sep"></div>
+
+            <!-- Painel de Coordenadas integrado -->
+            <div id="header-coords">
+                <div class="hdr-coord-block">
+                    <i class="hdr-coord-icon fas fa-globe-americas"></i>
+                    <span class="hdr-coord-label">DD</span>
+                    <span class="hdr-coord-val" id="hdr-coord-dd">—</span>
+                </div>
+                <div class="hdr-coord-block">
+                    <i class="hdr-coord-icon fas fa-compass"></i>
+                    <span class="hdr-coord-label">DMS</span>
+                    <span class="hdr-coord-val" id="hdr-coord-dms">—</span>
+                </div>
+                <div class="hdr-coord-block">
+                    <i class="hdr-coord-icon fas fa-map"></i>
+                    <span class="hdr-coord-label" id="hdr-coord-zone">UTM</span>
+                    <span class="hdr-coord-val" id="hdr-coord-utm">—</span>
+                </div>
+            </div>
+
+            <!-- WebGIS label direita -->
+            <div style="margin-left:auto;flex-shrink:0;font-size:0.68em;color:rgba(120,170,200,0.6);white-space:nowrap;letter-spacing:0.04em;">
+                WebGIS
+            </div>
+        </header>
+
         <div id="map"></div>
-        <div id="logo-fujama" style="position: absolute; top: 10px; right: 140px; z-index: 1000; background: white; padding: 5px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
-            <img src="images/logo.png" alt="Logo FUJAMA" style="height: 60px; width: auto;">
-        </div>
+
         <!-- Botão flutuante para abrir/fechar dashboard no mobile -->
         <button class="fab-mobile" id="fabMobile" onclick="toggleDashboardMobile()" title="Painel de Controle">
             <i class="fas fa-sliders-h"></i>
         </button>
-        <!-- Painel de Coordenadas -->
-        <div class="painel-coordenadas" id="painelCoordenadas">
-            <div class="coord-linha">
-                <div class="coord-icone"><i class="fas fa-globe-americas"></i></div>
-                <div class="coord-tipo">DD</div>
-                <div class="coord-valor" id="coord-dd-painel">-</div>
-            </div>
-            <div class="coord-linha">
-                <div class="coord-icone"><i class="fas fa-compass"></i></div>
-                <div class="coord-tipo">DMS</div>
-                <div class="coord-valor" id="coord-dms-painel">-</div>
-            </div>
-            <div class="coord-linha coord-utm">
-                <div class="coord-icone"><i class="fas fa-map"></i></div>
-                <div class="coord-tipo" id="zona-utm-painel">UTM</div>
-                <div class="coord-valor" id="coord-utm-painel">-</div>
-            </div>
-        </div>
-        <!-- Seletor de Base Cartográfica -->
-        <div class="base-selector" id="baseSelector">
-            <div class="base-header" onclick="toggleBaseSelector()">
-                <i class="fas fa-layer-group"></i>
-                <span>Mapas Base</span>
-                <i class="fas fa-chevron-down" id="baseToggle"></i>
-            </div>
-            <div class="base-content" id="baseContent">
-                <div class="base-option active" onclick="setBaseMap('openstreetmap')" id="base-osm">
-                    <i class="fas fa-map"></i> OpenStreetMap
-                </div>
-                <div class="base-option" onclick="setBaseMap('ortomosaico2010')" id="base-orto2010">
-                    <i class="fas fa-satellite"></i> Ortomosaico 2010 (SC)
-                </div>
-                <div class="base-option" onclick="setBaseMap('googleearth')" id="base-google">
-                    <i class="fas fa-globe"></i> Google Earth
-                </div>
-                <div class="base-option" onclick="setBaseMap('ortomosaico2020')" id="base-orto2020">
-                    <i class="fas fa-satellite"></i> Ortomosaico 2020
-                </div>
-            </div>
-        </div>
+
+
         <!-- Dashboard Inferior -->
         <div class="dashboard-inferior" id="dashboard">
             <div class="dashboard-titulo" onclick="toggleDashboard()">
@@ -1152,18 +1206,35 @@
 
         <script>
         // ========== SELETOR DE BASE CARTOGRÁFICA ==========
-        function toggleBaseSelector() {
-            var content = document.getElementById('baseContent');
-            var toggle = document.getElementById('baseToggle');
-            
-            if (content.classList.contains('collapsed')) {
-                content.classList.remove('collapsed');
-                toggle.style.transform = 'rotate(0deg)';
-            } else {
-                content.classList.add('collapsed');
-                toggle.style.transform = 'rotate(-90deg)';
+        function toggleHeaderBase() {
+            var btn = document.getElementById('header-base-btn');
+            var dd = document.getElementById('header-base-dropdown');
+            btn.classList.toggle('open');
+            dd.classList.toggle('open');
+            // Fechar ao clicar fora
+            if (dd.classList.contains('open')) {
+                setTimeout(function() {
+                    document.addEventListener('click', function closeDD(e) {
+                        if (!document.getElementById('header-base-selector').contains(e.target)) {
+                            btn.classList.remove('open');
+                            dd.classList.remove('open');
+                            document.removeEventListener('click', closeDD);
+                        }
+                    });
+                }, 10);
             }
         }
+        function setHeaderBaseLabel(label, activeId) {
+            document.getElementById('header-base-label').textContent = label;
+            document.querySelectorAll('.hdr-base-opt').forEach(function(el) {
+                el.classList.remove('active');
+            });
+            document.getElementById(activeId).classList.add('active');
+            // Fechar dropdown
+            document.getElementById('header-base-btn').classList.remove('open');
+            document.getElementById('header-base-dropdown').classList.remove('open');
+        }
+/* toggleBaseSelector removido - integrado no header */
 
         // ========== BOTÃO FLUTUANTE MOBILE ==========
         function toggleDashboardMobile() {
@@ -1187,43 +1258,21 @@
                 var dashboard = document.getElementById('dashboard');
                 if (dashboard) dashboard.classList.add('dashboard-minimizado');
                 // Recolhe o seletor de base
-                var baseContent = document.getElementById('baseContent');
-                if (baseContent) baseContent.classList.add('collapsed');
+// seletor de base movido para o header
             }
         })();
 
         function setBaseMap(base) {
-            // Remove todas as camadas base do mapa
             map.removeLayer(layer_OpenStreetMap_0);
             map.removeLayer(layer_Ortomosaico2010SC_1);
             map.removeLayer(layer_GoogleEarth_2);
             map.removeLayer(layer_Ortomosaico2020_3);
-            
-            // Remove a classe active de todas as opções
-            document.querySelectorAll('.base-option').forEach(opt => opt.classList.remove('active'));
-            
-            // Adiciona a camada selecionada e marca como ativa
             switch(base) {
-                case 'openstreetmap':
-                    map.addLayer(layer_OpenStreetMap_0);
-                    document.getElementById('base-osm').classList.add('active');
-                    break;
-                case 'ortomosaico2010':
-                    map.addLayer(layer_Ortomosaico2010SC_1);
-                    document.getElementById('base-orto2010').classList.add('active');
-                    break;
-                case 'googleearth':
-                    map.addLayer(layer_GoogleEarth_2);
-                    document.getElementById('base-google').classList.add('active');
-                    break;
-                case 'ortomosaico2020':
-                    map.addLayer(layer_Ortomosaico2020_3);
-                    document.getElementById('base-orto2020').classList.add('active');
-                    break;
+                case 'openstreetmap':  map.addLayer(layer_OpenStreetMap_0);   break;
+                case 'ortomosaico2010': map.addLayer(layer_Ortomosaico2010SC_1); break;
+                case 'googleearth':    map.addLayer(layer_GoogleEarth_2);     break;
+                case 'ortomosaico2020': map.addLayer(layer_Ortomosaico2020_3); break;
             }
-            
-            // Opcional: fechar o seletor após selecionar
-            // toggleBaseSelector();
         }
         // ========== FUNÇÕES DO DASHBOARD ==========
         window.toggleDashboard = function() {
@@ -1347,12 +1396,12 @@
 
         function atualizarCoordenadasPainel(e) {
             var lat = e.latlng.lat, lon = e.latlng.lng;
-            document.getElementById('coord-dd-painel').innerHTML = lat.toFixed(6) + '°, ' + lon.toFixed(6) + '°';
+            document.getElementById('hdr-coord-dd').innerHTML = lat.toFixed(6) + '°, ' + lon.toFixed(6) + '°';
             var latDMS = converterParaDMS(lat, 'lat'), lonDMS = converterParaDMS(lon, 'lon');
-            document.getElementById('coord-dms-painel').innerHTML = latDMS + ' ' + lonDMS;
+            document.getElementById('hdr-coord-dms').innerHTML = latDMS + ', ' + lonDMS;
             var utm = converterParaUTM(lat, lon);
-            document.getElementById('zona-utm-painel').innerHTML = utm.zona;
-            document.getElementById('coord-utm-painel').innerHTML = utm.easting + ' E, ' + utm.northing + ' N';
+            document.getElementById('hdr-coord-zone').innerHTML = utm.zona;
+            document.getElementById('hdr-coord-utm').innerHTML = utm.easting + ' E, ' + utm.northing + ' N';
         }
 
             // ========== BUSCA DE LICENÇAS E PROCESSOS (APENAS NO GRUPO LICENÇAS 2026) ==========
@@ -1366,7 +1415,7 @@
                     { name: 'Autorização Corte Simplificada', layer: window.layer_AutorizaodeCorteSimplificada_45 },
                     { name: 'SINAFLOR', layer: window.layer_SINAFLOR_44 },
                     { name: 'Cadastramento Ambiental', layer: window.layer_CadastramentoAmbiental_43 },
-                    { name: 'Autorização Ambiental', layer: window.layer_AutorizaoAmbiental_42 },
+                    { name: 'Autorizacao Ambiental', layer: window.layer_AutorizaoAmbiental_42 },
                     { name: 'LAO', layer: window.layer_LAO_41 },
                     { name: 'LAI', layer: window.layer_LAI_40 },
                     { name: 'LAP', layer: window.layer_LAP_39 }
@@ -2108,17 +2157,17 @@
                 // ── 4. Tipologia por camada + % por amostragem ────────────────
                 function getTipologia(feat, layerName) {
                     var p = feat.properties || {}, val = null;
-                    if (layerName==='Vegetação')
+                    if (layerName==='Vegetacao')
                         val=p['LEGENDA']||p['legenda']||p['classe']||p['CLASSE']||p['nom_cober']||p['fisiognom'];
                     else if (layerName==='Pedologia')
                         val=p['legenda']||p['LEGENDA']||p['sg_simbol']||p['NM_SIMBOL']||p['NOME'];
                     else if (layerName==='Geomorfologia')
                         val=p['nm_dominio']||p['leg_sup']||p['nm_unidade']||p['legenda']||p['LEGENDA'];
-                    else if (layerName==='CAR – Área de Imóvel')
+                    else if (layerName==='CAR - Area de Imovel')
                         val=p['TIPO_IMOVE']||p['SITUACAO']||p['CONDICAO_I']||p['IND_STATUS'];
-                    else if (layerName==='CAR – Reserva Legal')
+                    else if (layerName==='CAR - Reserva Legal')
                         val=p['NOM_TEMA']||p['SITUACAO']||p['COD_ESTADO'];
-                    else if (layerName==='Proc. Minerários (ANM)')
+                    else if (layerName==='Proc. Minerarios (ANM)')
                         val=p['SUBSTANCIA']||p['FASE']||p['PROCESSO']||p['USO'];
                     else if (layerName==='LAP')
                         val=p['atividade']||p['Atividade']||p['descricao']||p['tipologia'];
@@ -2126,7 +2175,7 @@
                         val=p['Atividade']||p['atividade']||p['descricao']||p['tipologia'];
                     else if (layerName==='LAO')
                         val=p['atividade']||p['Atividade']||p['descricao'];
-                    else if (layerName==='Autorização Ambiental')
+                    else if (layerName==='Autorizacao Ambiental')
                         val=p['atividade']||p['Atividade']||p['tipo'];
                     else if (layerName==='Cadastramento Ambiental')
                         val=p['Atividade']||p['atividade'];
@@ -2156,22 +2205,22 @@
 
                 // ── 5. Lista de camadas vetoriais GeoJSON analisáveis ─────────
                 var vectorLayers = [
-                    { name: 'Vegetação',                    layer: window.layer_Vegetao_31,                      grupo: 'BDiA / Embrapa' },
+                    { name: 'Vegetacao',                    layer: window.layer_Vegetao_31,                      grupo: 'BDiA / Embrapa' },
                     { name: 'Pedologia',                    layer: window.layer_Pedologia_32,                    grupo: 'BDiA / Embrapa' },
                     { name: 'Geomorfologia',                layer: window.layer_Geomorfologia_33,                grupo: 'BDiA / Embrapa' },
-                    { name: 'CAR – Área de Imóvel',         layer: window.layer_AREA_IMOVEL_34,                  grupo: 'CAR / SICAR' },
-                    { name: 'CAR – Reserva Legal',          layer: window.layer_RESERVA_LEGAL_35,                grupo: 'CAR / SICAR' },
-                    { name: 'Proc. Minerários (ANM)',        layer: window.layer_Processosminerriosativos_30,     grupo: 'ANM' },
+                    { name: 'CAR - Area de Imovel',         layer: window.layer_AREA_IMOVEL_34,                  grupo: 'CAR / SICAR' },
+                    { name: 'CAR - Reserva Legal',          layer: window.layer_RESERVA_LEGAL_35,                grupo: 'CAR / SICAR' },
+                    { name: 'Proc. Minerarios (ANM)',        layer: window.layer_Processosminerriosativos_30,     grupo: 'ANM' },
                     { name: 'Licenciamento Ambiental (IMA)',layer: window.layer_LicenciamentoAmbiental_37,        grupo: 'Instituto do Meio Ambiente' },
-                    { name: 'AIA 2025',                     layer: window.layer_AIA_2025_38,                     grupo: 'Fiscalização Ambiental' },
-                    { name: 'LAP',                          layer: window.layer_LAP_39,                          grupo: 'Licenças Ambientais 2026' },
-                    { name: 'LAI',                          layer: window.layer_LAI_40,                          grupo: 'Licenças Ambientais 2026' },
-                    { name: 'LAO',                          layer: window.layer_LAO_41,                          grupo: 'Licenças Ambientais 2026' },
-                    { name: 'Autorização Ambiental',        layer: window.layer_AutorizaoAmbiental_42,           grupo: 'Licenças Ambientais 2026' },
-                    { name: 'Cadastramento Ambiental',      layer: window.layer_CadastramentoAmbiental_43,       grupo: 'Licenças Ambientais 2026' },
-                    { name: 'SINAFLOR',                     layer: window.layer_SINAFLOR_44,                     grupo: 'Licenças Ambientais 2026' },
-                    { name: 'Aut. Corte Simplificada',      layer: window.layer_AutorizaodeCorteSimplificada_45, grupo: 'Licenças Ambientais 2026' },
-                    { name: 'Corte Eventual',               layer: window.layer_CorteEventual_46,                grupo: 'Licenças Ambientais 2026' },
+                    { name: 'AIA 2025',                     layer: window.layer_AIA_2025_38,                     grupo: 'Fiscalizacao Ambiental' },
+                    { name: 'LAP',                          layer: window.layer_LAP_39,                          grupo: 'Licencas Ambientais 2026' },
+                    { name: 'LAI',                          layer: window.layer_LAI_40,                          grupo: 'Licencas Ambientais 2026' },
+                    { name: 'LAO',                          layer: window.layer_LAO_41,                          grupo: 'Licencas Ambientais 2026' },
+                    { name: 'Autorizacao Ambiental',        layer: window.layer_AutorizaoAmbiental_42,           grupo: 'Licencas Ambientais 2026' },
+                    { name: 'Cadastramento Ambiental',      layer: window.layer_CadastramentoAmbiental_43,       grupo: 'Licencas Ambientais 2026' },
+                    { name: 'SINAFLOR',                     layer: window.layer_SINAFLOR_44,                     grupo: 'Licencas Ambientais 2026' },
+                    { name: 'Aut. Corte Simplificada',      layer: window.layer_AutorizaodeCorteSimplificada_45, grupo: 'Licencas Ambientais 2026' },
+                    { name: 'Corte Eventual',               layer: window.layer_CorteEventual_46,                grupo: 'Licencas Ambientais 2026' },
                 ].filter(function(it){ return it.layer && it.layer.eachLayer; });
 
                 // ── 6. Análise vetorial com % por amostragem ─────────────────
@@ -2243,8 +2292,8 @@
                     { name: 'APP Hidrografia 2020',          wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'app_cursos_de_agua_geral_em_estudo_ano_2020',            grupo: 'GeoJaraguá', campoTip: 'tipo' },
                     { name: 'APP Nascentes 2020',            wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'app_ 50m_nascentes-vistoriadas_preservadas_ano_2020',   grupo: 'GeoJaraguá', campoTip: 'tipo' },
                     { name: 'Hidrografia Urbana 1998',       wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'hid_hidrografia_urbana_1998',                          grupo: 'GeoJaraguá', campoTip: 'nome' },
-                    { name: 'Tubulação de Drenagem',         wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'tubulacoes_drenagem_urbana',                           grupo: 'GeoJaraguá', campoTip: 'tipo' },
-                    { name: 'AUC – LMC',                     wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'lim_lmc',                                              grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'Tubulacao de Drenagem',         wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'tubulacoes_drenagem_urbana',                           grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'AUC - LMC',                     wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'lim_lmc',                                              grupo: 'GeoJaraguá', campoTip: 'tipo' },
                     { name: 'AUC MA 2017',                   wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'auc_ma_2017',                                         grupo: 'GeoJaraguá', campoTip: 'tipo' },
                     { name: 'AUC PI 2017',                   wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'auc_pi_2017',                                         grupo: 'GeoJaraguá', campoTip: 'tipo' },
                     { name: 'Franjas Verdes (LC 234/2019)',  wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'zon_franjas_verdes_lc_234_2019',                      grupo: 'GeoJaraguá', campoTip: 'descricao' },
@@ -2253,13 +2302,13 @@
                     { name: 'Limite de Lotes Rurais',        wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'lim_lotes_rurais',                                    grupo: 'GeoJaraguá', campoTip: 'uso' },
                     { name: 'Limite de Bairros',             wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'lim_bairros',                                         grupo: 'GeoJaraguá', campoTip: 'nm_bairro' },
                     { name: 'Inundações Esporádicas',        wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'inundacoes_esporadicas',                              grupo: 'GeoJaraguá', campoTip: 'tipo' },
-                    { name: 'Inundações Recorrentes',        wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'inundacoes_recorrentes',                              grupo: 'GeoJaraguá', campoTip: 'tipo' },
+                    { name: 'Inundacoes Recorrentes',        wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'inundacoes_recorrentes',                              grupo: 'GeoJaraguá', campoTip: 'tipo' },
                     { name: 'Susc. Mov. Gravitacionais',     wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'grupo_pdo16_suscetibilidade_movimentos_gravitacionais', grupo: 'GeoJaraguá', campoTip: 'grau' },
                     { name: 'Susc. Enxurrada',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'pdo16_suscetibilidade_enxurrada',                     grupo: 'GeoJaraguá', campoTip: 'grau' },
-                    { name: 'Susc. Inundação',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'pdo16_suscetibilidade_inundacao',                     grupo: 'GeoJaraguá', campoTip: 'grau' },
+                    { name: 'Susc. Inundacao',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'pdo16_suscetibilidade_inundacao',                     grupo: 'GeoJaraguá', campoTip: 'grau' },
                     { name: 'Susc. Movimento de Massa',      wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'pdo16_suscetibilidade_movimento_de_massa',            grupo: 'GeoJaraguá', campoTip: 'grau' },
                     { name: 'Tombamento IPHAN',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'grupo_iphan_tombamento_rio_da_luz',                   grupo: 'GeoJaraguá', campoTip: 'nome' },
-                    { name: 'Curvas de Nível',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'curvas_de_nivel',                                    grupo: 'GeoJaraguá', campoTip: 'altitude' },
+                    { name: 'Curvas de Nivel',               wmsUrl: 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms', layer: 'curvas_de_nivel',                                    grupo: 'GeoJaraguá', campoTip: 'altitude' },
                     { name: 'Erodibilidade dos Solos (Embrapa)', wmsUrl: 'https://geoinfo.dados.embrapa.br/geoserver/ows',            layer: 'geonode:bra_erodibilidade_2024_sirgas2000',            grupo: 'Embrapa',    campoTip: 'classe' },
                     { name: 'INDE Trecho Drenagem (SIG-SC)', wmsUrl: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms',                    layer: 'INDE_trecho_drenagem',                                 grupo: 'SIG-SC',     campoTip: 'nome' },
                     { name: 'ANA Curso D\'Água (SIG-SC)',    wmsUrl: 'http://sigsc.sc.gov.br/sigserver/SIGSC/wms',                    layer: 'ANA_curso_dagua',                                      grupo: 'SIG-SC',     campoTip: 'nome' },
