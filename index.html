@@ -5851,12 +5851,16 @@
                 });
         }
 
+        // Dicionário: idx → { id, assets } — evita passar URLs em atributos onclick
+        var satAssetsMap = {};
+
         // ── Renderizar cards ───────────────────────────────────────────────
         function renderSatResultados(features) {
             var lista = document.getElementById('sat-lista');
             lista.innerHTML = '';
             Object.values(satLayers).forEach(function(l) { if (map.hasLayer(l)) map.removeLayer(l); });
             satLayers = {};
+            satAssetsMap = {};
 
             features.forEach(function(item, idx) {
                 var p      = item.properties || {};
@@ -5868,8 +5872,13 @@
                 var ccTxt  = isNaN(ccNum) ? 'N/D' : ccNum.toFixed(1) + '%';
                 var sensor = p.platform || 'CBERS-4A';
                 var assets = item.assets || {};
+
+                // Guarda assets pelo índice — URLs não vão no onclick
+                satAssetsMap[idx] = { id: id, assets: assets };
+
                 var thumbUrl = (assets.thumbnail || assets.THUMBNAIL || {}).href || null;
-                var tciUrl   = (assets.tci || assets.TCI || {}).href || null;
+                // Detecta qualquer asset de imagem visualizável (COG)
+                var hasTci = !!(assets.tci || assets.TCI || assets.visual || assets.VISUAL);
 
                 // Footprint (não adiciona ao mapa ainda)
                 if (item.geometry) {
@@ -5907,11 +5916,11 @@
                     '</div>' +
                     '<div class="sat-item-acoes">' +
                         '<button class="sat-btn-mini" id="sat-fp-' + idx + '" ' +
-                            'onclick="toggleSatFootprint(' + idx + ',\'' + id.replace(/'/g,"\\'")+  '\')">' +
+                            'onclick="toggleSatFootprint(' + idx + ')">' +
                             '<i class="fas fa-map"></i> Footprint</button>' +
-                        (tciUrl
+                        (hasTci
                             ? '<button class="sat-btn-mini" id="sat-tms-' + idx + '" ' +
-                              'onclick="toggleSatTMS(' + idx + ',\'' + id.replace(/'/g,"\\'") + '\',\'' + tciUrl.replace(/'/g,"\\'") + '\')">' +
+                              'onclick="toggleSatTMS(' + idx + ')">' +
                               '<i class="fas fa-layer-group"></i> Visualizar</button>'
                             : '') +
                         '<a class="sat-btn-mini sat-btn-inpe" ' +
@@ -5923,7 +5932,10 @@
             });
         }
 
-        function toggleSatFootprint(idx, id) {
+        function toggleSatFootprint(idx) {
+            var entry = satAssetsMap[idx];
+            if (!entry) return;
+            var id  = entry.id;
             var layer = satLayers[id];
             if (!layer) return;
             var btn = document.getElementById('sat-fp-' + idx);
@@ -5937,16 +5949,34 @@
             }
         }
 
-        function toggleSatTMS(idx, id, tciUrl) {
-            var btn = document.getElementById('sat-tms-' + idx);
+        function toggleSatTMS(idx) {
+            var entry = satAssetsMap[idx];
+            if (!entry) return;
+            var id     = entry.id;
+            var assets = entry.assets;
+            var btn    = document.getElementById('sat-tms-' + idx);
+
+            // Desativa se já estiver ativo
             if (satTmsLayers[id]) {
                 map.removeLayer(satTmsLayers[id]);
                 delete satTmsLayers[id];
                 if (btn) btn.classList.remove('ativo');
                 return;
             }
-            // TMS via serviço INPE: parâmetro ?url=<COG_URL>
-            var tmsUrl = SAT_TMS_BASE + encodeURIComponent(tciUrl);
+
+            // Busca URL do COG — tenta todas as chaves conhecidas
+            var cogAsset = assets.tci || assets.TCI || assets.visual || assets.VISUAL || null;
+            if (!cogAsset || !cogAsset.href) {
+                // Log para diagnóstico: mostra quais assets estão disponíveis
+                console.warn('[SAT TMS] Nenhum asset TCI/visual encontrado. Assets disponíveis:', Object.keys(assets));
+                alert('Visualização não disponível para esta cena.\nAssets disponíveis: ' + Object.keys(assets).join(', '));
+                return;
+            }
+
+            // URL TMS do INPE: tiles/WebMercatorQuad/{z}/{x}/{y}?url=<COG>
+            var tmsUrl = SAT_TMS_BASE + encodeURIComponent(cogAsset.href);
+            console.log('[SAT TMS] Carregando:', tmsUrl);
+
             var tmsLayer = L.tileLayer(tmsUrl, {
                 opacity: 0.9,
                 attribution: 'INPE – CBERS-4A / BDC',
@@ -5956,6 +5986,13 @@
             tmsLayer.addTo(map);
             satTmsLayers[id] = tmsLayer;
             if (btn) btn.classList.add('ativo');
+
+            // Centraliza no footprint se disponível
+            if (satLayers[id] && !map.hasLayer(satLayers[id])) {
+                satLayers[id].addTo(map);
+                document.getElementById('sat-fp-' + idx) && document.getElementById('sat-fp-' + idx).classList.add('ativo');
+            }
+            if (satLayers[id]) map.fitBounds(satLayers[id].getBounds(), { padding: [30, 30] });
         }
 
         function limparResultadosSatelite() {
