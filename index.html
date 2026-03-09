@@ -5652,6 +5652,7 @@
         var SAT_COLLECTION = 'CB4A-WPM-PCA-FUSED-1';
         var SAT_STAC_BASE  = 'https://data.inpe.br/bdc/stac/v1';
         var SAT_TMS_BASE   = 'https://data.inpe.br/bdc/tms/tiles/WebMercatorQuad/{z}/{x}/{y}?url=';
+        // Nota: COGs do INPE podem retornar URLs http:// — sempre converter para https:// antes de usar
 
         // Bbox: AOI desenhada ou extensão atual do mapa
         function getSatBboxArray() {
@@ -5875,8 +5876,10 @@
 
                 // Guarda assets pelo índice — URLs não vão no onclick
                 satAssetsMap[idx] = { id: id, assets: assets };
+                console.log('[SAT render] idx=' + idx + ' id=' + id + ' assets:', Object.keys(assets));
 
                 var thumbUrl = (assets.thumbnail || assets.THUMBNAIL || {}).href || null;
+                if (thumbUrl) thumbUrl = thumbUrl.replace(/^http:\/\//i, 'https://');
                 // Detecta qualquer asset de imagem visualizável (COG)
                 var hasTci = !!(assets.tci || assets.TCI || assets.visual || assets.VISUAL);
 
@@ -5951,7 +5954,7 @@
 
         function toggleSatTMS(idx) {
             var entry = satAssetsMap[idx];
-            if (!entry) return;
+            if (!entry) { console.error('[SAT TMS] entry não encontrada para idx', idx); return; }
             var id     = entry.id;
             var assets = entry.assets;
             var btn    = document.getElementById('sat-tms-' + idx);
@@ -5964,18 +5967,64 @@
                 return;
             }
 
-            // Busca URL do COG — tenta todas as chaves conhecidas
-            var cogAsset = assets.tci || assets.TCI || assets.visual || assets.VISUAL || null;
-            if (!cogAsset || !cogAsset.href) {
-                // Log para diagnóstico: mostra quais assets estão disponíveis
-                console.warn('[SAT TMS] Nenhum asset TCI/visual encontrado. Assets disponíveis:', Object.keys(assets));
-                alert('Visualização não disponível para esta cena.\nAssets disponíveis: ' + Object.keys(assets).join(', '));
+            // Log detalhado: mostra TODOS os assets e seus hrefs no console
+            var assetKeys = Object.keys(assets);
+            console.log('[SAT TMS] idx=' + idx + ' id=' + id);
+            console.log('[SAT TMS] Assets disponíveis:', assetKeys);
+            assetKeys.forEach(function(k) {
+                console.log('  ' + k + ':', assets[k].href || assets[k].type || '(sem href)');
+            });
+
+            // Tenta encontrar asset de imagem COG em ordem de preferência
+            var cogKey = null;
+            var preferencia = ['tci','TCI','visual','VISUAL','red','GREEN','BAND3','BAND4','B4','B3','B2'];
+            for (var i = 0; i < preferencia.length; i++) {
+                if (assets[preferencia[i]] && assets[preferencia[i]].href) {
+                    cogKey = preferencia[i];
+                    break;
+                }
+            }
+            // Se não achou nas preferências, pega qualquer asset com href que seja GeoTIFF
+            if (!cogKey) {
+                for (var k in assets) {
+                    var a = assets[k];
+                    if (a.href && (
+                        (a.type && a.type.indexOf('tiff') >= 0) ||
+                        a.href.indexOf('.tif') >= 0 ||
+                        a.href.indexOf('.TIF') >= 0
+                    )) {
+                        cogKey = k;
+                        console.log('[SAT TMS] Usando fallback GeoTIFF:', cogKey, a.href);
+                        break;
+                    }
+                }
+            }
+
+            if (!cogKey) {
+                console.error('[SAT TMS] Nenhum COG encontrado. Assets:', JSON.stringify(assets, null, 2));
+                // Exibe diagnóstico inline no painel
+                var diagDiv = document.getElementById('sat-item-' + idx);
+                if (diagDiv) {
+                    var existing = diagDiv.querySelector('.sat-diag');
+                    if (existing) existing.remove();
+                    var d = document.createElement('div');
+                    d.className = 'sat-diag';
+                    d.style.cssText = 'font-size:0.68em;color:#f39c12;background:rgba(243,156,18,0.1);border-radius:4px;padding:6px 8px;margin-top:6px;width:100%;';
+                    d.innerHTML = '<b>Assets disponíveis:</b> ' + assetKeys.map(function(k){
+                        return '<code style="background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px;">' + k + '</code>';
+                    }).join(' ');
+                    diagDiv.appendChild(d);
+                }
                 return;
             }
 
+            // Forçar HTTPS — COGs do INPE podem vir com http:// que o browser bloqueia (Mixed Content)
+            var cogHref = assets[cogKey].href.replace(/^http:\/\//i, 'https://');
+            console.log('[SAT TMS] Usando asset "' + cogKey + '":', cogHref);
+
             // URL TMS do INPE: tiles/WebMercatorQuad/{z}/{x}/{y}?url=<COG>
-            var tmsUrl = SAT_TMS_BASE + encodeURIComponent(cogAsset.href);
-            console.log('[SAT TMS] Carregando:', tmsUrl);
+            var tmsUrl = SAT_TMS_BASE.replace(/^http:\/\//i, 'https://') + encodeURIComponent(cogHref);
+            console.log('[SAT TMS] URL final:', tmsUrl);
 
             var tmsLayer = L.tileLayer(tmsUrl, {
                 opacity: 0.9,
@@ -5987,12 +6036,15 @@
             satTmsLayers[id] = tmsLayer;
             if (btn) btn.classList.add('ativo');
 
-            // Centraliza no footprint se disponível
-            if (satLayers[id] && !map.hasLayer(satLayers[id])) {
-                satLayers[id].addTo(map);
-                document.getElementById('sat-fp-' + idx) && document.getElementById('sat-fp-' + idx).classList.add('ativo');
+            // Centraliza no footprint
+            if (satLayers[id]) {
+                if (!map.hasLayer(satLayers[id])) {
+                    satLayers[id].addTo(map);
+                    var fpBtn = document.getElementById('sat-fp-' + idx);
+                    if (fpBtn) fpBtn.classList.add('ativo');
+                }
+                map.fitBounds(satLayers[id].getBounds(), { padding: [30, 30] });
             }
-            if (satLayers[id]) map.fitBounds(satLayers[id].getBounds(), { padding: [30, 30] });
         }
 
         function limparResultadosSatelite() {
