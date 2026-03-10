@@ -1280,7 +1280,7 @@
             font-size: 1em;
             box-shadow: 0 2px 8px rgba(0,0,0,0.4);
             transition: background 0.2s, border-color 0.2s;
-            top: calc(var(--header-height) + 140px); /* abaixo de zoom+locate+ruler */
+            top: calc(var(--header-height) + 200px); /* abaixo de zoom+locate+ruler */
         }
         #btn-salvar-imagem:hover { background: rgba(52,152,219,0.25); border-color: #5dade2; }
 
@@ -1298,7 +1298,7 @@
             font-size: 0.88em;
             box-shadow: 0 4px 24px rgba(0,0,0,0.6);
             min-width: 220px;
-            top: calc(var(--header-height) + 130px);
+            top: calc(var(--header-height) + 190px);
         }
         #modal-captura.ativo { display: block; }
         #modal-captura h4 { margin: 0 0 10px 0; font-size: 0.95em; color: #3498db; border-bottom: 1px solid #2c4a6e; padding-bottom: 6px; }
@@ -6835,21 +6835,44 @@
         }
 
         function _desenharRodapeCaptura(ctx, canvas, camadas) {
-            var pad = 10, lineH = 16, fontSize = 11;
-            ctx.fillStyle = 'rgba(10,25,50,0.88)';
-            var rodapeH = pad*2 + lineH * Math.ceil(camadas.length / 3) + lineH;
+            var pad = 12, lineH = 17, fontSize = 11;
+            var ncols = 6;
+            var nrows = Math.ceil(camadas.length / ncols);
+            // Linha 0: título "FUJAMA WebGIS"; Linha 1: label; Linhas 2+: camadas
+            var rodapeH = pad * 2 + lineH * (nrows + 2);
+            ctx.fillStyle = 'rgba(10,25,50,0.93)';
             ctx.fillRect(0, canvas.height - rodapeH, canvas.width, rodapeH);
+
+            // Linha divisória superior
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - rodapeH);
+            ctx.lineTo(canvas.width, canvas.height - rodapeH);
+            ctx.stroke();
+
+            var baseY = canvas.height - rodapeH + pad + lineH;
+
+            // Título
             ctx.fillStyle = '#3498db';
             ctx.font = 'bold ' + fontSize + 'px Arial';
-            ctx.fillText('FUJAMA WebGIS  —  ' + new Date().toLocaleDateString('pt-BR'), pad, canvas.height - rodapeH + lineH);
-            ctx.fillStyle = '#ddd';
-            ctx.font = (fontSize-1) + 'px Arial';
-            var cx = pad, cy = canvas.height - rodapeH + lineH*2;
-            var colW = Math.floor(canvas.width / 3);
+            ctx.fillText('FUJAMA WebGIS  —  ' + new Date().toLocaleDateString('pt-BR'), pad, baseY);
+
+            // Label "Camadas ligadas:"
+            ctx.fillStyle = '#aad4f5';
+            ctx.font = 'bold ' + (fontSize - 1) + 'px Arial';
+            ctx.fillText('Camadas ligadas:', pad, baseY + lineH);
+
+            // Camadas em até 6 colunas
+            ctx.fillStyle = '#e0e8f0';
+            ctx.font = (fontSize - 1) + 'px Arial';
+            var colW = Math.floor((canvas.width - pad * 2) / ncols);
             camadas.forEach(function(c, i) {
-                if (i > 0 && i % 3 === 0) { cy += lineH; cx = pad; }
+                var col = i % ncols;
+                var row = Math.floor(i / ncols);
+                var cx = pad + col * colW;
+                var cy = baseY + lineH * (2 + row);
                 ctx.fillText('• ' + c, cx, cy);
-                cx += colW;
             });
         }
 
@@ -6863,16 +6886,32 @@
             var camadas = incluirInfo ? _getCamadasAtivas() : [];
             var dataStr = new Date().toISOString().slice(0,10);
 
+            // Ocultar elementos UI que não devem aparecer na captura
+            var hideEls = document.querySelectorAll(
+                '.leaflet-top, .leaflet-bottom, .leaflet-control-layers, ' +
+                '#btn-salvar-imagem, #modal-captura, .fab-mobile, ' +
+                '#comp-left-ui, .comp-base-sel'
+            );
+            hideEls.forEach(function(el) { el.dataset._capHidden = el.style.visibility; el.style.visibility = 'hidden'; });
+
+            function restoreEls() {
+                hideEls.forEach(function(el) { el.style.visibility = el.dataset._capHidden || ''; });
+            }
+
             function captureElement(el) {
                 return html2canvas(el, {
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
-                    scale: window.devicePixelRatio || 1
+                    scale: window.devicePixelRatio || 1,
+                    ignoreElements: function(el) {
+                        return el.id === 'modal-captura' || el.id === 'btn-salvar-imagem';
+                    }
                 });
             }
 
             function finalizar(canvas) {
+                restoreEls();
                 prog.classList.remove('ativo');
                 document.getElementById('modal-captura').classList.remove('ativo');
 
@@ -6916,12 +6955,14 @@
                     ctx.drawImage(c2, c1.width, 0);
                     finalizar(combined);
                 }).catch(function(e) {
+                    restoreEls();
                     prog.classList.remove('ativo');
                     document.getElementById('modal-captura').classList.remove('ativo');
                     alert('Erro na captura: ' + e.message);
                 });
             } else {
                 captureElement(document.getElementById('map')).then(finalizar).catch(function(e) {
+                    restoreEls();
                     prog.classList.remove('ativo');
                     document.getElementById('modal-captura').classList.remove('ativo');
                     alert('Erro na captura: ' + e.message);
@@ -6931,6 +6972,47 @@
 
                 function exportarMemorialPDF() {
             if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
+
+            // 1. Captura o mapa ANTES de gerar o PDF (com Google Earth como base)
+            var btnEl = document.getElementById('btnMemorialPDF');
+            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aguarde…'; }
+
+            // Guardar base atual e trocar para Google Earth para a captura
+            var baseAntes = activeBaseKey;
+            if (activeBaseKey !== 'googleearth') setBaseMap('googleearth');
+
+            // Fit no polígono desenhado para centralizar
+            var pts = drawAreaPontos;
+            var latlngs = pts.map(function(p){ return [p.lat, p.lng]; });
+            var poly = L.polygon(latlngs);
+            map.fitBounds(poly.getBounds(), { padding: [40, 40] });
+
+            // Ocultar UI para captura limpa
+            var hideEls = document.querySelectorAll('.leaflet-top,.leaflet-bottom,.leaflet-control-layers,#btn-salvar-imagem,#modal-captura,.fab-mobile,#comp-left-ui,.comp-base-sel');
+            hideEls.forEach(function(el){ el.dataset._mHidden = el.style.visibility; el.style.visibility='hidden'; });
+
+            setTimeout(function() {
+                html2canvas(document.getElementById('map'), {
+                    useCORS: true, allowTaint: true, logging: false,
+                    scale: 1.5
+                }).then(function(mapCanvas) {
+                    // Restaurar estado
+                    hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
+                    if (activeBaseKey !== baseAntes) setBaseMap(baseAntes);
+                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-file-pdf"></i> Memorial PDF'; }
+
+                    _gerarMemorialComMapa(mapCanvas);
+                }).catch(function(e) {
+                    hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
+                    if (activeBaseKey !== baseAntes) setBaseMap(baseAntes);
+                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-file-pdf"></i> Memorial PDF'; }
+                    // Gerar sem mapa
+                    _gerarMemorialComMapa(null);
+                });
+            }, 800); // aguarda tiles carregarem
+        }
+
+        function _gerarMemorialComMapa(mapCanvas) {
             var pts = drawAreaPontos;
             var doc = new window.jspdf.jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
             var margin=15, y=margin, pw=210-2*margin;
@@ -6979,7 +7061,7 @@
             var colW = [14,24,24,26,26,28,24];
             var hdrH = 9; // altura do cabeçalho em 2 linhas
             var xc = margin;
-            doc.setFillColor(30,60,100); doc.setTextColor(255,255,255);
+            doc.setFillColor(10,25,50); doc.setTextColor(255,255,255);
             doc.setFontSize(7);
             headers.forEach(function(h,i){
                 doc.rect(xc,y,colW[i],hdrH,'F');
@@ -7012,6 +7094,32 @@
             });
 
             y+=8;
+
+            // ---- Página de mapa ----
+            if (mapCanvas) {
+                doc.addPage();
+                var mw = 210 - 2*margin;
+                var mh = 297 - 2*margin - 20;
+                var ratio = Math.min(mw / (mapCanvas.width * 0.264583), mh / (mapCanvas.height * 0.264583));
+                var iw = mapCanvas.width * 0.264583 * ratio;
+                var ih = mapCanvas.height * 0.264583 * ratio;
+                var mx = margin + (mw - iw) / 2;
+
+                // Cabeçalho da página de mapa
+                doc.setFillColor(10,25,50);
+                doc.rect(0, 0, 210, 14, 'F');
+                doc.setTextColor(255,255,255);
+                doc.setFontSize(9); doc.setFont(undefined,'bold');
+                doc.text('MAPA DE LOCALIZAÇÃO DA ÁREA — Google Earth Pro', 105, 9, {align:'center'});
+
+                doc.addImage(mapCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', mx, 18, iw, ih);
+
+                // Rodapé
+                doc.setFontSize(7); doc.setTextColor(120,120,120); doc.setFont(undefined,'normal');
+                doc.text('Imagem gerada automaticamente via Google Earth. Uso interno FUJAMA.', 105, 290, {align:'center'});
+            }
+
+            // Última página: rodapé geral
             doc.setFontSize(8); doc.setTextColor(100,100,100);
             doc.text('Gerado por FUJAMA WebGIS – dados de uso interno', 105, y, {align:'center'});
 
