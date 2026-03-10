@@ -6916,6 +6916,8 @@
             }
 
             function captureElement(el) {
+                // Usar getBoundingClientRect para capturar EXATAMENTE o que está visível
+                var rect = el.getBoundingClientRect();
                 return html2canvas(el, {
                     useCORS: true,
                     allowTaint: true,
@@ -6923,9 +6925,85 @@
                     foreignObjectRendering: false,
                     imageTimeout: 15000,
                     scale: window.devicePixelRatio || 1,
+                    x: rect.left,
+                    y: rect.top,
+                    width: rect.width,
+                    height: rect.height,
+                    windowWidth: window.innerWidth,
+                    windowHeight: window.innerHeight,
+                    scrollX: 0,
+                    scrollY: 0,
                     ignoreElements: function(elem) {
                         return elem.id === 'modal-captura' || elem.id === 'btn-salvar-imagem';
                     }
+                });
+            }
+
+            // Função para copiar os overlays (SVG + marcadores) do mapa principal sobre um canvas destino
+            function aplicarOverlaysNoCanvas(destCanvas, destW, destH) {
+                return new Promise(function(resolve) {
+                    var mapRect = document.getElementById('map').getBoundingClientRect();
+                    var svgEls = document.querySelectorAll('#map .leaflet-overlay-pane svg');
+                    var promises = [];
+
+                    svgEls.forEach(function(svgEl) {
+                        promises.push(new Promise(function(res) {
+                            try {
+                                // Clonar SVG e ajustar viewBox para a área visível do mapa
+                                var clone = svgEl.cloneNode(true);
+                                var svgRect = svgEl.getBoundingClientRect();
+                                // Posição do SVG relativa ao mapa
+                                var ox = svgRect.left - mapRect.left;
+                                var oy = svgRect.top  - mapRect.top;
+                                clone.setAttribute('width',  svgRect.width);
+                                clone.setAttribute('height', svgRect.height);
+                                var xml = new XMLSerializer().serializeToString(clone);
+                                var blob = new Blob([xml], {type: 'image/svg+xml'});
+                                var url  = URL.createObjectURL(blob);
+                                var img  = new Image();
+                                img.onload = function() {
+                                    var ctx = destCanvas.getContext('2d');
+                                    // Escalar a posição e tamanho do overlay para o canvas destino
+                                    var scaleX = destW / mapRect.width;
+                                    var scaleY = destH / mapRect.height;
+                                    ctx.drawImage(img,
+                                        ox * scaleX, oy * scaleY,
+                                        svgRect.width * scaleX, svgRect.height * scaleY
+                                    );
+                                    URL.revokeObjectURL(url);
+                                    res();
+                                };
+                                img.onerror = function() { URL.revokeObjectURL(url); res(); };
+                                img.src = url;
+                            } catch(e) { res(); }
+                        }));
+                    });
+
+                    // Marcadores (divIcon / alfinetes) via html2canvas parcial
+                    var markerPane = document.querySelector('#map .leaflet-marker-pane');
+                    if (markerPane && markerPane.children.length > 0) {
+                        promises.push(new Promise(function(res) {
+                            html2canvas(markerPane, {
+                                useCORS: true, allowTaint: true, logging: false,
+                                backgroundColor: null,
+                                scale: window.devicePixelRatio || 1
+                            }).then(function(mc) {
+                                var ctx = destCanvas.getContext('2d');
+                                var pRect = markerPane.getBoundingClientRect();
+                                var ox = pRect.left - mapRect.left;
+                                var oy = pRect.top  - mapRect.top;
+                                var scaleX = destW / mapRect.width;
+                                var scaleY = destH / mapRect.height;
+                                ctx.drawImage(mc,
+                                    ox * scaleX, oy * scaleY,
+                                    pRect.width * scaleX, pRect.height * scaleY
+                                );
+                                res();
+                            }).catch(res);
+                        }));
+                    }
+
+                    Promise.all(promises).then(resolve);
                 });
             }
 
@@ -6980,11 +7058,10 @@
                 ]).then(function(canvases) {
                     var c1 = canvases[0], c2 = canvases[1];
 
-                    // Igualar alturas: usar a menor para que as proporções fiquem iguais
+                    // Igualar alturas mantendo proporção de c1
                     var targetH = Math.min(c1.height, c2.height);
                     var targetW = Math.round(c1.width * (targetH / c1.height));
 
-                    // Normalizar c1 e c2 para mesma altura
                     function resizeCanvas(src, w, h) {
                         var tmp = document.createElement('canvas');
                         tmp.width = w; tmp.height = h;
@@ -6994,32 +7071,16 @@
                     var r1 = resizeCanvas(c1, targetW, targetH);
                     var r2 = resizeCanvas(c2, targetW, targetH);
 
-                    // Redesenhar camadas vetoriais do mapa principal sobre c2
-                    // (alfinetes, polígono desenhado, polilinha) via SVG snapshot do mapa
-                    var overlayCtx = r2.getContext('2d');
-                    // Capturar o pane SVG do mapa principal e desenhar sobre r2
-                    var svgPanes = document.querySelectorAll('#map .leaflet-overlay-pane svg, #map .leaflet-marker-pane');
-                    svgPanes.forEach(function(pane) {
-                        try {
-                            var xml = new XMLSerializer().serializeToString(pane);
-                            var svgBlob = new Blob([xml], {type:'image/svg+xml'});
-                            var url = URL.createObjectURL(svgBlob);
-                            var img = new Image();
-                            img.onload = function() {
-                                overlayCtx.drawImage(img, 0, 0, targetW, targetH);
-                                URL.revokeObjectURL(url);
-                            };
-                            img.src = url;
-                        } catch(e) {}
+                    // Aplicar overlays do mapa principal no canvas da segunda tela (async)
+                    aplicarOverlaysNoCanvas(r2, targetW, targetH).then(function() {
+                        var combined = document.createElement('canvas');
+                        combined.width  = r1.width + r2.width;
+                        combined.height = targetH;
+                        var ctx = combined.getContext('2d');
+                        ctx.drawImage(r1, 0, 0);
+                        ctx.drawImage(r2, r1.width, 0);
+                        finalizar(combined);
                     });
-
-                    var combined = document.createElement('canvas');
-                    combined.width  = r1.width + r2.width;
-                    combined.height = targetH;
-                    var ctx = combined.getContext('2d');
-                    ctx.drawImage(r1, 0, 0);
-                    ctx.drawImage(r2, r1.width, 0);
-                    finalizar(combined);
                 }).catch(function(e) {
                     restoreEls();
                     prog.classList.remove('ativo');
@@ -7061,11 +7122,21 @@
             var _memDpr = window.devicePixelRatio || 1;
 
             setTimeout(function() {
-                html2canvas(document.getElementById('map'), {
+                var mapEl = document.getElementById('map');
+                var rect = mapEl.getBoundingClientRect();
+                html2canvas(mapEl, {
                     useCORS: true, allowTaint: true, logging: false,
                     foreignObjectRendering: false,
                     imageTimeout: 15000,
-                    scale: _memDpr
+                    scale: _memDpr,
+                    x: rect.left,
+                    y: rect.top,
+                    width: rect.width,
+                    height: rect.height,
+                    windowWidth: window.innerWidth,
+                    windowHeight: window.innerHeight,
+                    scrollX: 0,
+                    scrollY: 0
                 }).then(function(mapCanvas) {
                     // Restaurar estado
                     hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
