@@ -5753,12 +5753,6 @@
         };
 
         var overlaysTree = [
-            { label: '<b>SIG-SC</b>', selectAllCheckbox: true, collapsed: true, children: [
-                { label: "ana_nascente", layer: layer_ana_nascente_7 },
-                { label: "ana_curso_dagua", layer: layer_ana_curso_dagua_6 },
-                { label: "inde_trecho_drenagem", layer: layer_inde_trecho_drenagem_5 },
-                { label: "MDT-2012", layer: layer_MDT2012_4 },
-            ] },
             { label: '<b>Licenças Ambientais - 2026</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: '<img src="legend/CorteEventual_46.png" /> Corte Eventual', layer: layer_CorteEventual_46 },
                 { label: '<img src="legend/AutorizaodeCorteSimplificada_45.png" /> Autorização de Corte Simplificada', layer: layer_AutorizaodeCorteSimplificada_45 },
@@ -5774,6 +5768,12 @@
             ] },
             { label: '<b>Instituto do Meio Ambiente</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: '<img src="legend/LicenciamentoAmbiental_37.png" /> Licenciamento Ambiental', layer: layer_LicenciamentoAmbiental_37 },
+            ] },
+            { label: '<b>SIG-SC</b>', selectAllCheckbox: true, collapsed: true, children: [
+                { label: "ana_nascente", layer: layer_ana_nascente_7 },
+                { label: "ana_curso_dagua", layer: layer_ana_curso_dagua_6 },
+                { label: "inde_trecho_drenagem", layer: layer_inde_trecho_drenagem_5 },
+                { label: "MDT-2012", layer: layer_MDT2012_4 },
             ] },
             { label: '<b>Geoinfo Embrapa</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: "Erodibilidade dos solos do Brasil [CNPS]", layer: layer_ErodibilidadedossolosdoBrasilCNPS_36 },
@@ -6745,8 +6745,8 @@
             doc.setFontSize(10); doc.setFont(undefined,'bold');
             doc.text('Coordenadas dos Vértices e Lados (SIRGAS 2000 / UTM zona 22S)', margin, y); y+=5;
 
-            var headers = ['Vértice','Lat (°)','Lon (°)','E (m)','N (m)','Dist. próx. (m)','Azimute'];
-            var colW = [14,22,22,26,26,28,22];
+            var headers = ['Vértice','Latitude (°)','Longitude (°)','E - UTM (m)','N - UTM (m)','Dist. ao próx. (m)','Azimute (graus)'];
+            var colW = [14,24,24,26,26,28,24];
             var xc = margin;
             doc.setFillColor(30,60,100); doc.setTextColor(255,255,255);
             doc.setFontSize(7.5);
