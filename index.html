@@ -56,7 +56,8 @@
         #header-logo img {
             height: 38px;
             width: auto;
-            filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+            background: transparent;
+            filter: drop-shadow(0 0 6px rgba(52,152,219,0.85)) drop-shadow(0 0 14px rgba(52,152,219,0.45)) drop-shadow(0 1px 4px rgba(0,0,0,0.5));
         }
         #header-logo-text {
             display: flex;
@@ -1388,7 +1389,7 @@
         <header id="app-header">
             <!-- Logo -->
             <div id="header-logo">
-                <img src="images/logo.png" alt="Logo FUJAMA">
+                <img src="images/logo.svg" alt="Logo FUJAMA">
                 <div id="header-logo-text">
                     <span class="logo-title">FUJAMA</span>
                     <span class="logo-sub">Fundação Jaraguaense de Meio Ambiente</span>
@@ -1581,28 +1582,7 @@
                             Digite um termo para buscar
                         </div>
                     </div>
-                    <hr class="search-separator">
-                    <div class="search-group">
-                        <div class="search-section-label"><i class="fas fa-map-marked-alt"></i> Inscrição Imobiliária</div>
-                        <div class="search-input-group">
-                            <input type="text" class="search-input" id="searchInscricao" placeholder="Ex: 12040000028" onkeydown="if(event.key==='Enter') buscarInscricao()">
-                            <button class="search-btn" onclick="buscarInscricao()">Buscar</button>
-                        </div>
-                        <div class="search-results" id="searchResultsInscricao">
-                            Digite a inscrição imobiliária
-                        </div>
-                    </div>
-                    <hr class="search-separator">
-                    <div class="search-group">
-                        <div class="search-section-label"><i class="fas fa-file-invoice-dollar"></i> Cadastro IPTU</div>
-                        <div class="search-input-group">
-                            <input type="text" class="search-input" id="searchIPTU" placeholder="Ex: 12040000028" onkeydown="if(event.key==='Enter') buscarIPTU()">
-                            <button class="search-btn" onclick="buscarIPTU()">Buscar</button>
-                        </div>
-                        <div class="search-results" id="searchResultsIPTU">
-                            Digite o cadastro IPTU
-                        </div>
-                    </div>
+
                 </div>
                     </div><!-- /card-collapsible -->
                 <!-- CARD: Buscador de Coordenadas -->
@@ -1937,6 +1917,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
         <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+        <script src="https://unpkg.com/shpwrite@0.3.2/shpwrite.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
         <script>
@@ -3543,7 +3524,7 @@
             }
         // ========== MAPA ==========
         var map = L.map('map', { zoomControl: false, maxZoom: 28, minZoom: 1 })
-            .fitBounds([[-26.736528332068943, -49.279205202045624], [-26.381543773007998, -48.78191529686722]]);
+            .setView([-26.489, -49.065], 11);
         var hash = new L.Hash(map);
         map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
         var autolinker = new Autolinker({ truncate: { length: 30, location: 'smart' } });
@@ -5781,6 +5762,12 @@
         };
 
         var overlaysTree = [
+            { label: '<b>SIG-SC</b>', selectAllCheckbox: true, collapsed: true, children: [
+                { label: "ana_nascente", layer: layer_ana_nascente_7 },
+                { label: "ana_curso_dagua", layer: layer_ana_curso_dagua_6 },
+                { label: "inde_trecho_drenagem", layer: layer_inde_trecho_drenagem_5 },
+                { label: "MDT-2012", layer: layer_MDT2012_4 },
+            ] },
             { label: '<b>Licenças Ambientais - 2026</b>', selectAllCheckbox: true, collapsed: true, children: [
                 { label: '<img src="legend/CorteEventual_46.png" /> Corte Eventual', layer: layer_CorteEventual_46 },
                 { label: '<img src="legend/AutorizaodeCorteSimplificada_45.png" /> Autorização de Corte Simplificada', layer: layer_AutorizaodeCorteSimplificada_45 },
@@ -5835,12 +5822,6 @@
                 { label: "Inundações Recorrentes", layer: layer_InundaesRecorrentes_10 },
                 { label: "Inundações Esporadicas", layer: layer_InundaesEsporadicas_9 },
                 { label: "Área de Tombamento IPHAN", layer: layer_readeTombamentoIPHAN_8 },
-            ] },
-            { label: '<b>SIG-SC</b>', selectAllCheckbox: true, collapsed: true, children: [
-                { label: "ana_nascente", layer: layer_ana_nascente_7 },
-                { label: "ana_curso_dagua", layer: layer_ana_curso_dagua_6 },
-                { label: "inde_trecho_drenagem", layer: layer_inde_trecho_drenagem_5 },
-                { label: "MDT-2012", layer: layer_MDT2012_4 },
             ] }
         ];
 
@@ -5931,30 +5912,6 @@
             }).catch(function(err){ console.warn('Lote GetFeatureInfo erro:', err); });
         });
 
-        // ========== BUSCADOR POR INSCRIÇÃO IMOBILIÁRIA (campo "chave") ==========
-        // Estratégia: varredura por GetFeatureInfo em múltiplos pontos da viewport
-        // para encontrar um lote com determinada inscrição. Como o WFS está quebrado,
-        // usamos o link direto para o GeoJaraguá como método principal.
-        function buscarInscricao() {
-            var termo      = document.getElementById('searchInscricao').value.trim();
-            var resultsDiv = document.getElementById('searchResultsInscricao');
-            if (!termo) { resultsDiv.innerHTML = 'Digite a inscrição imobiliária'; return; }
-            resultsDiv.innerHTML = '<i class="fas fa-external-link-alt"></i> '
-                + '<a href="' + _loteGeoUrl + '" target="_blank" style="color:#3498db;">'
-                + 'Pesquisar inscrição <b>' + _escapeHtml(termo) + '</b> no GeoJaraguá</a>'
-                + '<br><small style="color:#aaa;">O sistema de busca direta exige autenticação no portal municipal.</small>';
-        }
-
-        // ========== BUSCADOR POR CADASTRO IPTU (campo "cadastro") ==========
-        function buscarIPTU() {
-            var termo      = document.getElementById('searchIPTU').value.trim();
-            var resultsDiv = document.getElementById('searchResultsIPTU');
-            if (!termo) { resultsDiv.innerHTML = 'Digite o cadastro IPTU'; return; }
-            resultsDiv.innerHTML = '<i class="fas fa-external-link-alt"></i> '
-                + '<a href="' + _loteGeoUrl + '" target="_blank" style="color:#3498db;">'
-                + 'Pesquisar IPTU <b>' + _escapeHtml(termo) + '</b> no GeoJaraguá</a>'
-                + '<br><small style="color:#aaa;">O sistema de busca direta exige autenticação no portal municipal.</small>';
-        }
 
         function _escapeHtml(s) {
             return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -6840,7 +6797,34 @@
 
         function exportarDesenhoSHP() {
             if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
-            alert('Exportação SHP requer biblioteca adicional (shpwrite.js).\nUse a exportação KML ou GeoJSON e converta no QGIS com "Salvar como → Shapefile".');
+            if (typeof shpwrite === 'undefined') {
+                alert('Biblioteca shpwrite não carregada. Verifique a conexão e recarregue a página.');
+                return;
+            }
+            var coords = drawAreaPontos.map(function(p){ return [p.lng, p.lat]; });
+            coords.push(coords[0]);
+            var geojson = {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: { type: 'Polygon', coordinates: [coords] },
+                    properties: { nome: 'Area_FUJAMA', data: new Date().toISOString().slice(0,10) }
+                }]
+            };
+            var options = {
+                folder: 'area_fujama',
+                types: { polygon: 'area_fujama' }
+            };
+            try {
+                var zip = shpwrite.zip(geojson, options);
+                var blob = new Blob([zip], { type: 'application/zip' });
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'area_' + new Date().toISOString().slice(0,10) + '.zip';
+                a.click();
+            } catch(e) {
+                alert('Erro ao gerar SHP: ' + e.message);
+            }
         }
 
         function usarDesenhoNoRelatorio() {
@@ -7228,7 +7212,8 @@
             }
 
             // Limpa painel de atividades
-            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas fa-hand-pointer"></i>Clique em uma licença acima</div>';
+            var isMobile = window.innerWidth <= 768;
+            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas ' + (isMobile ? 'fa-hand-pointer' : 'fa-hand-point-right') + '"></i>' + (isMobile ? 'Clique em uma licença acima' : 'Clique em uma licença ao lado') + '</div>';
             document.getElementById('statsPizzaWrap').style.display = 'none';
             document.getElementById('statsAtivLabel').textContent = '';
         }
