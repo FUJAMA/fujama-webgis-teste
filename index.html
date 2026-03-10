@@ -56,7 +56,8 @@
         #header-logo img {
             height: 38px;
             width: auto;
-            filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+            background: transparent;
+            filter: drop-shadow(0 0 6px rgba(52,152,219,0.85)) drop-shadow(0 0 14px rgba(52,152,219,0.45)) drop-shadow(0 1px 4px rgba(0,0,0,0.5));
         }
         #header-logo-text {
             display: flex;
@@ -351,7 +352,7 @@
             color: #888;
         }
         /* Popup de Lotes */
-        .lote-popup { font-size: 0.92em; min-width: 200px; }
+        .lote-popup { font-size: 0.92em; min-width: 210px; }
         .lote-popup h4 { margin: 0 0 8px 0; color: #2980b9; font-size: 1em; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
         .lote-popup table { width: 100%; border-collapse: collapse; }
         .lote-popup td { padding: 3px 5px; vertical-align: top; }
@@ -826,6 +827,8 @@
             font-size: 0.9em;
         }
         .stats-sem-dados i { font-size: 2em; display: block; margin-bottom: 8px; color: #444; }
+        .stats-hint-mobile { display: none; }
+        .stats-hint-desktop { display: inline; }
 
         @media (max-width: 768px) {
             .dashboard-painel.ativo {
@@ -839,6 +842,8 @@
             }
             .stats-card-wide { min-width: unset; flex: 1 1 100%; }
             .stats-canvas-wrap { height: 160px; }
+            .stats-hint-desktop { display: none; }
+            .stats-hint-mobile { display: inline; }
         }
 
         /* ===== AJUSTES PARA O CABEÇALHO FIXO ===== */
@@ -1388,7 +1393,7 @@
         <header id="app-header">
             <!-- Logo -->
             <div id="header-logo">
-                <img src="images/logo.png" alt="Logo FUJAMA">
+                <img src="images/logo.svg" alt="Logo FUJAMA">
                 <div id="header-logo-text">
                     <span class="logo-title">FUJAMA</span>
                     <span class="logo-sub">Fundação Jaraguaense de Meio Ambiente</span>
@@ -5771,18 +5776,19 @@
         var lay = L.control.layers.tree(baseMaps, overlaysTree, { collapsed: false });
         lay.addTo(map);
 
-        // No mobile, colapsa a árvore de camadas automaticamente
-        if (window.innerWidth <= 768) {
-            setTimeout(function() {
-                var layersControl = document.querySelector('.leaflet-control-layers');
-                if (layersControl) {
-                    layersControl.classList.remove('leaflet-control-layers-expanded');
-                }
-            }, 100);
-        }
+        // Colapsa a árvore de camadas sempre (em qualquer dispositivo)
+        setTimeout(function() {
+            var layersControl = document.querySelector('.leaflet-control-layers');
+            if (layersControl) {
+                layersControl.classList.remove('leaflet-control-layers-expanded');
+            }
+        }, 100);
 
-        // Adicionar um mapa base padrão
+        // Adicionar mapa base e camadas ligadas por padrão
         map.addLayer(layer_OpenStreetMap_0);
+        map.addLayer(layer_LimiteMunicipal_29);
+        map.addLayer(layer_LimitedeBairros_28);
+        map.addLayer(layer_LimitedeLotesUrbanos_27);
 
         // ========== EVENTOS DO MAPA ==========
         map.on('mousemove', function(e) {
@@ -5797,131 +5803,114 @@
 
         // ========== POPUP LOTES (GetFeatureInfo WMS) ==========
         var _loteWmsBase = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms';
+        var _loteGeoUrl  = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms'; // link externo
         var _lotePopupAberto = null;
 
-        function _loteGetFeatureInfo(latlng, layerName, titulo) {
-            var size = map.getSize();
+        function _loteGetFeatureInfo(latlng, layerName) {
+            var size   = map.getSize();
             var bounds = map.getBounds();
-            var sw = bounds.getSouthWest();
-            var ne = bounds.getNorthEast();
-            var bbox = sw.lng + ',' + sw.lat + ',' + ne.lng + ',' + ne.lat;
-            var point = map.latLngToContainerPoint(latlng);
-            var url = _loteWmsBase
+            var sw     = bounds.getSouthWest();
+            var ne     = bounds.getNorthEast();
+            var bbox   = sw.lng + ',' + sw.lat + ',' + ne.lng + ',' + ne.lat;
+            var pt     = map.latLngToContainerPoint(latlng);
+            var url    = _loteWmsBase
                 + '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo'
-                + '&QUERY_LAYERS=' + layerName
-                + '&LAYERS=' + layerName
-                + '&INFO_FORMAT=application/json'
-                + '&FEATURE_COUNT=1'
-                + '&X=' + Math.round(point.x)
-                + '&Y=' + Math.round(point.y)
-                + '&SRS=EPSG:4326'
-                + '&WIDTH=' + size.x
-                + '&HEIGHT=' + size.y
+                + '&QUERY_LAYERS=' + layerName + '&LAYERS=' + layerName
+                + '&INFO_FORMAT=application/json&FEATURE_COUNT=1'
+                + '&X=' + Math.round(pt.x) + '&Y=' + Math.round(pt.y)
+                + '&SRS=EPSG:4326&WIDTH=' + size.x + '&HEIGHT=' + size.y
                 + '&BBOX=' + bbox;
-            return fetch(url).then(function(r){ return r.json(); });
+            return fetch(url).then(function(r) { return r.json(); });
         }
 
         function _loteAbrirPopup(latlng, props, titulo) {
-            var chave = props.chave || '—';
-            var cadastro = props.cadastro || '—';
-            var situacao = props.situacao === 'A' ? 'Ativo' : (props.situacao || '—');
-            var geoUrl = 'https://geo.jaraguadosul.sc.gov.br/?inscricao=' + encodeURIComponent(chave);
+            // chave = Inscrição Imobiliária; cadastro = Cadastro IPTU
+            var inscricao = props.chave    || '—';
+            var iptu      = props.cadastro || '—';
+            var situacao  = props.situacao === 'A' ? 'Ativo' : (props.situacao || '—');
+            // URL correta do GeoJaraguá — abre o visualizador no lote pela inscrição
+            var geoUrl = 'https://geoservicos.jaraguadosul.sc.gov.br/geojaraguasul/#/mapa?inscricao=' + encodeURIComponent(inscricao);
             var html = '<div class="lote-popup">'
                 + '<h4><i class="fas fa-map-marker-alt"></i> ' + titulo + '</h4>'
                 + '<table>'
-                + '<tr><td>Chave:</td><td>' + chave + '</td></tr>'
-                + '<tr><td>Inscrição Imobiliária:</td><td>' + cadastro + '</td></tr>'
+                + '<tr><td>Inscrição Imobiliária:</td><td>' + inscricao + '</td></tr>'
+                + '<tr><td>Cadastro IPTU:</td><td>' + iptu + '</td></tr>'
                 + '<tr><td>Situação:</td><td>' + situacao + '</td></tr>'
                 + '</table>'
                 + '<a class="lote-link" href="' + geoUrl + '" target="_blank">'
                 + '<i class="fas fa-external-link-alt"></i> Ver no GeoJaraguá</a>'
                 + '</div>';
             if (_lotePopupAberto) { _lotePopupAberto.remove(); }
-            _lotePopupAberto = L.popup({ maxWidth: 260, className: 'lote-popup-wrapper' })
+            _lotePopupAberto = L.popup({ maxWidth: 280 })
                 .setLatLng(latlng).setContent(html).openOn(map);
         }
 
         map.on('click', function(e) {
-            // Verifica se camada de lotes urbanos ou rurais está ativa
             var urbanoAtivo = map.hasLayer(layer_LimitedeLotesUrbanos_27);
             var ruralAtivo  = map.hasLayer(layer_LimitedeLotesRurais_26);
             if (!urbanoAtivo && !ruralAtivo) return;
-            // Prioriza urbano se ambos ativos
             var layerName = urbanoAtivo ? 'PMJS:lim_lotes_urbanos' : 'PMJS:lim_lotes_rurais';
-            var titulo     = urbanoAtivo ? 'Lote Urbano' : 'Lote Rural';
-            _loteGetFeatureInfo(e.latlng, layerName, titulo).then(function(data) {
+            var titulo    = urbanoAtivo ? 'Lote Urbano' : 'Lote Rural';
+            _loteGetFeatureInfo(e.latlng, layerName).then(function(data) {
                 if (data.features && data.features.length > 0) {
                     _loteAbrirPopup(e.latlng, data.features[0].properties, titulo);
-                } else if (!urbanoAtivo || !ruralAtivo) {
-                    // nada encontrado
-                } else {
-                    // tentou urbano, tenta rural também
-                    _loteGetFeatureInfo(e.latlng, 'PMJS:lim_lotes_rurais', 'Lote Rural').then(function(d2) {
+                } else if (urbanoAtivo && ruralAtivo) {
+                    // sem resultado em urbano, tenta rural
+                    _loteGetFeatureInfo(e.latlng, 'PMJS:lim_lotes_rurais').then(function(d2) {
                         if (d2.features && d2.features.length > 0) {
                             _loteAbrirPopup(e.latlng, d2.features[0].properties, 'Lote Rural');
                         }
                     }).catch(function(){});
                 }
-            }).catch(function(err){ console.warn('Lote GetFeatureInfo erro:', err); });
+            }).catch(function(err) { console.warn('Lote GetFeatureInfo erro:', err); });
         });
 
         // ========== BUSCADOR DE INSCRIÇÃO IMOBILIÁRIA ==========
         function buscarInscricao() {
-            var termo = document.getElementById('searchInscricao').value.trim();
+            var termo      = document.getElementById('searchInscricao').value.trim();
             var resultsDiv = document.getElementById('searchResultsInscricao');
-            if (!termo) {
-                resultsDiv.innerHTML = 'Digite o número de inscrição imobiliária';
-                return;
-            }
+            if (!termo) { resultsDiv.innerHTML = 'Digite o número de inscrição imobiliária'; return; }
             resultsDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
-            var layerName = 'PMJS:lim_lotes_urbanos';
-            var url = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms'
-                + '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo'
-                + '&QUERY_LAYERS=' + layerName + '&LAYERS=' + layerName
-                + '&INFO_FORMAT=application/json&FEATURE_COUNT=5'
-                + '&X=50&Y=50&SRS=EPSG:4326&WIDTH=101&HEIGHT=101'
-                + '&BBOX=-49.25,-26.62,-49.01,-26.35';
-            // Para busca por cadastro, usamos WFS CQL_FILTER
-            var wfsUrl = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wfs'
-                + '?service=WFS&version=1.0.0&request=GetFeature'
-                + '&typeName=PMJS:lim_lotes_urbanos'
-                + '&outputFormat=application/json'
-                + '&maxFeatures=5'
-                + '&CQL_FILTER=cadastro=' + encodeURIComponent(termo)
-                + '&SRSNAME=EPSG:4326';
-            fetch(wfsUrl).then(function(r){ return r.json(); }).then(function(data) {
-                if (data.features && data.features.length > 0) {
-                    _inscricaoMostrarResultados(data.features, resultsDiv);
-                } else {
-                    // tenta rurais
-                    var wfsRural = wfsUrl.replace('lim_lotes_urbanos', 'lim_lotes_rurais');
-                    return fetch(wfsRural).then(function(r){ return r.json(); }).then(function(d2) {
-                        if (d2.features && d2.features.length > 0) {
-                            _inscricaoMostrarResultados(d2.features, resultsDiv);
-                        } else {
-                            resultsDiv.innerHTML = 'Nenhum lote encontrado com inscrição <b>' + termo + '</b>';
-                        }
-                    });
-                }
-            }).catch(function(err) {
-                // WFS quebrado — tenta pelo GeoJaraguá direto como fallback
-                resultsDiv.innerHTML = 'Não foi possível consultar o servidor WFS. '
-                    + '<br><a href="https://geo.jaraguadosul.sc.gov.br/?inscricao=' + encodeURIComponent(termo)
-                    + '" target="_blank" style="color:#3498db;">Abrir no GeoJaraguá <i class=\'fas fa-external-link-alt\'></i></a>';
-            });
+            var base = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wfs'
+                + '?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&maxFeatures=5&SRSNAME=EPSG:4326';
+            // tenta urbano primeiro
+            fetch(base + '&typeName=PMJS:lim_lotes_urbanos&CQL_FILTER=cadastro=' + encodeURIComponent(termo))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.features && data.features.length > 0) {
+                        _inscricaoMostrarResultados(data.features, resultsDiv);
+                    } else {
+                        return fetch(base + '&typeName=PMJS:lim_lotes_rurais&CQL_FILTER=cadastro=' + encodeURIComponent(termo))
+                            .then(function(r) { return r.json(); })
+                            .then(function(d2) {
+                                if (d2.features && d2.features.length > 0) {
+                                    _inscricaoMostrarResultados(d2.features, resultsDiv);
+                                } else {
+                                    resultsDiv.innerHTML = 'Nenhum lote encontrado com inscrição <b>' + termo + '</b>';
+                                }
+                            });
+                    }
+                })
+                .catch(function() {
+                    // WFS quebrado — fallback link GeoJaraguá
+                    resultsDiv.innerHTML = 'Servidor WFS indisponível. '
+                        + '<br><a href="https://geoservicos.jaraguadosul.sc.gov.br/geojaraguasul/#/mapa?inscricao='
+                        + encodeURIComponent(termo) + '" target="_blank" style="color:#3498db;">'
+                        + 'Abrir no GeoJaraguá <i class="fas fa-external-link-alt"></i></a>';
+                });
         }
 
         function _inscricaoMostrarResultados(features, resultsDiv) {
             var html = '<b>' + features.length + ' resultado(s):</b>';
             features.forEach(function(f, idx) {
-                var p = f.properties;
-                var chave = p.chave || '—';
-                var cadastro = p.cadastro || '—';
-                var situacao = p.situacao === 'A' ? 'Ativo' : (p.situacao || '—');
-                var geoUrl = 'https://geo.jaraguadosul.sc.gov.br/?inscricao=' + encodeURIComponent(chave);
+                var p         = f.properties;
+                var inscricao = p.chave    || '—';
+                var iptu      = p.cadastro || '—';
+                var situacao  = p.situacao === 'A' ? 'Ativo' : (p.situacao || '—');
+                var geoUrl    = 'https://geoservicos.jaraguadosul.sc.gov.br/geojaraguasul/#/mapa?inscricao=' + encodeURIComponent(inscricao);
                 html += '<div class="result-item" onclick="_inscricaoZoom(' + idx + ')">'
-                    + '<span style="color:#3498db;">Inscrição: ' + cadastro + '</span><br>'
-                    + '<small>Chave: ' + chave + ' | ' + situacao + '</small>'
+                    + '<span style="color:#3498db;">Inscrição: ' + inscricao + '</span><br>'
+                    + '<small>IPTU: ' + iptu + ' | ' + situacao + '</small>'
                     + '<br><a href="' + geoUrl + '" target="_blank" onclick="event.stopPropagation()" style="color:#3498db;font-size:0.85em;">'
                     + '<i class="fas fa-external-link-alt"></i> Ver no GeoJaraguá</a>'
                     + '</div>';
@@ -5933,12 +5922,12 @@
         function _inscricaoZoom(idx) {
             var f = window._inscricaoFeatures && window._inscricaoFeatures[idx];
             if (!f || !f.geometry) return;
-            var geojsonLayer = L.geoJSON(f);
-            var bounds = geojsonLayer.getBounds();
-            if (bounds.isValid()) {
-                map.fitBounds(bounds, { maxZoom: 18 });
-                _loteAbrirPopup(bounds.getCenter(), f.properties,
-                    f.id && f.id.includes('rurais') ? 'Lote Rural' : 'Lote Urbano');
+            var gl = L.geoJSON(f);
+            var b  = gl.getBounds();
+            if (b.isValid()) {
+                map.fitBounds(b, { maxZoom: 18 });
+                _loteAbrirPopup(b.getCenter(), f.properties,
+                    (f.id && f.id.includes('rurais')) ? 'Lote Rural' : 'Lote Urbano');
             }
         }
 
@@ -7210,7 +7199,7 @@
             }
 
             // Limpa painel de atividades
-            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas fa-hand-pointer"></i>Clique em uma licença acima</div>';
+            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas fa-hand-point-right stats-hint-desktop" style="font-size:2em;display:block;margin-bottom:8px;color:#444;"></i><i class="fas fa-hand-pointer stats-hint-mobile" style="font-size:2em;display:block;margin-bottom:8px;color:#444;"></i><span class="stats-hint-desktop">Clique em uma categoria ao lado</span><span class="stats-hint-mobile">Clique em uma categoria acima</span></div>';
             document.getElementById('statsPizzaWrap').style.display = 'none';
             document.getElementById('statsAtivLabel').textContent = '';
         }
