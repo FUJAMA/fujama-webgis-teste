@@ -1262,6 +1262,64 @@
             position: absolute; inset: 0;
             pointer-events: all;
         }
+        /* ===== BOTÃO SALVAR IMAGEM ===== */
+        #btn-salvar-imagem {
+            position: absolute;
+            left: 8px;
+            z-index: 1200;
+            background: rgba(20,30,48,0.92);
+            border: 1px solid #3498db;
+            border-radius: 6px;
+            color: #fff;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1em;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            transition: background 0.2s, border-color 0.2s;
+            top: calc(var(--header-height) + 140px); /* abaixo de zoom+locate+ruler */
+        }
+        #btn-salvar-imagem:hover { background: rgba(52,152,219,0.25); border-color: #5dade2; }
+
+        /* Modal de opções de exportação */
+        #modal-captura {
+            display: none;
+            position: absolute;
+            left: 50px;
+            z-index: 2000;
+            background: rgba(15,25,45,0.97);
+            border: 1px solid #3498db;
+            border-radius: 10px;
+            padding: 16px 18px;
+            color: #fff;
+            font-size: 0.88em;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+            min-width: 220px;
+            top: calc(var(--header-height) + 130px);
+        }
+        #modal-captura.ativo { display: block; }
+        #modal-captura h4 { margin: 0 0 10px 0; font-size: 0.95em; color: #3498db; border-bottom: 1px solid #2c4a6e; padding-bottom: 6px; }
+        #modal-captura .cap-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+        #modal-captura label { font-size: 0.83em; color: #ccc; cursor: pointer; }
+        #modal-captura .cap-btns { display: flex; gap: 8px; margin-top: 12px; }
+        #modal-captura .cap-btn {
+            flex: 1; padding: 7px 0; border: none; border-radius: 6px;
+            cursor: pointer; font-size: 0.85em; font-weight: 600;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: opacity 0.2s;
+        }
+        #modal-captura .cap-btn:hover { opacity: 0.85; }
+        #modal-captura .cap-btn.jpg { background: #27ae60; color: #fff; }
+        #modal-captura .cap-btn.pdf { background: #c0392b; color: #fff; }
+        #modal-captura .cap-close { position:absolute; top:8px; right:10px; cursor:pointer; color:#888; font-size:1em; }
+        #modal-captura .cap-close:hover { color:#fff; }
+        #modal-captura .cap-info { font-size:0.78em; color:#aaa; margin-bottom:8px; }
+        #cap-progress { display:none; align-items:center; gap:8px; font-size:0.82em; color:#f1c40f; margin-top:8px; }
+        #cap-progress.ativo { display:flex; }
+
         /* Dentro do painel direito: label e seletor com posição absoluta */
         #comp-right-panel .comp-label {
             position: absolute;
@@ -1483,6 +1541,27 @@
                     <option value="ortomosaico2020">Ortomosaico 2020</option>
                 </select>
             </div>
+        </div>
+
+        <!-- Botão Salvar Imagem -->
+        <button id="btn-salvar-imagem" onclick="toggleModalCaptura()" title="Salvar Imagem">
+            <i class="fas fa-camera"></i>
+        </button>
+
+        <!-- Modal de captura -->
+        <div id="modal-captura">
+            <span class="cap-close" onclick="toggleModalCaptura()"><i class="fas fa-times"></i></span>
+            <h4><i class="fas fa-camera"></i> Salvar Imagem do Mapa</h4>
+            <div class="cap-info" id="cap-modo-info">Captura o mapa principal com as camadas ativas.</div>
+            <div class="cap-row">
+                <input type="checkbox" id="cap-incluir-info" checked>
+                <label for="cap-incluir-info">Incluir info do mapa-base e camadas</label>
+            </div>
+            <div class="cap-btns">
+                <button class="cap-btn jpg" onclick="capturarImagem('jpg')"><i class="fas fa-image"></i> JPG</button>
+                <button class="cap-btn pdf" onclick="capturarImagem('pdf')"><i class="fas fa-file-pdf"></i> PDF</button>
+            </div>
+            <div id="cap-progress"><i class="fas fa-spinner fa-spin"></i> Gerando captura…</div>
         </div>
 
         <div id="map"></div>
@@ -1915,6 +1994,7 @@
         <script src="data/CorteEventual_46.js"></script>
         <!-- Bibliotecas adicionais -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
         <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -6708,7 +6788,148 @@
 
         // ── Exportações ────────────────────────────────────────────────────
 
-        function exportarMemorialPDF() {
+        // ===== CAPTURA DE TELA / SALVAR IMAGEM =====
+        function toggleModalCaptura() {
+            var modal = document.getElementById('modal-captura');
+            var isAtivo = modal.classList.toggle('ativo');
+            if (isAtivo) {
+                // Atualizar info conforme modo comparativo
+                var info = document.getElementById('cap-modo-info');
+                if (compAtivo) {
+                    info.textContent = 'Modo comparativo ativo: captura ambos os mapas lado a lado.';
+                } else {
+                    var baseNomes = {
+                        openstreetmap: 'OpenStreetMap',
+                        ortomosaico2010: 'Ortomosaico 2010 (SC)',
+                        googleearth: 'Google Earth',
+                        ortomosaico2020: 'Ortomosaico 2020'
+                    };
+                    info.textContent = 'Mapa-base: ' + (baseNomes[activeBaseKey] || activeBaseKey) + '.';
+                }
+            }
+        }
+
+        function _getCamadasAtivas() {
+            var ativas = [];
+            var baseNomes = {
+                openstreetmap: 'OpenStreetMap',
+                ortomosaico2010: 'Ortomosaico 2010 (SC)',
+                googleearth: 'Google Earth',
+                ortomosaico2020: 'Ortomosaico 2020'
+            };
+            ativas.push('Base: ' + (baseNomes[activeBaseKey] || activeBaseKey));
+            // Percorre overlaysTree para encontrar camadas ativas
+            function scanTree(nodes) {
+                if (!nodes) return;
+                nodes.forEach(function(node) {
+                    if (node.layer && map.hasLayer(node.layer)) {
+                        // Limpa tags HTML do label
+                        var label = (node.label || '').replace(/<[^>]*>/g, '').trim();
+                        if (label) ativas.push(label);
+                    }
+                    if (node.children) scanTree(node.children);
+                });
+            }
+            scanTree(overlaysTree);
+            return ativas;
+        }
+
+        function _desenharRodapeCaptura(ctx, canvas, camadas) {
+            var pad = 10, lineH = 16, fontSize = 11;
+            ctx.fillStyle = 'rgba(10,25,50,0.88)';
+            var rodapeH = pad*2 + lineH * Math.ceil(camadas.length / 3) + lineH;
+            ctx.fillRect(0, canvas.height - rodapeH, canvas.width, rodapeH);
+            ctx.fillStyle = '#3498db';
+            ctx.font = 'bold ' + fontSize + 'px Arial';
+            ctx.fillText('FUJAMA WebGIS  —  ' + new Date().toLocaleDateString('pt-BR'), pad, canvas.height - rodapeH + lineH);
+            ctx.fillStyle = '#ddd';
+            ctx.font = (fontSize-1) + 'px Arial';
+            var cx = pad, cy = canvas.height - rodapeH + lineH*2;
+            var colW = Math.floor(canvas.width / 3);
+            camadas.forEach(function(c, i) {
+                if (i > 0 && i % 3 === 0) { cy += lineH; cx = pad; }
+                ctx.fillText('• ' + c, cx, cy);
+                cx += colW;
+            });
+        }
+
+        function capturarImagem(formato) {
+            document.getElementById('modal-captura').classList.remove('ativo');
+            var prog = document.getElementById('cap-progress');
+            prog.classList.add('ativo');
+            document.getElementById('modal-captura').classList.add('ativo');
+
+            var incluirInfo = document.getElementById('cap-incluir-info').checked;
+            var camadas = incluirInfo ? _getCamadasAtivas() : [];
+            var dataStr = new Date().toISOString().slice(0,10);
+
+            function captureElement(el) {
+                return html2canvas(el, {
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    scale: window.devicePixelRatio || 1
+                });
+            }
+
+            function finalizar(canvas) {
+                prog.classList.remove('ativo');
+                document.getElementById('modal-captura').classList.remove('ativo');
+
+                if (incluirInfo && camadas.length) {
+                    var ctx = canvas.getContext('2d');
+                    _desenharRodapeCaptura(ctx, canvas, camadas);
+                }
+
+                if (formato === 'jpg') {
+                    var a = document.createElement('a');
+                    a.download = 'mapa_fujama_' + dataStr + '.jpg';
+                    a.href = canvas.toDataURL('image/jpeg', 0.92);
+                    a.click();
+                } else {
+                    var imgData = canvas.toDataURL('image/jpeg', 0.92);
+                    var orient = canvas.width > canvas.height ? 'landscape' : 'portrait';
+                    var doc = new window.jspdf.jsPDF({ orientation: orient, unit: 'mm', format: 'a4' });
+                    var pw = doc.internal.pageSize.getWidth();
+                    var ph = doc.internal.pageSize.getHeight();
+                    // Proporção da imagem
+                    var ratio = Math.min(pw / (canvas.width * 0.264583), ph / (canvas.height * 0.264583));
+                    var iw = canvas.width * 0.264583 * ratio;
+                    var ih = canvas.height * 0.264583 * ratio;
+                    doc.addImage(imgData, 'JPEG', (pw-iw)/2, (ph-ih)/2, iw, ih);
+                    doc.save('mapa_fujama_' + dataStr + '.pdf');
+                }
+            }
+
+            if (compAtivo) {
+                // Captura ambos os mapas lado a lado
+                Promise.all([
+                    captureElement(document.getElementById('map')),
+                    captureElement(document.getElementById('comp-right-map'))
+                ]).then(function(canvases) {
+                    var c1 = canvases[0], c2 = canvases[1];
+                    var combined = document.createElement('canvas');
+                    combined.width  = c1.width + c2.width;
+                    combined.height = Math.max(c1.height, c2.height);
+                    var ctx = combined.getContext('2d');
+                    ctx.drawImage(c1, 0, 0);
+                    ctx.drawImage(c2, c1.width, 0);
+                    finalizar(combined);
+                }).catch(function(e) {
+                    prog.classList.remove('ativo');
+                    document.getElementById('modal-captura').classList.remove('ativo');
+                    alert('Erro na captura: ' + e.message);
+                });
+            } else {
+                captureElement(document.getElementById('map')).then(finalizar).catch(function(e) {
+                    prog.classList.remove('ativo');
+                    document.getElementById('modal-captura').classList.remove('ativo');
+                    alert('Erro na captura: ' + e.message);
+                });
+            }
+        }
+
+                function exportarMemorialPDF() {
             if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
             var pts = drawAreaPontos;
             var doc = new window.jspdf.jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
@@ -6745,13 +6966,32 @@
             doc.setFontSize(10); doc.setFont(undefined,'bold');
             doc.text('Coordenadas dos Vértices e Lados (SIRGAS 2000 / UTM zona 22S)', margin, y); y+=5;
 
-            var headers = ['Vértice','Latitude (°)','Longitude (°)','E - UTM (m)','N - UTM (m)','Dist. ao próx. (m)','Azimute (graus)'];
+            // Cabeçalho em 2 linhas para textos mais longos
+            var headers = [
+                ['Vértice',''],
+                ['Latitude','(°)'],
+                ['Longitude','(°)'],
+                ['E - UTM','(m)'],
+                ['N - UTM','(m)'],
+                ['Dist. ao','próx. (m)'],
+                ['Azimute','(graus)']
+            ];
             var colW = [14,24,24,26,26,28,24];
+            var hdrH = 9; // altura do cabeçalho em 2 linhas
             var xc = margin;
             doc.setFillColor(30,60,100); doc.setTextColor(255,255,255);
-            doc.setFontSize(7.5);
-            headers.forEach(function(h,i){ doc.rect(xc,y,colW[i],6,'F'); doc.text(h,xc+colW[i]/2,y+4,{align:'center'}); xc+=colW[i]; });
-            y+=6;
+            doc.setFontSize(7);
+            headers.forEach(function(h,i){
+                doc.rect(xc,y,colW[i],hdrH,'F');
+                doc.setFont(undefined,'bold');
+                doc.text(h[0], xc+colW[i]/2, y+3.5, {align:'center'});
+                if (h[1]) {
+                    doc.setFont(undefined,'normal');
+                    doc.text(h[1], xc+colW[i]/2, y+7, {align:'center'});
+                }
+                xc+=colW[i];
+            });
+            y+=hdrH;
 
             doc.setTextColor(0,0,0);
             pts.forEach(function(p, idx){
