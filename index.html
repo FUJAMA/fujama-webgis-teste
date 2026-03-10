@@ -6894,31 +6894,6 @@
                 a.click();
             });
         }
-            var coords = drawAreaPontos.map(function(p){ return [p.lng, p.lat]; });
-            coords.push(coords[0]);
-            var geojson = {
-                type: 'FeatureCollection',
-                features: [{
-                    type: 'Feature',
-                    geometry: { type: 'Polygon', coordinates: [coords] },
-                    properties: { nome: 'Area_FUJAMA', data: new Date().toISOString().slice(0,10) }
-                }]
-            };
-            var options = {
-                folder: 'area_fujama',
-                types: { polygon: 'area_fujama' }
-            };
-            try {
-                var zip = shpwrite.zip(geojson, options);
-                var blob = new Blob([zip], { type: 'application/zip' });
-                var a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'area_' + new Date().toISOString().slice(0,10) + '.zip';
-                a.click();
-            } catch(e) {
-                alert('Erro ao gerar SHP: ' + e.message);
-            }
-        }
 
         function usarDesenhoNoRelatorio() {
             if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
