@@ -6831,6 +6831,20 @@
                 });
             }
             scanTree(overlaysTree);
+            // Inclui pontos (alfinetes) adicionados pelo usuário
+            if (typeof iconesAlfinete !== 'undefined' && iconesAlfinete.length > 0) {
+                ativas.push('Pontos marcados (' + iconesAlfinete.length + ')');
+            }
+            // Inclui polígono desenhado pelo usuário
+            if (typeof drawAreaFinalizado !== 'undefined' && drawAreaFinalizado && typeof drawAreaPontos !== 'undefined' && drawAreaPontos.length >= 3) {
+                ativas.push('Área desenhada (' + drawAreaPontos.length + ' vértices)');
+            } else if (typeof drawAreaPontos !== 'undefined' && drawAreaPontos.length >= 2) {
+                ativas.push('Desenho em andamento (' + drawAreaPontos.length + ' vértices)');
+            }
+            // Inclui polígonos enviados (drawnPolygon do relatório GIS)
+            if (typeof drawnPolygon !== 'undefined' && drawnPolygon && map.hasLayer(drawnPolygon)) {
+                ativas.push('Polígono importado (Rel. GIS)');
+            }
             return ativas;
         }
 
@@ -6903,9 +6917,11 @@
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
+                    foreignObjectRendering: false,
+                    imageTimeout: 15000,
                     scale: window.devicePixelRatio || 1,
-                    ignoreElements: function(el) {
-                        return el.id === 'modal-captura' || el.id === 'btn-salvar-imagem';
+                    ignoreElements: function(elem) {
+                        return elem.id === 'modal-captura' || elem.id === 'btn-salvar-imagem';
                     }
                 });
             }
@@ -7037,16 +7053,22 @@
             var perim = 0;
             for (var i=0; i<pts.length; i++) perim += _haversine(pts[i], pts[(i+1)%pts.length]);
             var area = _areaPoligono(pts);
+            // Título "Resumo" com fundo azul
+            doc.setFillColor(10,25,50); doc.setTextColor(255,255,255);
             doc.setFontSize(10); doc.setFont(undefined,'bold');
-            doc.text('Resumo', margin, y); y+=5;
+            doc.rect(margin, y, pw, 7, 'F');
+            doc.text('Resumo', margin+3, y+5); y+=10;
+            doc.setTextColor(0,0,0);
             doc.setFont(undefined,'normal'); doc.setFontSize(9);
             doc.text('Número de vértices: ' + pts.length, margin, y); y+=5;
             doc.text('Perímetro total: ' + _formatDistancia(perim), margin, y); y+=5;
-            doc.text('Área: ' + (area/10000).toFixed(4) + ' ha  (' + area.toFixed(2) + ' m²)', margin, y); y+=8;
+            doc.text('Área: ' + (area/10000).toFixed(4) + ' ha  (' + area.toFixed(2) + ' m²)', margin, y); y+=10;
 
-            // Tabela de vértices
+            // Tabela de vértices — título com fundo azul
+            doc.setFillColor(10,25,50); doc.setTextColor(255,255,255);
             doc.setFontSize(10); doc.setFont(undefined,'bold');
-            doc.text('Coordenadas dos Vértices e Lados (SIRGAS 2000 / UTM zona 22S)', margin, y); y+=5;
+            doc.rect(margin, y, pw, 7, 'F');
+            doc.text('Coordenadas dos Vértices e Lados (SIRGAS 2000 / UTM zona 22S)', margin+3, y+5); y+=10;
 
             // Cabeçalho em 2 linhas para textos mais longos
             var headers = [
@@ -7098,25 +7120,35 @@
             // ---- Página de mapa ----
             if (mapCanvas) {
                 doc.addPage();
-                var mw = 210 - 2*margin;
-                var mh = 297 - 2*margin - 20;
-                var ratio = Math.min(mw / (mapCanvas.width * 0.264583), mh / (mapCanvas.height * 0.264583));
-                var iw = mapCanvas.width * 0.264583 * ratio;
-                var ih = mapCanvas.height * 0.264583 * ratio;
-                var mx = margin + (mw - iw) / 2;
+                var pageW = 210;
+                var pageH = 297;
+                var hdrH2 = 16;
+                var ftrH = 10;
+                var mPad = 10; // margem lateral menor para maximizar imagem
+                var mw = pageW - 2 * mPad;
+                var mh = pageH - hdrH2 - ftrH - mPad * 2;
+                // Mantém proporção e usa toda a área disponível
+                var scaleX = mw / mapCanvas.width;
+                var scaleY = mh / mapCanvas.height;
+                var ratio2 = Math.min(scaleX, scaleY);
+                var iw = mapCanvas.width * ratio2;
+                var ih = mapCanvas.height * ratio2;
+                // Centralizar horizontal e verticalmente na área útil
+                var mx = mPad + (mw - iw) / 2;
+                var my = hdrH2 + mPad + (mh - ih) / 2;
 
                 // Cabeçalho da página de mapa
                 doc.setFillColor(10,25,50);
-                doc.rect(0, 0, 210, 14, 'F');
+                doc.rect(0, 0, 210, hdrH2, 'F');
                 doc.setTextColor(255,255,255);
                 doc.setFontSize(9); doc.setFont(undefined,'bold');
-                doc.text('MAPA DE LOCALIZAÇÃO DA ÁREA — Google Earth Pro', 105, 9, {align:'center'});
+                doc.text('MAPA DE LOCALIZAÇÃO DA ÁREA — Google Earth Pro', 105, hdrH2 - 4, {align:'center'});
 
-                doc.addImage(mapCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', mx, 18, iw, ih);
+                doc.addImage(mapCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', mx, my, iw, ih);
 
                 // Rodapé
                 doc.setFontSize(7); doc.setTextColor(120,120,120); doc.setFont(undefined,'normal');
-                doc.text('Imagem gerada automaticamente via Google Earth. Uso interno FUJAMA.', 105, 290, {align:'center'});
+                doc.text('Imagem gerada automaticamente via Google Earth. Uso interno FUJAMA.', 105, pageH - 4, {align:'center'});
             }
 
             // Última página: rodapé geral
