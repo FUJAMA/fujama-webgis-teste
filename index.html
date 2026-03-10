@@ -350,6 +350,17 @@
         .result-item small {
             color: #888;
         }
+        /* Popup de Lotes */
+        .lote-popup { font-size: 0.92em; min-width: 200px; }
+        .lote-popup h4 { margin: 0 0 8px 0; color: #2980b9; font-size: 1em; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .lote-popup table { width: 100%; border-collapse: collapse; }
+        .lote-popup td { padding: 3px 5px; vertical-align: top; }
+        .lote-popup td:first-child { font-weight: bold; color: #555; white-space: nowrap; padding-right: 10px; }
+        .lote-popup .lote-link { display: block; margin-top: 8px; text-align: center; background: #2980b9; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-size: 0.88em; }
+        .lote-popup .lote-link:hover { background: #3498db; }
+        /* Separador de busca */
+        .search-separator { border: none; border-top: 1px solid #333; margin: 12px 0 10px 0; }
+        .search-section-label { font-size: 0.78em; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
         /* Buscador de Coordenadas */
         .card-coordenadas {
             border-left-color: #9b59b6;
@@ -1377,7 +1388,7 @@
         <header id="app-header">
             <!-- Logo -->
             <div id="header-logo">
-                <img src="images/logo.svg" alt="Logo FUJAMA">
+                <img src="images/logo.png" alt="Logo FUJAMA">
                 <div id="header-logo-text">
                     <span class="logo-title">FUJAMA</span>
                     <span class="logo-sub">Fundação Jaraguaense de Meio Ambiente</span>
@@ -1557,6 +1568,7 @@
                     <div class="card-header" onclick="toggleCard(this)"><i class="fas fa-search"></i> Busca<i class="fas fa-chevron-right card-chev"></i></div>
                     <div class="card-collapsible">
                     <div class="search-group">
+                        <div class="search-section-label"><i class="fas fa-leaf"></i> Licenças Ambientais</div>
                         <div class="search-type">
                             <div class="search-type-btn active" onclick="setSearchType('licenca')">Licença (número)</div>
                             <div class="search-type-btn" onclick="setSearchType('processo')">Processo</div>
@@ -1567,6 +1579,17 @@
                         </div>
                         <div class="search-results" id="searchResults">
                             Digite um termo para buscar
+                        </div>
+                    </div>
+                    <hr class="search-separator">
+                    <div class="search-group">
+                        <div class="search-section-label"><i class="fas fa-map-marked-alt"></i> Inscrição Imobiliária</div>
+                        <div class="search-input-group">
+                            <input type="text" class="search-input" id="searchInscricao" placeholder="Ex: 12040000028" onkeydown="if(event.key==='Enter') buscarInscricao()">
+                            <button class="search-btn" onclick="buscarInscricao()">Buscar</button>
+                        </div>
+                        <div class="search-results" id="searchResultsInscricao">
+                            Digite o número de inscrição imobiliária
                         </div>
                     </div>
                 </div>
@@ -3980,120 +4003,19 @@
             identify: false,
             attribution: '',
         });
-        // ===== PROCESSOS MINERÁRIOS ATIVOS — ANM FeatureServer (vetorial, com atributos) =====
         map.createPane('pane_Processosminerriosativos_30');
         map.getPane('pane_Processosminerriosativos_30').style.zIndex = 430;
-
-        // Paleta de cores SIGMINE oficial (por FASE)
-        var _anmCores = {
-            'RECONHECIMENTO GEOLÓGICO':            { fill: 'rgba(194,47,191,0.8)',  stroke: '#6e6e6e' },
-            'REQUERIMENTO DE PESQUISA':            { fill: 'rgba(233,255,190,0.8)', stroke: '#4c7300' },
-            'AUTORIZAÇÃO DE PESQUISA':             { fill: 'rgba(0,112,255,0.8)',   stroke: '#004da8' },
-            'DIREITO DE REQUERER A LAVRA':         { fill: 'rgba(255,211,127,0.8)', stroke: '#ffaa00' },
-            'REQUERIMENTO DE LAVRA':               { fill: 'rgba(255,167,127,0.8)', stroke: '#a83800' },
-            'CONCESSÃO DE LAVRA':                  { fill: 'rgba(255,0,0,0.8)',     stroke: '#a80000' },
-            'REQUERIMENTO DE LAVRA GARIMPEIRA':    { fill: 'rgba(202,122,245,0.8)', stroke: '#704489' },
-            'LAVRA GARIMPEIRA':                    { fill: 'rgba(186,45,122,0.8)',  stroke: '#894465' },
-            'REQUERIMENTO DE LICENCIAMENTO':       { fill: 'rgba(255,255,190,0.8)', stroke: '#ffff73' },
-            'LICENCIAMENTO':                       { fill: 'rgba(255,255,0,0.8)',   stroke: '#a8a800' },
-            'REQUERIMENTO DE REGISTRO DE EXTRAÇÃO':{ fill: 'rgba(112,168,0,0.8)',   stroke: '#4c7300' },
-            'REGISTRO DE EXTRAÇÃO':                { fill: 'rgba(102,205,171,0.8)', stroke: '#448970' },
-            'MANIFESTO DE MINA':                   { fill: 'rgba(60,171,201,0.8)',  stroke: '#0084a8' },
-            'APTO PARA DISPONIBILIDADE':           { fill: 'rgba(204,204,204,0.8)', stroke: '#a80000' },
-            'DISPONIBILIDADE':                     { fill: 'rgba(215,194,158,0.8)', stroke: '#897044' },
-            'DADO NÃO CADASTRADO':                 { fill: 'rgba(65,49,189,0.8)',   stroke: '#6e6e6e' },
-        };
-
-        var layer_Processosminerriosativos_30 = L.geoJson(null, {
+        var layer_Processosminerriosativos_30 = L.WMS.layer("https://geoservicos.inde.gov.br/geoserver/ANM/ows?version=1.1.0&layers=processos_minerarios_ativos&styles=&bbox=-73.769931,-44.137575,0.107051,20.002959&width=365&height=245&tiled=true&srs=EPSG:4326&transparent=true", "processos_minerarios_ativos", {
             pane: 'pane_Processosminerriosativos_30',
-            style: function(feature) {
-                var fase = (feature.properties.FASE || '').toUpperCase();
-                var cor = _anmCores[fase] || { fill: 'rgba(150,150,150,0.7)', stroke: '#888' };
-                return {
-                    fillColor: cor.fill,
-                    color: cor.stroke,
-                    weight: 1,
-                    fillOpacity: 0.8,
-                    opacity: 1
-                };
-            },
-            onEachFeature: function(feature, layer) {
-                var p = feature.properties || {};
-                var fase = p.FASE || '—';
-                var cor = _anmCores[(fase||'').toUpperCase()] || { fill: '#aaa', stroke: '#888' };
-                var html = '<div style="font-family:\'Segoe UI\',sans-serif;min-width:260px;max-width:320px;">'
-                    + '<div style="background:#0d2137;padding:8px 12px;border-radius:6px 6px 0 0;border-bottom:3px solid '+ cor.stroke +';">'
-                    + '<strong style="color:#fff;font-size:1em;">⛏ Processo Minerário</strong>'
-                    + '</div>'
-                    + '<div style="padding:10px 12px;background:#0a1929;border-radius:0 0 6px 6px;">'
-                    + '<table style="width:100%;border-collapse:collapse;font-size:0.82em;color:#cde;">'
-                    + _anmRow('Processo', p.PROCESSO)
-                    + _anmRow('Fase', '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+ cor.fill +';border:1px solid '+ cor.stroke +';color:#fff;font-weight:600;">'+(p.FASE||'—')+'</span>')
-                    + _anmRow('Titular', p.NOME)
-                    + _anmRow('Substância', p.SUBS)
-                    + _anmRow('Uso', p.USO)
-                    + _anmRow('Área (ha)', p.AREA_HA ? Number(p.AREA_HA).toLocaleString('pt-BR',{maximumFractionDigits:2}) : null)
-                    + _anmRow('UF', p.UF)
-                    + _anmRow('Último Evento', p.ULT_EVENTO)
-                    + '</table>'
-                    + '<div style="margin-top:8px;text-align:center;">'
-                    + '<a href="https://app.anm.gov.br/dadosabertos/SIGMINE/" target="_blank" '
-                    + 'style="font-size:0.75em;color:#3498db;text-decoration:none;">🔗 Consultar no SIGMINE/ANM</a>'
-                    + '</div></div></div>';
-                layer.bindPopup(html, { maxWidth: 340 });
-            }
-        });
-
-        function _anmRow(label, val) {
-            if (val === null || val === undefined || val === '') return '';
-            return '<tr><td style="color:#7ab8d9;font-weight:600;padding:3px 6px 3px 0;white-space:nowrap;vertical-align:top;">'
-                + label + '</td>'
-                + '<td style="padding:3px 0;color:#e0eeff;">' + val + '</td></tr>';
-        }
-
-        // Carrega feições do FeatureServer ANM para o bbox atual do mapa
-        var _anmLoading = false;
-        var _anmLastBbox = null;
-
-        function _anmCarregarBbox() {
-            if (!map.hasLayer(layer_Processosminerriosativos_30)) return;
-            if (_anmLoading) return;
-            var b = map.getBounds();
-            var bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
-                         .map(function(v){ return v.toFixed(6); }).join(',');
-            if (bbox === _anmLastBbox) return;
-            _anmLastBbox = bbox;
-            _anmLoading = true;
-
-            var url = 'https://geo.anm.gov.br/arcgis/rest/services/SIGMINE/dados_anm/FeatureServer/0/query'
-                + '?f=geojson'
-                + '&geometry=' + encodeURIComponent(b.getWest()+','+b.getSouth()+','+b.getEast()+','+b.getNorth())
-                + '&geometryType=esriGeometryEnvelope'
-                + '&inSR=4326'
-                + '&spatialRel=esriSpatialRelIntersects'
-                + '&outFields=PROCESSO,NUMERO,ANO,FASE,NOME,SUBS,USO,AREA_HA,UF,ULT_EVENTO'
-                + '&returnGeometry=true'
-                + '&outSR=4326';
-
-            fetch(url)
-                .then(function(r){ return r.json(); })
-                .then(function(data) {
-                    layer_Processosminerriosativos_30.clearLayers();
-                    if (data && data.features) {
-                        layer_Processosminerriosativos_30.addData(data);
-                    }
-                    _anmLoading = false;
-                })
-                .catch(function() { _anmLoading = false; });
-        }
-
-        // Recarrega ao mover/zoom e ao adicionar ao mapa
-        map.on('moveend', _anmCarregarBbox);
-        map.on('overlayadd', function(e) {
-            if (e.layer === layer_Processosminerriosativos_30) {
-                _anmLastBbox = null;
-                _anmCarregarBbox();
-            }
+            format: 'image/png',
+            uppercase: true,
+            transparent: true,
+            continuousWorld : true,
+            tiled: true,
+            info_format: 'text/html',
+            opacity: 1,
+            identify: false,
+            attribution: '',
         });
         function pop_Vegetao_31(feature, layer) {
             var popupContent = '<table>\
@@ -5872,6 +5794,153 @@
                 adicionarIconeAlfinete(e.latlng.lat, e.latlng.lng);
             }
         });
+
+        // ========== POPUP LOTES (GetFeatureInfo WMS) ==========
+        var _loteWmsBase = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms';
+        var _lotePopupAberto = null;
+
+        function _loteGetFeatureInfo(latlng, layerName, titulo) {
+            var size = map.getSize();
+            var bounds = map.getBounds();
+            var sw = bounds.getSouthWest();
+            var ne = bounds.getNorthEast();
+            var bbox = sw.lng + ',' + sw.lat + ',' + ne.lng + ',' + ne.lat;
+            var point = map.latLngToContainerPoint(latlng);
+            var url = _loteWmsBase
+                + '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo'
+                + '&QUERY_LAYERS=' + layerName
+                + '&LAYERS=' + layerName
+                + '&INFO_FORMAT=application/json'
+                + '&FEATURE_COUNT=1'
+                + '&X=' + Math.round(point.x)
+                + '&Y=' + Math.round(point.y)
+                + '&SRS=EPSG:4326'
+                + '&WIDTH=' + size.x
+                + '&HEIGHT=' + size.y
+                + '&BBOX=' + bbox;
+            return fetch(url).then(function(r){ return r.json(); });
+        }
+
+        function _loteAbrirPopup(latlng, props, titulo) {
+            var chave = props.chave || '—';
+            var cadastro = props.cadastro || '—';
+            var situacao = props.situacao === 'A' ? 'Ativo' : (props.situacao || '—');
+            var geoUrl = 'https://geo.jaraguadosul.sc.gov.br/?inscricao=' + encodeURIComponent(chave);
+            var html = '<div class="lote-popup">'
+                + '<h4><i class="fas fa-map-marker-alt"></i> ' + titulo + '</h4>'
+                + '<table>'
+                + '<tr><td>Chave:</td><td>' + chave + '</td></tr>'
+                + '<tr><td>Inscrição Imobiliária:</td><td>' + cadastro + '</td></tr>'
+                + '<tr><td>Situação:</td><td>' + situacao + '</td></tr>'
+                + '</table>'
+                + '<a class="lote-link" href="' + geoUrl + '" target="_blank">'
+                + '<i class="fas fa-external-link-alt"></i> Ver no GeoJaraguá</a>'
+                + '</div>';
+            if (_lotePopupAberto) { _lotePopupAberto.remove(); }
+            _lotePopupAberto = L.popup({ maxWidth: 260, className: 'lote-popup-wrapper' })
+                .setLatLng(latlng).setContent(html).openOn(map);
+        }
+
+        map.on('click', function(e) {
+            // Verifica se camada de lotes urbanos ou rurais está ativa
+            var urbanoAtivo = map.hasLayer(layer_LimitedeLotesUrbanos_27);
+            var ruralAtivo  = map.hasLayer(layer_LimitedeLotesRurais_26);
+            if (!urbanoAtivo && !ruralAtivo) return;
+            // Prioriza urbano se ambos ativos
+            var layerName = urbanoAtivo ? 'PMJS:lim_lotes_urbanos' : 'PMJS:lim_lotes_rurais';
+            var titulo     = urbanoAtivo ? 'Lote Urbano' : 'Lote Rural';
+            _loteGetFeatureInfo(e.latlng, layerName, titulo).then(function(data) {
+                if (data.features && data.features.length > 0) {
+                    _loteAbrirPopup(e.latlng, data.features[0].properties, titulo);
+                } else if (!urbanoAtivo || !ruralAtivo) {
+                    // nada encontrado
+                } else {
+                    // tentou urbano, tenta rural também
+                    _loteGetFeatureInfo(e.latlng, 'PMJS:lim_lotes_rurais', 'Lote Rural').then(function(d2) {
+                        if (d2.features && d2.features.length > 0) {
+                            _loteAbrirPopup(e.latlng, d2.features[0].properties, 'Lote Rural');
+                        }
+                    }).catch(function(){});
+                }
+            }).catch(function(err){ console.warn('Lote GetFeatureInfo erro:', err); });
+        });
+
+        // ========== BUSCADOR DE INSCRIÇÃO IMOBILIÁRIA ==========
+        function buscarInscricao() {
+            var termo = document.getElementById('searchInscricao').value.trim();
+            var resultsDiv = document.getElementById('searchResultsInscricao');
+            if (!termo) {
+                resultsDiv.innerHTML = 'Digite o número de inscrição imobiliária';
+                return;
+            }
+            resultsDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
+            var layerName = 'PMJS:lim_lotes_urbanos';
+            var url = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wms'
+                + '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo'
+                + '&QUERY_LAYERS=' + layerName + '&LAYERS=' + layerName
+                + '&INFO_FORMAT=application/json&FEATURE_COUNT=5'
+                + '&X=50&Y=50&SRS=EPSG:4326&WIDTH=101&HEIGHT=101'
+                + '&BBOX=-49.25,-26.62,-49.01,-26.35';
+            // Para busca por cadastro, usamos WFS CQL_FILTER
+            var wfsUrl = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wfs'
+                + '?service=WFS&version=1.0.0&request=GetFeature'
+                + '&typeName=PMJS:lim_lotes_urbanos'
+                + '&outputFormat=application/json'
+                + '&maxFeatures=5'
+                + '&CQL_FILTER=cadastro=' + encodeURIComponent(termo)
+                + '&SRSNAME=EPSG:4326';
+            fetch(wfsUrl).then(function(r){ return r.json(); }).then(function(data) {
+                if (data.features && data.features.length > 0) {
+                    _inscricaoMostrarResultados(data.features, resultsDiv);
+                } else {
+                    // tenta rurais
+                    var wfsRural = wfsUrl.replace('lim_lotes_urbanos', 'lim_lotes_rurais');
+                    return fetch(wfsRural).then(function(r){ return r.json(); }).then(function(d2) {
+                        if (d2.features && d2.features.length > 0) {
+                            _inscricaoMostrarResultados(d2.features, resultsDiv);
+                        } else {
+                            resultsDiv.innerHTML = 'Nenhum lote encontrado com inscrição <b>' + termo + '</b>';
+                        }
+                    });
+                }
+            }).catch(function(err) {
+                // WFS quebrado — tenta pelo GeoJaraguá direto como fallback
+                resultsDiv.innerHTML = 'Não foi possível consultar o servidor WFS. '
+                    + '<br><a href="https://geo.jaraguadosul.sc.gov.br/?inscricao=' + encodeURIComponent(termo)
+                    + '" target="_blank" style="color:#3498db;">Abrir no GeoJaraguá <i class=\'fas fa-external-link-alt\'></i></a>';
+            });
+        }
+
+        function _inscricaoMostrarResultados(features, resultsDiv) {
+            var html = '<b>' + features.length + ' resultado(s):</b>';
+            features.forEach(function(f, idx) {
+                var p = f.properties;
+                var chave = p.chave || '—';
+                var cadastro = p.cadastro || '—';
+                var situacao = p.situacao === 'A' ? 'Ativo' : (p.situacao || '—');
+                var geoUrl = 'https://geo.jaraguadosul.sc.gov.br/?inscricao=' + encodeURIComponent(chave);
+                html += '<div class="result-item" onclick="_inscricaoZoom(' + idx + ')">'
+                    + '<span style="color:#3498db;">Inscrição: ' + cadastro + '</span><br>'
+                    + '<small>Chave: ' + chave + ' | ' + situacao + '</small>'
+                    + '<br><a href="' + geoUrl + '" target="_blank" onclick="event.stopPropagation()" style="color:#3498db;font-size:0.85em;">'
+                    + '<i class="fas fa-external-link-alt"></i> Ver no GeoJaraguá</a>'
+                    + '</div>';
+            });
+            resultsDiv.innerHTML = html;
+            window._inscricaoFeatures = features;
+        }
+
+        function _inscricaoZoom(idx) {
+            var f = window._inscricaoFeatures && window._inscricaoFeatures[idx];
+            if (!f || !f.geometry) return;
+            var geojsonLayer = L.geoJSON(f);
+            var bounds = geojsonLayer.getBounds();
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { maxZoom: 18 });
+                _loteAbrirPopup(bounds.getCenter(), f.properties,
+                    f.id && f.id.includes('rurais') ? 'Lote Rural' : 'Lote Urbano');
+            }
+        }
 
         // ========== LABELS E EVENTOS ORIGINAIS (MANTIDOS) ==========
         // (Cole aqui todo o código de labels que estava no final do seu script original)
