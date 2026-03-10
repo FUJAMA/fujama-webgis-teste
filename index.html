@@ -56,7 +56,8 @@
         #header-logo img {
             height: 38px;
             width: auto;
-            filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
+            background: transparent;
+            filter: drop-shadow(0 0 6px rgba(52,152,219,0.85)) drop-shadow(0 0 14px rgba(52,152,219,0.45)) drop-shadow(0 1px 4px rgba(0,0,0,0.5));
         }
         #header-logo-text {
             display: flex;
@@ -815,6 +816,12 @@
             font-size: 0.9em;
         }
         .stats-sem-dados i { font-size: 2em; display: block; margin-bottom: 8px; color: #444; }
+        .stats-hint-mobile { display: none; }
+        .stats-hint-desktop { display: inline; }
+        @media (max-width: 768px) {
+            .stats-hint-desktop { display: none; }
+            .stats-hint-mobile { display: inline; }
+        }
 
         @media (max-width: 768px) {
             .dashboard-painel.ativo {
@@ -1860,7 +1867,7 @@
                     </div>
                     <div class="card-collapsible">
                     <div id="statsTabelaWrap" style="margin-top:12px;">
-                        <div class="stats-sem-dados"><i class="fas fa-table"></i>Selecione um ano e uma licença</div>
+                        <div class="stats-sem-dados"><i class="fas fa-hand-pointer"></i><span class="stats-hint-desktop">Clique em uma categoria ao lado</span><span class="stats-hint-mobile">Clique em uma categoria acima</span></div>
                     </div>
                     <div class="stats-canvas-wrap" id="statsPizzaWrap" style="display:none; height:180px; margin-top:10px;">
                         <canvas id="statsPizzaCanvas"></canvas>
@@ -5748,18 +5755,21 @@
         var lay = L.control.layers.tree(baseMaps, overlaysTree, { collapsed: false });
         lay.addTo(map);
 
-        // No mobile, colapsa a árvore de camadas automaticamente
-        if (window.innerWidth <= 768) {
-            setTimeout(function() {
-                var layersControl = document.querySelector('.leaflet-control-layers');
-                if (layersControl) {
-                    layersControl.classList.remove('leaflet-control-layers-expanded');
-                }
-            }, 100);
-        }
+        // Colapsa a árvore de camadas (todos os dispositivos), mantendo-a fechada inicialmente
+        setTimeout(function() {
+            var layersControl = document.querySelector('.leaflet-control-layers');
+            if (layersControl) {
+                layersControl.classList.remove('leaflet-control-layers-expanded');
+            }
+        }, 100);
 
         // Adicionar um mapa base padrão
         map.addLayer(layer_OpenStreetMap_0);
+
+        // Camadas que inicializam ligadas
+        map.addLayer(layer_LimiteMunicipal_29);
+        map.addLayer(layer_LimitedeBairros_28);
+        map.addLayer(layer_LimitedeLotesUrbanos_27);
 
         // ========== EVENTOS DO MAPA ==========
         map.on('mousemove', function(e) {
@@ -7040,7 +7050,7 @@
             }
 
             // Limpa painel de atividades
-            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas fa-hand-pointer"></i>Clique em uma licença acima</div>';
+            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas fa-hand-pointer"></i><span class="stats-hint-desktop">Clique em uma categoria ao lado</span><span class="stats-hint-mobile">Clique em uma categoria acima</span></div>';
             document.getElementById('statsPizzaWrap').style.display = 'none';
             document.getElementById('statsAtivLabel').textContent = '';
         }
