@@ -6900,115 +6900,64 @@
             document.getElementById('modal-captura').classList.add('ativo');
 
             var incluirInfo = document.getElementById('cap-incluir-info').checked;
-            var camadas = incluirInfo ? _getCamadasAtivas() : [];
-            var dataStr = new Date().toISOString().slice(0,10);
+            var camadas     = incluirInfo ? _getCamadasAtivas() : [];
+            var dataStr     = new Date().toISOString().slice(0,10);
+            var dpr         = window.devicePixelRatio || 1;
 
-            // Ocultar elementos UI que não devem aparecer na captura
+            // Ocultar elementos UI
             var hideEls = document.querySelectorAll(
                 '.leaflet-top, .leaflet-bottom, .leaflet-control-layers, ' +
                 '#btn-salvar-imagem, #modal-captura, .fab-mobile, ' +
-                '#comp-left-ui, .comp-base-sel'
+                '#comp-left-ui, .comp-base-sel, #dashboard, .dashboard-abas'
             );
-            hideEls.forEach(function(el) { el.dataset._capHidden = el.style.visibility; el.style.visibility = 'hidden'; });
+            hideEls.forEach(function(el) {
+                el.dataset._capHidden = el.style.visibility;
+                el.style.visibility = 'hidden';
+            });
 
             function restoreEls() {
                 hideEls.forEach(function(el) { el.style.visibility = el.dataset._capHidden || ''; });
             }
 
-            function captureElement(el) {
-                // Usar getBoundingClientRect para capturar EXATAMENTE o que está visível
-                var rect = el.getBoundingClientRect();
-                return html2canvas(el, {
+            // Captura um elemento recortando o screenshot do body completo
+            // Isso garante que tiles, SVGs e o header sejam tratados corretamente
+            function captureRect(rectEl) {
+                var rect = rectEl.getBoundingClientRect();
+                return html2canvas(document.body, {
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
                     foreignObjectRendering: false,
                     imageTimeout: 15000,
-                    scale: window.devicePixelRatio || 1,
-                    x: rect.left,
-                    y: rect.top,
-                    width: rect.width,
-                    height: rect.height,
-                    windowWidth: window.innerWidth,
+                    scale: dpr,
+                    x: 0,
+                    y: 0,
+                    width:  window.innerWidth,
+                    height: window.innerHeight,
+                    windowWidth:  window.innerWidth,
                     windowHeight: window.innerHeight,
                     scrollX: 0,
                     scrollY: 0,
                     ignoreElements: function(elem) {
-                        return elem.id === 'modal-captura' || elem.id === 'btn-salvar-imagem';
+                        return elem.id === 'modal-captura' ||
+                               elem.id === 'btn-salvar-imagem';
                     }
+                }).then(function(full) {
+                    // Recortar exatamente o elemento dentro do screenshot completo
+                    var out = document.createElement('canvas');
+                    out.width  = Math.round(rect.width  * dpr);
+                    out.height = Math.round(rect.height * dpr);
+                    out.getContext('2d').drawImage(
+                        full,
+                        Math.round(rect.left * dpr),
+                        Math.round(rect.top  * dpr),
+                        out.width,
+                        out.height,
+                        0, 0, out.width, out.height
+                    );
+                    return out;
                 });
             }
-
-            // Função para copiar os overlays (SVG + marcadores) do mapa principal sobre um canvas destino
-            function aplicarOverlaysNoCanvas(destCanvas, destW, destH) {
-                return new Promise(function(resolve) {
-                    var mapRect = document.getElementById('map').getBoundingClientRect();
-                    var svgEls = document.querySelectorAll('#map .leaflet-overlay-pane svg');
-                    var promises = [];
-
-                    svgEls.forEach(function(svgEl) {
-                        promises.push(new Promise(function(res) {
-                            try {
-                                // Clonar SVG e ajustar viewBox para a área visível do mapa
-                                var clone = svgEl.cloneNode(true);
-                                var svgRect = svgEl.getBoundingClientRect();
-                                // Posição do SVG relativa ao mapa
-                                var ox = svgRect.left - mapRect.left;
-                                var oy = svgRect.top  - mapRect.top;
-                                clone.setAttribute('width',  svgRect.width);
-                                clone.setAttribute('height', svgRect.height);
-                                var xml = new XMLSerializer().serializeToString(clone);
-                                var blob = new Blob([xml], {type: 'image/svg+xml'});
-                                var url  = URL.createObjectURL(blob);
-                                var img  = new Image();
-                                img.onload = function() {
-                                    var ctx = destCanvas.getContext('2d');
-                                    // Escalar a posição e tamanho do overlay para o canvas destino
-                                    var scaleX = destW / mapRect.width;
-                                    var scaleY = destH / mapRect.height;
-                                    ctx.drawImage(img,
-                                        ox * scaleX, oy * scaleY,
-                                        svgRect.width * scaleX, svgRect.height * scaleY
-                                    );
-                                    URL.revokeObjectURL(url);
-                                    res();
-                                };
-                                img.onerror = function() { URL.revokeObjectURL(url); res(); };
-                                img.src = url;
-                            } catch(e) { res(); }
-                        }));
-                    });
-
-                    // Marcadores (divIcon / alfinetes) via html2canvas parcial
-                    var markerPane = document.querySelector('#map .leaflet-marker-pane');
-                    if (markerPane && markerPane.children.length > 0) {
-                        promises.push(new Promise(function(res) {
-                            html2canvas(markerPane, {
-                                useCORS: true, allowTaint: true, logging: false,
-                                backgroundColor: null,
-                                scale: window.devicePixelRatio || 1
-                            }).then(function(mc) {
-                                var ctx = destCanvas.getContext('2d');
-                                var pRect = markerPane.getBoundingClientRect();
-                                var ox = pRect.left - mapRect.left;
-                                var oy = pRect.top  - mapRect.top;
-                                var scaleX = destW / mapRect.width;
-                                var scaleY = destH / mapRect.height;
-                                ctx.drawImage(mc,
-                                    ox * scaleX, oy * scaleY,
-                                    pRect.width * scaleX, pRect.height * scaleY
-                                );
-                                res();
-                            }).catch(res);
-                        }));
-                    }
-
-                    Promise.all(promises).then(resolve);
-                });
-            }
-
-            // dpr capturado no momento da chamada (antes de qualquer async)
-            var _capDpr = window.devicePixelRatio || 1;
 
             function finalizar(canvas) {
                 restoreEls();
@@ -7016,13 +6965,12 @@
                 document.getElementById('modal-captura').classList.remove('ativo');
 
                 if (incluirInfo && camadas.length) {
-                    var ctx = canvas.getContext('2d');
-                    _desenharRodapeCaptura(ctx, canvas, camadas);
+                    _desenharRodapeCaptura(canvas.getContext('2d'), canvas, camadas);
                 }
 
-                // Dimensões CSS reais do canvas (sem o fator dpr)
-                var cssW = canvas.width  / _capDpr;
-                var cssH = canvas.height / _capDpr;
+                // Dimensões CSS reais
+                var cssW = canvas.width  / dpr;
+                var cssH = canvas.height / dpr;
 
                 if (formato === 'jpg') {
                     var a = document.createElement('a');
@@ -7031,56 +6979,78 @@
                     a.click();
                 } else {
                     var imgData = canvas.toDataURL('image/jpeg', 0.92);
-                    // Sempre landscape A4 para melhor aproveitamento horizontal
-                    var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-                    var pw = doc.internal.pageSize.getWidth();   // 297mm
-                    var ph = doc.internal.pageSize.getHeight();  // 210mm
-                    var mPad = 8;
+                    var doc2 = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                    var pw = doc2.internal.pageSize.getWidth();
+                    var ph = doc2.internal.pageSize.getHeight();
+                    var mPad   = 8;
                     var availW = pw - 2 * mPad;
                     var availH = ph - 2 * mPad;
-                    // Converter pixels CSS → mm
-                    var PX2MM = 0.264583;
+                    var PX2MM  = 0.264583;
                     var imgMmW = cssW * PX2MM;
                     var imgMmH = cssH * PX2MM;
-                    var ratio = Math.min(availW / imgMmW, availH / imgMmH);
+                    var ratio  = Math.min(availW / imgMmW, availH / imgMmH);
                     var iw = imgMmW * ratio;
                     var ih = imgMmH * ratio;
-                    doc.addImage(imgData, 'JPEG', mPad + (availW - iw) / 2, mPad + (availH - ih) / 2, iw, ih);
-                    doc.save('mapa_fujama_' + dataStr + '.pdf');
+                    doc2.addImage(imgData, 'JPEG',
+                        mPad + (availW - iw) / 2,
+                        mPad + (availH - ih) / 2,
+                        iw, ih);
+                    doc2.save('mapa_fujama_' + dataStr + '.pdf');
                 }
             }
 
             if (compAtivo) {
-                // Captura ambos os mapas lado a lado
-                Promise.all([
-                    captureElement(document.getElementById('map')),
-                    captureElement(document.getElementById('comp-right-map'))
-                ]).then(function(canvases) {
-                    var c1 = canvases[0], c2 = canvases[1];
+                // Capturar os dois painéis separadamente (ambos a partir do body completo)
+                // mas numa única chamada ao html2canvas para eficiência
+                html2canvas(document.body, {
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    foreignObjectRendering: false,
+                    imageTimeout: 15000,
+                    scale: dpr,
+                    x: 0, y: 0,
+                    width:  window.innerWidth,
+                    height: window.innerHeight,
+                    windowWidth:  window.innerWidth,
+                    windowHeight: window.innerHeight,
+                    scrollX: 0, scrollY: 0,
+                    ignoreElements: function(elem) {
+                        return elem.id === 'modal-captura'    ||
+                               elem.id === 'btn-salvar-imagem';
+                    }
+                }).then(function(full) {
+                    var mapEl   = document.getElementById('map');
+                    var rightEl = document.getElementById('comp-right-map');
+                    var r1 = mapEl.getBoundingClientRect();
+                    var r2 = rightEl.getBoundingClientRect();
 
-                    // Igualar alturas mantendo proporção de c1
-                    var targetH = Math.min(c1.height, c2.height);
-                    var targetW = Math.round(c1.width * (targetH / c1.height));
+                    // Usar a mesma altura para ambos os lados (menor das duas)
+                    var targetH = Math.min(r1.height, r2.height);
+                    var targetW = Math.round(r1.width * (targetH / r1.height));
 
-                    function resizeCanvas(src, w, h) {
+                    function cropFromFull(rect, outW, outH) {
                         var tmp = document.createElement('canvas');
-                        tmp.width = w; tmp.height = h;
-                        tmp.getContext('2d').drawImage(src, 0, 0, w, h);
+                        tmp.width = outW * dpr; tmp.height = outH * dpr;
+                        tmp.getContext('2d').drawImage(
+                            full,
+                            Math.round(rect.left * dpr), Math.round(rect.top * dpr),
+                            Math.round(rect.width * dpr), Math.round(rect.height * dpr),
+                            0, 0, outW * dpr, outH * dpr
+                        );
                         return tmp;
                     }
-                    var r1 = resizeCanvas(c1, targetW, targetH);
-                    var r2 = resizeCanvas(c2, targetW, targetH);
 
-                    // Aplicar overlays do mapa principal no canvas da segunda tela (async)
-                    aplicarOverlaysNoCanvas(r2, targetW, targetH).then(function() {
-                        var combined = document.createElement('canvas');
-                        combined.width  = r1.width + r2.width;
-                        combined.height = targetH;
-                        var ctx = combined.getContext('2d');
-                        ctx.drawImage(r1, 0, 0);
-                        ctx.drawImage(r2, r1.width, 0);
-                        finalizar(combined);
-                    });
+                    var c1 = cropFromFull(r1, targetW, targetH);
+                    var c2 = cropFromFull(r2, targetW, targetH);
+
+                    var combined = document.createElement('canvas');
+                    combined.width  = c1.width + c2.width;
+                    combined.height = c1.height;
+                    var ctx = combined.getContext('2d');
+                    ctx.drawImage(c1, 0, 0);
+                    ctx.drawImage(c2, c1.width, 0);
+                    finalizar(combined);
                 }).catch(function(e) {
                     restoreEls();
                     prog.classList.remove('ativo');
@@ -7088,7 +7058,7 @@
                     alert('Erro na captura: ' + e.message);
                 });
             } else {
-                captureElement(document.getElementById('map')).then(finalizar).catch(function(e) {
+                captureRect(document.getElementById('map')).then(finalizar).catch(function(e) {
                     restoreEls();
                     prog.classList.remove('ativo');
                     document.getElementById('modal-captura').classList.remove('ativo');
@@ -7122,22 +7092,36 @@
             var _memDpr = window.devicePixelRatio || 1;
 
             setTimeout(function() {
-                var mapEl = document.getElementById('map');
-                var rect = mapEl.getBoundingClientRect();
-                html2canvas(mapEl, {
+                var mapEl   = document.getElementById('map');
+                var mapRect = mapEl.getBoundingClientRect();
+                html2canvas(document.body, {
                     useCORS: true, allowTaint: true, logging: false,
                     foreignObjectRendering: false,
                     imageTimeout: 15000,
                     scale: _memDpr,
-                    x: rect.left,
-                    y: rect.top,
-                    width: rect.width,
-                    height: rect.height,
-                    windowWidth: window.innerWidth,
+                    x: 0, y: 0,
+                    width:  window.innerWidth,
+                    height: window.innerHeight,
+                    windowWidth:  window.innerWidth,
                     windowHeight: window.innerHeight,
-                    scrollX: 0,
-                    scrollY: 0
-                }).then(function(mapCanvas) {
+                    scrollX: 0, scrollY: 0,
+                    ignoreElements: function(elem) {
+                        // Não ocultar nenhum elemento do corpo — o recorte posterior
+                        // já garante que apenas a área do mapa será usada
+                        return false;
+                    }
+                }).then(function(full) {
+                    // Recortar exatamente a área visível do mapa
+                    var mapCanvas = document.createElement('canvas');
+                    mapCanvas.width  = Math.round(mapRect.width  * _memDpr);
+                    mapCanvas.height = Math.round(mapRect.height * _memDpr);
+                    mapCanvas.getContext('2d').drawImage(
+                        full,
+                        Math.round(mapRect.left * _memDpr),
+                        Math.round(mapRect.top  * _memDpr),
+                        mapCanvas.width, mapCanvas.height,
+                        0, 0, mapCanvas.width, mapCanvas.height
+                    );
                     // Restaurar estado
                     hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
                     if (activeBaseKey !== baseAntes) setBaseMap(baseAntes);
