@@ -6953,16 +6953,21 @@
                     a.click();
                 } else {
                     var imgData = canvas.toDataURL('image/jpeg', 0.92);
-                    var orient = cssW > cssH ? 'landscape' : 'portrait';
-                    var doc = new window.jspdf.jsPDF({ orientation: orient, unit: 'mm', format: 'a4' });
-                    var pw = doc.internal.pageSize.getWidth();
-                    var ph = doc.internal.pageSize.getHeight();
-                    // Converter pixels CSS → mm (1px CSS = 0.264583 mm a 96dpi)
+                    // Sempre landscape A4 para melhor aproveitamento horizontal
+                    var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                    var pw = doc.internal.pageSize.getWidth();   // 297mm
+                    var ph = doc.internal.pageSize.getHeight();  // 210mm
+                    var mPad = 8;
+                    var availW = pw - 2 * mPad;
+                    var availH = ph - 2 * mPad;
+                    // Converter pixels CSS → mm
                     var PX2MM = 0.264583;
-                    var ratio = Math.min(pw / (cssW * PX2MM), ph / (cssH * PX2MM));
-                    var iw = cssW * PX2MM * ratio;
-                    var ih = cssH * PX2MM * ratio;
-                    doc.addImage(imgData, 'JPEG', (pw - iw) / 2, (ph - ih) / 2, iw, ih);
+                    var imgMmW = cssW * PX2MM;
+                    var imgMmH = cssH * PX2MM;
+                    var ratio = Math.min(availW / imgMmW, availH / imgMmH);
+                    var iw = imgMmW * ratio;
+                    var ih = imgMmH * ratio;
+                    doc.addImage(imgData, 'JPEG', mPad + (availW - iw) / 2, mPad + (availH - ih) / 2, iw, ih);
                     doc.save('mapa_fujama_' + dataStr + '.pdf');
                 }
             }
@@ -6974,12 +6979,46 @@
                     captureElement(document.getElementById('comp-right-map'))
                 ]).then(function(canvases) {
                     var c1 = canvases[0], c2 = canvases[1];
+
+                    // Igualar alturas: usar a menor para que as proporções fiquem iguais
+                    var targetH = Math.min(c1.height, c2.height);
+                    var targetW = Math.round(c1.width * (targetH / c1.height));
+
+                    // Normalizar c1 e c2 para mesma altura
+                    function resizeCanvas(src, w, h) {
+                        var tmp = document.createElement('canvas');
+                        tmp.width = w; tmp.height = h;
+                        tmp.getContext('2d').drawImage(src, 0, 0, w, h);
+                        return tmp;
+                    }
+                    var r1 = resizeCanvas(c1, targetW, targetH);
+                    var r2 = resizeCanvas(c2, targetW, targetH);
+
+                    // Redesenhar camadas vetoriais do mapa principal sobre c2
+                    // (alfinetes, polígono desenhado, polilinha) via SVG snapshot do mapa
+                    var overlayCtx = r2.getContext('2d');
+                    // Capturar o pane SVG do mapa principal e desenhar sobre r2
+                    var svgPanes = document.querySelectorAll('#map .leaflet-overlay-pane svg, #map .leaflet-marker-pane');
+                    svgPanes.forEach(function(pane) {
+                        try {
+                            var xml = new XMLSerializer().serializeToString(pane);
+                            var svgBlob = new Blob([xml], {type:'image/svg+xml'});
+                            var url = URL.createObjectURL(svgBlob);
+                            var img = new Image();
+                            img.onload = function() {
+                                overlayCtx.drawImage(img, 0, 0, targetW, targetH);
+                                URL.revokeObjectURL(url);
+                            };
+                            img.src = url;
+                        } catch(e) {}
+                    });
+
                     var combined = document.createElement('canvas');
-                    combined.width  = c1.width + c2.width;
-                    combined.height = Math.max(c1.height, c2.height);
+                    combined.width  = r1.width + r2.width;
+                    combined.height = targetH;
                     var ctx = combined.getContext('2d');
-                    ctx.drawImage(c1, 0, 0);
-                    ctx.drawImage(c2, c1.width, 0);
+                    ctx.drawImage(r1, 0, 0);
+                    ctx.drawImage(r2, r1.width, 0);
                     finalizar(combined);
                 }).catch(function(e) {
                     restoreEls();
@@ -7008,11 +7047,11 @@
             var baseAntes = activeBaseKey;
             if (activeBaseKey !== 'googleearth') setBaseMap('googleearth');
 
-            // Fit no polígono desenhado para centralizar
+            // Fit no polígono desenhado para centralizar — padding maior = menos zoom
             var pts = drawAreaPontos;
             var latlngs = pts.map(function(p){ return [p.lat, p.lng]; });
             var poly = L.polygon(latlngs);
-            map.fitBounds(poly.getBounds(), { padding: [40, 40] });
+            map.fitBounds(poly.getBounds(), { padding: [120, 120] });
 
             // Ocultar UI para captura limpa
             var hideEls = document.querySelectorAll('.leaflet-top,.leaflet-bottom,.leaflet-control-layers,#btn-salvar-imagem,#modal-captura,.fab-mobile,#comp-left-ui,.comp-base-sel');
@@ -7142,12 +7181,12 @@
 
             y+=8;
 
-            // ---- Página de mapa ----
+            // ---- Página de mapa (A4 landscape para melhor proporção) ----
             if (mapCanvas) {
-                doc.addPage();
-                var pageW = 210;
-                var pageH = 297;
-                var hdrH2 = 16;
+                doc.addPage('a4', 'landscape');
+                var pageW = 297;  // A4 landscape
+                var pageH = 210;
+                var hdrH2 = 14;
                 var ftrH  = 8;
                 var mPad  = 8;
 
@@ -7175,16 +7214,16 @@
 
                 // Cabeçalho da página de mapa
                 doc.setFillColor(10,25,50);
-                doc.rect(0, 0, 210, hdrH2, 'F');
+                doc.rect(0, 0, pageW, hdrH2, 'F');
                 doc.setTextColor(255,255,255);
                 doc.setFontSize(9); doc.setFont(undefined,'bold');
-                doc.text('MAPA DE LOCALIZAÇÃO DA ÁREA — Google Earth Pro', 105, hdrH2 - 4, {align:'center'});
+                doc.text('MAPA DE LOCALIZAÇÃO DA ÁREA — Google Earth Pro', pageW / 2, hdrH2 - 4, {align:'center'});
 
                 doc.addImage(mapCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mx, my, iw, ih);
 
                 // Rodapé
                 doc.setFontSize(7); doc.setTextColor(120,120,120); doc.setFont(undefined,'normal');
-                doc.text('Imagem gerada automaticamente via Google Earth. Uso interno FUJAMA.', 105, pageH - 3, {align:'center'});
+                doc.text('Imagem gerada automaticamente via Google Earth. Uso interno FUJAMA.', pageW / 2, pageH - 3, {align:'center'});
             }
 
             // Última página: rodapé geral
