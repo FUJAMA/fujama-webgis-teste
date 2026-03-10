@@ -1917,7 +1917,6 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
         <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
-        <script src="https://unpkg.com/shpwrite@0.3.2/shpwrite.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
         <script>
@@ -3632,7 +3631,7 @@
             maxNativeZoom: 18
         });
         map.createPane('pane_MDT2012_4');
-        map.getPane('pane_MDT2012_4').style.zIndex = 404;
+        map.getPane('pane_MDT2012_4').style.zIndex = 650;
         var layer_MDT2012_4 = L.WMS.layer("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", "MDT-2012", {
             pane: 'pane_MDT2012_4',
             format: 'image/png',
@@ -3646,7 +3645,7 @@
             attribution: '',
         });
         map.createPane('pane_inde_trecho_drenagem_5');
-        map.getPane('pane_inde_trecho_drenagem_5').style.zIndex = 405;
+        map.getPane('pane_inde_trecho_drenagem_5').style.zIndex = 651;
         var layer_inde_trecho_drenagem_5 = L.WMS.layer("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", "INDE_trecho_drenagem", {
             pane: 'pane_inde_trecho_drenagem_5',
             format: 'image/png',
@@ -3660,7 +3659,7 @@
             attribution: '',
         });
         map.createPane('pane_ana_curso_dagua_6');
-        map.getPane('pane_ana_curso_dagua_6').style.zIndex = 406;
+        map.getPane('pane_ana_curso_dagua_6').style.zIndex = 652;
         var layer_ana_curso_dagua_6 = L.WMS.layer("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", "ANA_curso_dagua", {
             pane: 'pane_ana_curso_dagua_6',
             format: 'image/png',
@@ -3674,7 +3673,7 @@
             attribution: '',
         });
         map.createPane('pane_ana_nascente_7');
-        map.getPane('pane_ana_nascente_7').style.zIndex = 407;
+        map.getPane('pane_ana_nascente_7').style.zIndex = 653;
         var layer_ana_nascente_7 = L.WMS.layer("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", "ANA_nascente", {
             pane: 'pane_ana_nascente_7',
             format: 'image/png',
@@ -5841,6 +5840,11 @@
         // Adicionar um mapa base padrão
         map.addLayer(layer_OpenStreetMap_0);
 
+        // Camadas ligadas por padrão
+        map.addLayer(layer_LimiteMunicipal_29);
+        map.addLayer(layer_LimitedeBairros_28);
+        map.addLayer(layer_LimitedeLotesUrbanos_27);
+
         // ========== EVENTOS DO MAPA ==========
         map.on('mousemove', function(e) {
             atualizarCoordenadasPainel(e);
@@ -6797,10 +6801,99 @@
 
         function exportarDesenhoSHP() {
             if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
-            if (typeof shpwrite === 'undefined') {
-                alert('Biblioteca shpwrite não carregada. Verifique a conexão e recarregue a página.');
-                return;
-            }
+
+            // Montar coordenadas do polígono
+            var coords = drawAreaPontos.map(function(p){ return [p.lng, p.lat]; });
+            coords.push(coords[0]); // fechar anel
+
+            // ---- Escrever .SHP (um polígono) ----
+            function writeInt32BE(view, offset, val) { view.setInt32(offset, val, false); }
+            function writeInt32LE(view, offset, val) { view.setInt32(offset, val, true); }
+            function writeDoubleLE(view, offset, val) { view.setFloat64(offset, val, true); }
+
+            var numPts = coords.length;
+            // Content length em 16-bit words: 2 (shape type) + 32 (bbox) + 4 (num parts) + 4 (num points) + 4 (part index) + 16*numPts
+            var contentLen = 2 + 32 + 4 + 4 + 4 + 16 * numPts; // bytes
+            var contentWords = contentLen / 2;
+            var shpSize = 100 + 8 + contentLen;
+            var shpBuf = new ArrayBuffer(shpSize);
+            var shp = new DataView(shpBuf);
+
+            // File header
+            writeInt32BE(shp, 0, 9994);
+            writeInt32BE(shp, 24, (shpSize / 2));
+            writeInt32LE(shp, 28, 1000);
+            writeInt32LE(shp, 32, 5); // Polygon
+            // Bounding box
+            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            coords.forEach(function(c){ if(c[0]<minX)minX=c[0]; if(c[1]<minY)minY=c[1]; if(c[0]>maxX)maxX=c[0]; if(c[1]>maxY)maxY=c[1]; });
+            writeDoubleLE(shp, 36, minX); writeDoubleLE(shp, 44, minY);
+            writeDoubleLE(shp, 52, maxX); writeDoubleLE(shp, 60, maxY);
+
+            // Record header
+            writeInt32BE(shp, 100, 1); // record number
+            writeInt32BE(shp, 104, contentWords);
+
+            // Record content
+            var o = 108;
+            writeInt32LE(shp, o, 5); o += 4; // shape type polygon
+            writeDoubleLE(shp, o, minX); o += 8;
+            writeDoubleLE(shp, o, minY); o += 8;
+            writeDoubleLE(shp, o, maxX); o += 8;
+            writeDoubleLE(shp, o, maxY); o += 8;
+            writeInt32LE(shp, o, 1); o += 4;  // num parts
+            writeInt32LE(shp, o, numPts); o += 4; // num points
+            writeInt32LE(shp, o, 0); o += 4;  // part[0] index
+            coords.forEach(function(c){ writeDoubleLE(shp,o,c[0]);o+=8; writeDoubleLE(shp,o,c[1]);o+=8; });
+
+            // ---- Escrever .SHX ----
+            var shxSize = 100 + 8;
+            var shxBuf = new ArrayBuffer(shxSize);
+            var shx = new DataView(shxBuf);
+            writeInt32BE(shx, 0, 9994);
+            writeInt32BE(shx, 24, shxSize / 2);
+            writeInt32LE(shx, 28, 1000);
+            writeInt32LE(shx, 32, 5);
+            writeDoubleLE(shx, 36, minX); writeDoubleLE(shx, 44, minY);
+            writeDoubleLE(shx, 52, maxX); writeDoubleLE(shx, 60, maxY);
+            writeInt32BE(shx, 100, 50); // offset (100/2)
+            writeInt32BE(shx, 104, contentWords);
+
+            // ---- Escrever .DBF (um campo: NOME) ----
+            var nome = 'Area_FUJAMA';
+            var dbfBuf = new ArrayBuffer(32 + 32 + 1 + 1 + 11);
+            var dbf = new DataView(dbfBuf);
+            dbf.setUint8(0, 3); // version
+            var now = new Date();
+            dbf.setUint8(1, now.getFullYear()-1900); dbf.setUint8(2, now.getMonth()+1); dbf.setUint8(3, now.getDate());
+            dbf.setInt32(4, 1, true); // num records
+            dbf.setInt16(8, 32+32+1, true); // header size
+            dbf.setInt16(10, 11, true); // record size
+            // Field descriptor: NOME, C, 10
+            for(var ci=0;ci<5;ci++) dbf.setUint8(32+ci, 'NOME'.charCodeAt(ci)||0);
+            dbf.setUint8(32+11, 67); // type C
+            dbf.setUint8(32+16, 10); // length
+            dbf.setUint8(32+32, 13); // header terminator
+            // Record
+            dbf.setUint8(32+33, 32); // deletion flag
+            for(var ri=0;ri<10;ri++) dbf.setUint8(32+34+ri, nome.charCodeAt(ri)||32);
+
+            // ---- PRJ ----
+            var prj = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+
+            // ---- Empacotar com JSZip ----
+            var zip = new JSZip();
+            zip.file('area_fujama.shp', shpBuf);
+            zip.file('area_fujama.shx', shxBuf);
+            zip.file('area_fujama.dbf', dbfBuf);
+            zip.file('area_fujama.prj', prj);
+            zip.generateAsync({ type: 'blob' }).then(function(blob) {
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'area_' + now.toISOString().slice(0,10) + '.zip';
+                a.click();
+            });
+        }
             var coords = drawAreaPontos.map(function(p){ return [p.lng, p.lat]; });
             coords.push(coords[0]);
             var geojson = {
@@ -7213,7 +7306,7 @@
 
             // Limpa painel de atividades
             var isMobile = window.innerWidth <= 768;
-            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas ' + (isMobile ? 'fa-hand-pointer' : 'fa-hand-point-right') + '"></i>' + (isMobile ? 'Clique em uma licença acima' : 'Clique em uma licença ao lado') + '</div>';
+            document.getElementById('statsTabelaWrap').innerHTML = '<div class="stats-sem-dados"><i class="fas ' + (isMobile ? 'fa-hand-pointer' : 'fa-hand-point-left') + '"></i>' + (isMobile ? 'Clique em uma categoria acima' : 'Clique em uma categoria ao lado') + '</div>';
             document.getElementById('statsPizzaWrap').style.display = 'none';
             document.getElementById('statsAtivLabel').textContent = '';
         }
