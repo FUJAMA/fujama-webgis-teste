@@ -3632,58 +3632,50 @@
         });
         map.createPane('pane_MDT2012_4');
         map.getPane('pane_MDT2012_4').style.zIndex = 650;
-        var layer_MDT2012_4 = L.WMS.layer("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", "MDT-2012", {
+        var layer_MDT2012_4 = L.tileLayer.wms("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", {
+            layers: 'MDT-2012',
             pane: 'pane_MDT2012_4',
             format: 'image/png',
             uppercase: true,
             transparent: true,
-            continuousWorld : true,
             tiled: true,
-            info_format: 'text/html',
             opacity: 1,
-            identify: false,
             attribution: '',
         });
         map.createPane('pane_inde_trecho_drenagem_5');
         map.getPane('pane_inde_trecho_drenagem_5').style.zIndex = 651;
-        var layer_inde_trecho_drenagem_5 = L.WMS.layer("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", "INDE_trecho_drenagem", {
+        var layer_inde_trecho_drenagem_5 = L.tileLayer.wms("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", {
+            layers: 'INDE_trecho_drenagem',
             pane: 'pane_inde_trecho_drenagem_5',
             format: 'image/png',
             uppercase: true,
             transparent: true,
-            continuousWorld : true,
             tiled: true,
-            info_format: 'text/html',
             opacity: 1,
-            identify: false,
             attribution: '',
         });
         map.createPane('pane_ana_curso_dagua_6');
         map.getPane('pane_ana_curso_dagua_6').style.zIndex = 652;
-        var layer_ana_curso_dagua_6 = L.WMS.layer("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", "ANA_curso_dagua", {
+        var layer_ana_curso_dagua_6 = L.tileLayer.wms("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", {
+            layers: 'ANA_curso_dagua',
             pane: 'pane_ana_curso_dagua_6',
             format: 'image/png',
             uppercase: true,
             transparent: true,
-            continuousWorld : true,
             tiled: true,
-            info_format: 'text/html',
             opacity: 1,
-            identify: false,
             attribution: '',
         });
         map.createPane('pane_ana_nascente_7');
         map.getPane('pane_ana_nascente_7').style.zIndex = 653;
-        var layer_ana_nascente_7 = L.WMS.layer("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", "ANA_nascente", {
+        var layer_ana_nascente_7 = L.tileLayer.wms("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", {
+            layers: 'ANA_nascente',
             pane: 'pane_ana_nascente_7',
             format: 'image/png',
             uppercase: true,
             transparent: true,
-            continuousWorld : true,
             tiled: true,
-            info_format: 'text/html',
             opacity: 1,
-            identify: false,
             attribution: '',
         });
         map.createPane('pane_readeTombamentoIPHAN_8');
@@ -6813,7 +6805,7 @@
 
             var numPts = coords.length;
             // Content length em 16-bit words: 2 (shape type) + 32 (bbox) + 4 (num parts) + 4 (num points) + 4 (part index) + 16*numPts
-            var contentLen = 2 + 32 + 4 + 4 + 4 + 16 * numPts; // bytes
+            var contentLen = 4 + 32 + 4 + 4 + 4 + 16 * numPts; // bytes
             var contentWords = contentLen / 2;
             var shpSize = 100 + 8 + contentLen;
             var shpBuf = new ArrayBuffer(shpSize);
