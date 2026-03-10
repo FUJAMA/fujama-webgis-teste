@@ -6849,7 +6849,10 @@
         }
 
         function _desenharRodapeCaptura(ctx, canvas, camadas) {
-            var pad = 12, lineH = 17, fontSize = 11;
+            // Escala pelo devicePixelRatio para que o rodapé fique proporcional
+            // na imagem capturada (canvas já está em pixels físicos = CSS * dpr)
+            var dpr = window.devicePixelRatio || 1;
+            var pad = 12 * dpr, lineH = 17 * dpr, fontSize = 11 * dpr;
             var ncols = 6;
             var nrows = Math.ceil(camadas.length / ncols);
             // Linha 0: título "FUJAMA WebGIS"; Linha 1: label; Linhas 2+: camadas
@@ -6859,7 +6862,7 @@
 
             // Linha divisória superior
             ctx.strokeStyle = '#3498db';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2 * dpr;
             ctx.beginPath();
             ctx.moveTo(0, canvas.height - rodapeH);
             ctx.lineTo(canvas.width, canvas.height - rodapeH);
@@ -6926,6 +6929,9 @@
                 });
             }
 
+            // dpr capturado no momento da chamada (antes de qualquer async)
+            var _capDpr = window.devicePixelRatio || 1;
+
             function finalizar(canvas) {
                 restoreEls();
                 prog.classList.remove('ativo');
@@ -6936,6 +6942,10 @@
                     _desenharRodapeCaptura(ctx, canvas, camadas);
                 }
 
+                // Dimensões CSS reais do canvas (sem o fator dpr)
+                var cssW = canvas.width  / _capDpr;
+                var cssH = canvas.height / _capDpr;
+
                 if (formato === 'jpg') {
                     var a = document.createElement('a');
                     a.download = 'mapa_fujama_' + dataStr + '.jpg';
@@ -6943,15 +6953,16 @@
                     a.click();
                 } else {
                     var imgData = canvas.toDataURL('image/jpeg', 0.92);
-                    var orient = canvas.width > canvas.height ? 'landscape' : 'portrait';
+                    var orient = cssW > cssH ? 'landscape' : 'portrait';
                     var doc = new window.jspdf.jsPDF({ orientation: orient, unit: 'mm', format: 'a4' });
                     var pw = doc.internal.pageSize.getWidth();
                     var ph = doc.internal.pageSize.getHeight();
-                    // Proporção da imagem
-                    var ratio = Math.min(pw / (canvas.width * 0.264583), ph / (canvas.height * 0.264583));
-                    var iw = canvas.width * 0.264583 * ratio;
-                    var ih = canvas.height * 0.264583 * ratio;
-                    doc.addImage(imgData, 'JPEG', (pw-iw)/2, (ph-ih)/2, iw, ih);
+                    // Converter pixels CSS → mm (1px CSS = 0.264583 mm a 96dpi)
+                    var PX2MM = 0.264583;
+                    var ratio = Math.min(pw / (cssW * PX2MM), ph / (cssH * PX2MM));
+                    var iw = cssW * PX2MM * ratio;
+                    var ih = cssH * PX2MM * ratio;
+                    doc.addImage(imgData, 'JPEG', (pw - iw) / 2, (ph - ih) / 2, iw, ih);
                     doc.save('mapa_fujama_' + dataStr + '.pdf');
                 }
             }
@@ -7007,28 +7018,34 @@
             var hideEls = document.querySelectorAll('.leaflet-top,.leaflet-bottom,.leaflet-control-layers,#btn-salvar-imagem,#modal-captura,.fab-mobile,#comp-left-ui,.comp-base-sel');
             hideEls.forEach(function(el){ el.dataset._mHidden = el.style.visibility; el.style.visibility='hidden'; });
 
+            // Captura o dpr antes do async
+            var _memDpr = window.devicePixelRatio || 1;
+
             setTimeout(function() {
                 html2canvas(document.getElementById('map'), {
                     useCORS: true, allowTaint: true, logging: false,
-                    scale: 1.5
+                    foreignObjectRendering: false,
+                    imageTimeout: 15000,
+                    scale: _memDpr
                 }).then(function(mapCanvas) {
                     // Restaurar estado
                     hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
                     if (activeBaseKey !== baseAntes) setBaseMap(baseAntes);
                     if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-file-pdf"></i> Memorial PDF'; }
 
-                    _gerarMemorialComMapa(mapCanvas);
+                    _gerarMemorialComMapa(mapCanvas, _memDpr);
                 }).catch(function(e) {
                     hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
                     if (activeBaseKey !== baseAntes) setBaseMap(baseAntes);
                     if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-file-pdf"></i> Memorial PDF'; }
                     // Gerar sem mapa
-                    _gerarMemorialComMapa(null);
+                    _gerarMemorialComMapa(null, _memDpr);
                 });
             }, 800); // aguarda tiles carregarem
         }
 
-        function _gerarMemorialComMapa(mapCanvas) {
+        function _gerarMemorialComMapa(mapCanvas, dpr) {
+            dpr = dpr || window.devicePixelRatio || 1;
             var pts = drawAreaPontos;
             var doc = new window.jspdf.jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
             var margin=15, y=margin, pw=210-2*margin;
@@ -7131,21 +7148,26 @@
                 var pageW = 210;
                 var pageH = 297;
                 var hdrH2 = 16;
-                var ftrH  = 10;
-                var mPad  = 8; // margem lateral mínima
+                var ftrH  = 8;
+                var mPad  = 8;
 
-                // Área útil disponível em mm
+                // Dimensões CSS reais (canvas foi capturado com scale=dpr)
+                var cssCanvW = mapCanvas.width  / dpr;
+                var cssCanvH = mapCanvas.height / dpr;
+
+                // Converter pixels CSS → mm (96 dpi: 1px CSS = 0.264583 mm)
+                var PX2MM = 0.264583;
+                var imgMmW = cssCanvW * PX2MM;
+                var imgMmH = cssCanvH * PX2MM;
+
+                // Área útil disponível na página (em mm)
                 var availW = pageW - 2 * mPad;
                 var availH = pageH - hdrH2 - ftrH - 2 * mPad;
 
-                // Converter canvas pixels → mm (96 dpi: 1px = 0.264583 mm)
-                // mas usamos o ratio direto entre área disponível e canvas, sem conversão DPI
-                // para maximizar o uso da página independente de escala/devicePixelRatio
-                var canvW = mapCanvas.width;
-                var canvH = mapCanvas.height;
-                var fitRatio = Math.min(availW / canvW, availH / canvH);
-                var iw = canvW * fitRatio;
-                var ih = canvH * fitRatio;
+                // Escala para caber na área útil mantendo proporção
+                var fitRatio = Math.min(availW / imgMmW, availH / imgMmH);
+                var iw = imgMmW * fitRatio;
+                var ih = imgMmH * fitRatio;
 
                 // Centralizar na área útil
                 var mx = mPad + (availW - iw) / 2;
