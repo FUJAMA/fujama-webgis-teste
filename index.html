@@ -1280,7 +1280,7 @@
             font-size: 1em;
             box-shadow: 0 2px 8px rgba(0,0,0,0.4);
             transition: background 0.2s, border-color 0.2s;
-            top: calc(var(--header-height) + 200px); /* abaixo de zoom+locate+ruler */
+            top: calc(var(--header-height) + 260px); /* abaixo de zoom+locate+ruler */
         }
         #btn-salvar-imagem:hover { background: rgba(52,152,219,0.25); border-color: #5dade2; }
 
@@ -1298,7 +1298,7 @@
             font-size: 0.88em;
             box-shadow: 0 4px 24px rgba(0,0,0,0.6);
             min-width: 220px;
-            top: calc(var(--header-height) + 190px);
+            top: calc(var(--header-height) + 250px);
         }
         #modal-captura.ativo { display: block; }
         #modal-captura h4 { margin: 0 0 10px 0; font-size: 0.95em; color: #3498db; border-bottom: 1px solid #2c4a6e; padding-bottom: 6px; }
@@ -7083,10 +7083,16 @@
             var colW = [14,24,24,26,26,28,24];
             var hdrH = 9; // altura do cabeçalho em 2 linhas
             var xc = margin;
-            doc.setFillColor(10,25,50); doc.setTextColor(255,255,255);
+            // Fundo azul completo para a linha de cabeçalho
+            doc.setFillColor(10,25,50);
+            doc.rect(margin, y, pw, hdrH, 'F');
+            doc.setTextColor(255,255,255);
             doc.setFontSize(7);
             headers.forEach(function(h,i){
-                doc.rect(xc,y,colW[i],hdrH,'F');
+                // Borda separadora entre colunas
+                doc.setDrawColor(52,152,219);
+                doc.setLineWidth(0.3);
+                doc.rect(xc, y, colW[i], hdrH, 'S');
                 doc.setFont(undefined,'bold');
                 doc.text(h[0], xc+colW[i]/2, y+3.5, {align:'center'});
                 if (h[1]) {
@@ -7098,6 +7104,8 @@
             y+=hdrH;
 
             doc.setTextColor(0,0,0);
+            doc.setDrawColor(200,210,220);
+            doc.setLineWidth(0.2);
             pts.forEach(function(p, idx){
                 var utmP = _latLngToUTM(p.lat, p.lng);
                 var next = pts[(idx+1)%pts.length];
@@ -7123,19 +7131,25 @@
                 var pageW = 210;
                 var pageH = 297;
                 var hdrH2 = 16;
-                var ftrH = 10;
-                var mPad = 10; // margem lateral menor para maximizar imagem
-                var mw = pageW - 2 * mPad;
-                var mh = pageH - hdrH2 - ftrH - mPad * 2;
-                // Mantém proporção e usa toda a área disponível
-                var scaleX = mw / mapCanvas.width;
-                var scaleY = mh / mapCanvas.height;
-                var ratio2 = Math.min(scaleX, scaleY);
-                var iw = mapCanvas.width * ratio2;
-                var ih = mapCanvas.height * ratio2;
-                // Centralizar horizontal e verticalmente na área útil
-                var mx = mPad + (mw - iw) / 2;
-                var my = hdrH2 + mPad + (mh - ih) / 2;
+                var ftrH  = 10;
+                var mPad  = 8; // margem lateral mínima
+
+                // Área útil disponível em mm
+                var availW = pageW - 2 * mPad;
+                var availH = pageH - hdrH2 - ftrH - 2 * mPad;
+
+                // Converter canvas pixels → mm (96 dpi: 1px = 0.264583 mm)
+                // mas usamos o ratio direto entre área disponível e canvas, sem conversão DPI
+                // para maximizar o uso da página independente de escala/devicePixelRatio
+                var canvW = mapCanvas.width;
+                var canvH = mapCanvas.height;
+                var fitRatio = Math.min(availW / canvW, availH / canvH);
+                var iw = canvW * fitRatio;
+                var ih = canvH * fitRatio;
+
+                // Centralizar na área útil
+                var mx = mPad + (availW - iw) / 2;
+                var my = hdrH2 + mPad + (availH - ih) / 2;
 
                 // Cabeçalho da página de mapa
                 doc.setFillColor(10,25,50);
@@ -7144,11 +7158,11 @@
                 doc.setFontSize(9); doc.setFont(undefined,'bold');
                 doc.text('MAPA DE LOCALIZAÇÃO DA ÁREA — Google Earth Pro', 105, hdrH2 - 4, {align:'center'});
 
-                doc.addImage(mapCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', mx, my, iw, ih);
+                doc.addImage(mapCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mx, my, iw, ih);
 
                 // Rodapé
                 doc.setFontSize(7); doc.setTextColor(120,120,120); doc.setFont(undefined,'normal');
-                doc.text('Imagem gerada automaticamente via Google Earth. Uso interno FUJAMA.', 105, pageH - 4, {align:'center'});
+                doc.text('Imagem gerada automaticamente via Google Earth. Uso interno FUJAMA.', 105, pageH - 3, {align:'center'});
             }
 
             // Última página: rodapé geral
