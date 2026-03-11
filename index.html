@@ -2228,9 +2228,26 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
         <!-- GeoRaster: leitura de COG (Cloud-Optimized GeoTIFF) direto no browser -->
         <script src="https://unpkg.com/georaster@1.6.0/dist/georaster.bundle.min.js"></script>
+        <script src="https://unpkg.com/proj4@2.9.0/dist/proj4.js"></script>
         <script src="https://unpkg.com/georaster-layer-for-leaflet@3.10.0/dist/georaster-layer-for-leaflet.min.js"></script>
 
         <script>
+        // ── Proj4: registrar projeções brasileiras comuns usadas em COGs ──────
+        // Executado antes do mapa ser criado, para estar disponível quando georaster precisar
+        (function() {
+            if (typeof proj4 === 'undefined') return;
+            // SIRGAS 2000 / UTM zona 22S (EPSG:31982) — Jaraguá do Sul
+            proj4.defs('EPSG:31982', '+proj=utm +zone=22 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+            // SIRGAS 2000 / UTM zona 23S (EPSG:31983)
+            proj4.defs('EPSG:31983', '+proj=utm +zone=23 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+            // SAD69 / UTM zona 22S (EPSG:29192) — dados históricos
+            proj4.defs('EPSG:29192', '+proj=utm +zone=22 +south +ellps=aust_SA +towgs84=-67.35,3.88,-38.22,0,0,0,0 +units=m +no_defs');
+            // SAD69 / UTM zona 23S (EPSG:29193)
+            proj4.defs('EPSG:29193', '+proj=utm +zone=23 +south +ellps=aust_SA +towgs84=-67.35,3.88,-38.22,0,0,0,0 +units=m +no_defs');
+            // Corrego Alegre / UTM zona 22S (EPSG:22522) — levantamentos ainda mais antigos
+            proj4.defs('EPSG:22522', '+proj=utm +zone=22 +south +ellps=intl +towgs84=-206,172,-6,0,0,0,0 +units=m +no_defs');
+        })();
+
         // ========== SELETOR DE BASE CARTOGRÁFICA ==========
         function toggleHeaderBase() {
             var btn = document.getElementById('header-base-btn');
@@ -2305,9 +2322,8 @@
                 case 'googleearth':     map.addLayer(layer_GoogleEarth_2);      break;
                 case 'ortomosaico2020': map.addLayer(layer_Ortomosaico2020_3);  break;
                 case 'orto1979':
-                    _carregarOrto1979(function(){
-                        // só adiciona se ainda for a base ativa
-                        if (activeBaseKey === 'orto1979') map.addLayer(layer_Orto1979_COG);
+                    _carregarOrto1979(function(lyr){
+                        if (activeBaseKey === 'orto1979') map.addLayer(lyr);
                     });
                     break;
             }
@@ -3985,47 +4001,127 @@
         });
 
         // ── Ortomosaico 1979 — COG (Cloud-Optimized GeoTIFF) ──────────────────
-        // Carregado via georaster-layer-for-leaflet usando range requests HTTP
-        var layer_Orto1979_COG = null; // será instanciado ao primeiro uso
-        var _orto1979Url = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
-        var _orto1979Loading = false;
-        var _orto1979Ready   = false;
+        var layer_Orto1979_COG  = null;
+        var _orto1979Georaster  = null; // georaster object reutilizável
+        var _orto1979Url        = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
+        var _orto1979Loading    = false;
+        var _orto1979Ready      = false;
 
-        function _carregarOrto1979(onReady) {
-            if (_orto1979Ready && layer_Orto1979_COG) { onReady && onReady(); return; }
-            if (_orto1979Loading) { return; }
-            _orto1979Loading = true;
-            // Indicador visual
-            var toast = document.createElement('div');
-            toast.id = 'orto1979-toast';
-            toast.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);'
-                + 'background:rgba(10,20,45,0.97);color:#7ab8d9;padding:8px 18px;border-radius:8px;'
-                + 'border:1px solid rgba(52,152,219,0.4);font-size:0.82em;z-index:9999;'
-                + 'display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,0.5);';
-            toast.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando Ortomosaico 1979…';
-            document.body.appendChild(toast);
+        function _orto1979Toast(msg, isError) {
+            var t = document.getElementById('orto1979-toast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'orto1979-toast';
+                t.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);'
+                    + 'background:rgba(10,20,45,0.97);padding:8px 18px;border-radius:8px;'
+                    + 'border:1px solid rgba(52,152,219,0.4);font-size:0.82em;z-index:9999;'
+                    + 'display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,0.5);';
+                document.body.appendChild(t);
+            }
+            t.style.color = isError ? '#e74c3c' : '#7ab8d9';
+            t.innerHTML   = msg;
+            if (isError) setTimeout(function(){ var x=document.getElementById('orto1979-toast'); if(x) x.remove(); }, 5000);
+        }
+
+        function _orto1979BuildLayer(gr, targetPane) {
+            var nbands = gr.numberOfRasters;
+            var nodata = gr.noDataValue;
+
+            // Função de cor: suporte a 1 banda (cinza), 3 bandas (RGB) e 4 bandas (RGBA)
+            function pixelFn(values) {
+                if (!values || values.every(function(v){ return v === null || v === nodata || v === undefined; })) return null;
+
+                var r, g, b, a = 255;
+                if (nbands >= 3) {
+                    var max = (gr.maxs && gr.maxs[0] > 255) ? gr.maxs[0] : 255;
+                    r = Math.min(255, Math.round(((values[0] || 0) / max) * 255));
+                    g = Math.min(255, Math.round(((values[1] || 0) / max) * 255));
+                    b = Math.min(255, Math.round(((values[2] || 0) / max) * 255));
+                    if (nbands >= 4 && values[3] !== null && values[3] !== undefined)
+                        a = Math.min(255, Math.round(((values[3] || 0) / max) * 255));
+                } else {
+                    var max1 = (gr.maxs && gr.maxs[0] > 255) ? gr.maxs[0] : 255;
+                    var v = Math.min(255, Math.round(((values[0] || 0) / max1) * 255));
+                    r = g = b = v;
+                }
+                return 'rgba(' + r + ',' + g + ',' + b + ',' + (a/255).toFixed(3) + ')';
+            }
+
+            var opts = {
+                georaster: gr,
+                opacity: 1,
+                resolution: 256,
+                pane: targetPane || 'pane_Orto1979_COG',
+                pixelValuesToColorFn: pixelFn
+            };
+
+            // Injeta proj4 para reprojeção automática se a projeção do raster for conhecida
+            if (typeof proj4 !== 'undefined') opts.proj4 = proj4;
+
+            return new GeoRasterLayer(opts);
+        }
+
+        function _carregarOrto1979(onReady, targetPane) {
+            // Se já carregado, só cria nova instância de layer se necessário
+            if (_orto1979Ready && _orto1979Georaster) {
+                if (!layer_Orto1979_COG || targetPane) {
+                    var lyr = _orto1979BuildLayer(_orto1979Georaster, targetPane);
+                    if (!targetPane) layer_Orto1979_COG = lyr;
+                    onReady && onReady(lyr);
+                } else {
+                    onReady && onReady(layer_Orto1979_COG);
+                }
+                return;
+            }
+            if (_orto1979Loading) {
+                // Enfileira callback
+                var _prev = _orto1979Loading;
+                if (typeof _prev === 'function') {
+                    _orto1979Loading = function(lyr){ _prev(lyr); onReady && onReady(lyr); };
+                } else {
+                    _orto1979Loading = function(lyr){ onReady && onReady(lyr); };
+                }
+                return;
+            }
+            _orto1979Loading = onReady || true;
+
+            _orto1979Toast('<i class="fas fa-spinner fa-spin"></i> Carregando Ortomosaico 1979…', false);
 
             fetch(_orto1979Url)
-                .then(function(r){ return r.arrayBuffer(); })
-                .then(function(ab){ return parseGeoraster(ab); })
-                .then(function(gr){
-                    layer_Orto1979_COG = new GeoRasterLayer({
-                        georaster: gr,
-                        opacity: 1,
-                        resolution: 256,
-                        pane: 'pane_Orto1979_COG'
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.arrayBuffer();
+                })
+                .then(function(ab) { return parseGeoraster(ab); })                .then(function(gr) {
+                    _orto1979Georaster = gr;
+                    _orto1979Ready     = true;
+
+                    // Log de diagnóstico no console
+                    console.log('[Orto1979 COG] Carregado:', {
+                        bandas: gr.numberOfRasters,
+                        crs: gr.projection,
+                        width: gr.width, height: gr.height,
+                        nodata: gr.noDataValue,
+                        mins: gr.mins, maxs: gr.maxs,
+                        bbox: [gr.xmin, gr.ymin, gr.xmax, gr.ymax]
                     });
-                    _orto1979Ready   = true;
+
+                    var lyr = _orto1979BuildLayer(gr, targetPane);
+                    if (!targetPane) layer_Orto1979_COG = lyr;
+
+                    var cb = _orto1979Loading;
                     _orto1979Loading = false;
+
                     var t = document.getElementById('orto1979-toast');
                     if (t) t.remove();
-                    onReady && onReady();
+
+                    if (typeof cb === 'function') cb(lyr);
+                    else if (onReady) onReady(lyr);
                 })
-                .catch(function(err){
+                .catch(function(err) {
                     _orto1979Loading = false;
-                    var t = document.getElementById('orto1979-toast');
-                    if (t) { t.style.color='#e74c3c'; t.innerHTML='<i class="fas fa-exclamation-circle"></i> Erro ao carregar Ortomosaico 1979'; setTimeout(function(){ t.remove(); }, 4000); }
-                    console.error('[Orto1979 COG]', err);
+                    _orto1979Toast('<i class="fas fa-exclamation-circle"></i> Erro ao carregar Ortomosaico 1979: ' + err.message, true);
+                    console.error('[Orto1979 COG] Erro:', err);
                 });
         }
         map.createPane('pane_MDT2012_4');
@@ -7641,17 +7737,11 @@
                     layers: cfg.layers, format:'image/png', transparent:false, maxZoom:22
                 }).addTo(compRightMap);
             } else if (cfg.type === 'cog') {
-                // COG: reutiliza a camada já carregada (lazy) e espelha no mapa direito
-                _carregarOrto1979(function(){
-                    if (layer_Orto1979_COG) {
-                        // GeoRasterLayer pode ser adicionado a um segundo mapa criando nova instância
-                        compRightBase = new GeoRasterLayer({
-                            georaster: layer_Orto1979_COG.options.georaster,
-                            opacity: 1,
-                            resolution: 256
-                        }).addTo(compRightMap);
-                    }
-                });
+                // COG: cria nova instância independente para o mapa direito
+                _carregarOrto1979(function(lyr){
+                    compRightBase = lyr;
+                    compRightBase.addTo(compRightMap);
+                }, 'pane_default');
             } else {
                 compRightBase = L.tileLayer(cfg.url, { maxZoom:22, attribution:'' }).addTo(compRightMap);
             }
