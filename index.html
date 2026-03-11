@@ -4015,16 +4015,57 @@
         }
 
         // GridLayer que renderiza o COG tile a tile via geotiff.js
-        // O COG está em EPSG:3857, mesmo CRS do Leaflet/Slippy map — sem reprojeção necessária
+        // COG está em UTM zona 22S (EPSG:32722) — bbox convertida para Web Mercator internamente
         function _buildOrto1979CanvasLayer(image, meta, pane) {
-            function latLngToMerc(lat, lng) {
+
+            // ── Conversões de coordenadas ────────────────────────────────────
+            // UTM zona 22S (WGS84) → LatLng
+            function utm22sToLatLng(E, N) {
+                var a  = 6378137.0, f = 1/298.257223563;
+                var b  = a*(1-f), e2 = (a*a - b*b)/(a*a), k0 = 0.9996;
+                var E0 = 500000, N0 = 10000000, lon0 = -51 * Math.PI / 180;
+                var x  = E - E0, y = N - N0;
+                var M  = y / k0;
+                var mu = M / (a*(1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+                var e1 = (1 - Math.sqrt(1-e2))/(1 + Math.sqrt(1-e2));
+                var phi1 = mu
+                    + (3*e1/2 - 27*e1*e1*e1/32)*Math.sin(2*mu)
+                    + (21*e1*e1/16 - 55*e1*e1*e1*e1/32)*Math.sin(4*mu)
+                    + (151*e1*e1*e1/96)*Math.sin(6*mu);
+                var sp = Math.sin(phi1), cp = Math.cos(phi1), tp = Math.tan(phi1);
+                var N1 = a/Math.sqrt(1-e2*sp*sp);
+                var T1 = tp*tp, C1 = e2/(1-e2)*cp*cp;
+                var R1 = a*(1-e2)/Math.pow(1-e2*sp*sp, 1.5);
+                var D  = x/(N1*k0);
+                var lat = phi1 - (N1*tp/R1)*(D*D/2
+                    - (5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24
+                    + (61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
+                var lon = lon0 + (D
+                    - (1+2*T1+C1)*D*D*D/6
+                    + (5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120) / cp;
+                return { lat: lat * 180/Math.PI, lng: lon * 180/Math.PI };
+            }
+
+            // LatLng → Web Mercator (EPSG:3857)
+            function llToMerc(lat, lng) {
                 return {
                     x: lng * 20037508.342 / 180,
                     y: Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180) * 20037508.342 / 180
                 };
             }
 
-            var rW = meta.bbox[0], rS = meta.bbox[1], rE = meta.bbox[2], rN = meta.bbox[3];
+            // LatLng → Web Mercator (direto, no tile bound do Leaflet)
+            function latLngToMerc(lat, lng) { return llToMerc(lat, lng); }
+
+            // Converte bbox UTM → Web Mercator uma única vez
+            var utmSW = utm22sToLatLng(meta.bbox[0], meta.bbox[1]);
+            var utmNE = utm22sToLatLng(meta.bbox[2], meta.bbox[3]);
+            var mSW_r = llToMerc(utmSW.lat, utmSW.lng);
+            var mNE_r = llToMerc(utmNE.lat, utmNE.lng);
+            var rW = mSW_r.x, rS = mSW_r.y, rE = mNE_r.x, rN = mNE_r.y;
+
+            console.log('[Orto1979] bbox Web Mercator:', { rW:rW, rS:rS, rE:rE, rN:rN });
+            console.log('[Orto1979] bbox LatLng SW:', utmSW, 'NE:', utmNE);
 
             var Orto1979GridLayer = L.GridLayer.extend({
                 createTile: function(coords, done) {
@@ -4033,47 +4074,48 @@
                     canvas.width  = sz.x;
                     canvas.height = sz.y;
 
-                    var tb = this._tileCoordsToBounds(coords);
-                    var mSW = latLngToMerc(tb.getSouth(), tb.getWest());
-                    var mNE = latLngToMerc(tb.getNorth(), tb.getEast());
+                    var tb  = this._tileCoordsToBounds(coords);
+                    var tSW = latLngToMerc(tb.getSouth(), tb.getWest());
+                    var tNE = latLngToMerc(tb.getNorth(), tb.getEast());
 
-                    // Interseção com o bbox do raster
-                    var iW = Math.max(mSW.x, rW), iE = Math.min(mNE.x, rE);
-                    var iS = Math.max(mSW.y, rS), iN = Math.min(mNE.y, rN);
+                    // Interseção tile ∩ raster em Web Mercator
+                    var iW = Math.max(tSW.x, rW), iE = Math.min(tNE.x, rE);
+                    var iS = Math.max(tSW.y, rS), iN = Math.min(tNE.y, rN);
                     if (iW >= iE || iS >= iN) { done(null, canvas); return canvas; }
 
-                    // Pixel coords no raster (origem topo-esquerdo)
+                    // Pixel window no raster (Y invertido: origem topo-esquerdo)
                     var rx = rE - rW, ry = rN - rS;
-                    var pxW = Math.max(0, Math.floor(((iW - rW) / rx) * meta.width));
-                    var pxE = Math.min(meta.width,  Math.ceil( ((iE - rW) / rx) * meta.width));
-                    var pxN_r = Math.max(0, Math.floor(((rN - iN) / ry) * meta.height));
-                    var pxS_r = Math.min(meta.height, Math.ceil( ((rN - iS) / ry) * meta.height));
-                    if (pxE <= pxW || pxS_r <= pxN_r) { done(null, canvas); return canvas; }
+                    var pxW  = Math.max(0,           Math.floor(((iW - rW) / rx) * meta.width));
+                    var pxE  = Math.min(meta.width,  Math.ceil( ((iE - rW) / rx) * meta.width));
+                    var pxNr = Math.max(0,            Math.floor(((rN - iN) / ry) * meta.height));
+                    var pxSr = Math.min(meta.height,  Math.ceil( ((rN - iS) / ry) * meta.height));
+                    if (pxE <= pxW || pxSr <= pxNr) { done(null, canvas); return canvas; }
 
-                    // Dimensões de destino no canvas (proporção da interseção)
-                    var tw = mNE.x - mSW.x, th = mNE.y - mSW.y;
-                    var dstX = Math.round(((iW - mSW.x) / tw) * sz.x);
-                    var dstY = Math.round(((mNE.y - iN) / th) * sz.y);
+                    // Posição e tamanho no canvas do tile
+                    var tw = tNE.x - tSW.x, th = tNE.y - tSW.y;
+                    var dstX = Math.round(((iW - tSW.x) / tw) * sz.x);
+                    var dstY = Math.round(((tNE.y - iN) / th) * sz.y);
                     var dstW = Math.max(1, Math.round(((iE - iW) / tw) * sz.x));
                     var dstH = Math.max(1, Math.round(((iN - iS) / th) * sz.y));
 
-                    image.readRGB({
-                        window: [pxW, pxN_r, pxE, pxS_r],
-                        width:  dstW,
-                        height: dstH,
-                        interleave: true,
-                        enableAlpha: false
-                    }).then(function(data) {
-                        var ctx = canvas.getContext('2d');
+                    // Lê os dados — 1 banda grayscale via image.readRasters
+                    image.readRasters({
+                        window:     [pxW, pxNr, pxE, pxSr],
+                        width:      dstW,
+                        height:     dstH,
+                        interleave: false
+                    }).then(function(rasters) {
+                        var band = rasters[0];   // TypedArray com valores uint8
+                        var ctx  = canvas.getContext('2d');
                         var imgd = ctx.createImageData(dstW, dstH);
-                        var n = dstW * dstH;
+                        var n    = dstW * dstH;
                         for (var i = 0; i < n; i++) {
-                            imgd.data[i*4]   = data[i*3];
-                            imgd.data[i*4+1] = data[i*3+1];
-                            imgd.data[i*4+2] = data[i*3+2];
+                            var v = band[i];
+                            imgd.data[i*4]   = v;
+                            imgd.data[i*4+1] = v;
+                            imgd.data[i*4+2] = v;
                             imgd.data[i*4+3] = 255;
                         }
-                        // Desenha em canvas temporário e escala para posição correta no tile
                         var tmp = document.createElement('canvas');
                         tmp.width = dstW; tmp.height = dstH;
                         tmp.getContext('2d').putImageData(imgd, 0, 0);
