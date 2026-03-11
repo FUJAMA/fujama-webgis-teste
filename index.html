@@ -3987,12 +3987,12 @@
         var _orto1979TiffObj    = null;
         var _orto1979ImageObj   = null;
         var _orto1979Meta       = null;
-        var _orto1979Url        = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
-        // Proxies CORS em ordem de preferência (fallback automático)
+        var _orto1979Url     = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
+        // Proxies CORS em ordem de preferência — usados apenas se o servidor não tiver CORS configurado
         var _orto1979Proxies = [
+            '',  // tenta URL direta primeiro (funciona se Netlify tiver _headers com CORS)
             'https://api.allorigins.win/raw?url=',
             'https://corsproxy.io/?',
-            'https://cors-anywhere.herokuapp.com/',
         ];
         var _orto1979Loading    = false;
         var _orto1979Ready      = false;
@@ -4113,17 +4113,17 @@
 
             // Tenta cada proxy em sequência até um funcionar
             function _tryProxy(proxies, idx) {
-                if (idx >= proxies.length) {
-                    throw new Error('Todos os proxies CORS falharam');
-                }
-                var proxyUrl = proxies[idx] + encodeURIComponent(_orto1979Url);
+                if (idx >= proxies.length) throw new Error('Todos os proxies CORS falharam');
+                var proxyUrl = proxies[idx]
+                    ? proxies[idx] + encodeURIComponent(_orto1979Url)
+                    : _orto1979Url;  // string vazia = URL direta sem proxy
                 return fetch(proxyUrl)
                     .then(function(r) {
                         if (!r.ok) throw new Error('HTTP ' + r.status);
                         return r.arrayBuffer();
                     })
                     .catch(function(e) {
-                        console.warn('[Orto1979] Proxy ' + proxies[idx] + ' falhou:', e.message, '— tentando próximo…');
+                        console.warn('[Orto1979] ' + (proxies[idx] || 'URL direta') + ' falhou:', e.message, '— tentando próximo…');
                         return _tryProxy(proxies, idx + 1);
                     });
             }
