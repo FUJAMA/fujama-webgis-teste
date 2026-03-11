@@ -613,6 +613,10 @@
             color: #c0d8ee !important;
             font-size: 0.82em !important;
             min-width: 200px;
+            /* ── scroll: limita altura e permite rolar ── */
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            overflow-x: hidden;
         }
         /* Botão recolhido (ícone de camadas) */
         .leaflet-control-layers-toggle {
@@ -1700,6 +1704,9 @@
                     <div class="hdr-base-opt" id="hdrbase-orto2020" onclick="setBaseMap('ortomosaico2020'); setHeaderBaseLabel('Ortomosaico 2020','hdrbase-orto2020')">
                         <i class="fas fa-satellite"></i> Ortomosaico 2020
                     </div>
+                    <div class="hdr-base-opt" id="hdrbase-orto1979" onclick="setBaseMap('orto1979'); setHeaderBaseLabel('Ortomosaico 1979','hdrbase-orto1979')">
+                        <i class="fas fa-history"></i> Ortomosaico 1979
+                    </div>
                 </div>
             </div>
 
@@ -1748,6 +1755,7 @@
                     <option value="googleearth" selected>Google Earth</option>
                     <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
                     <option value="ortomosaico2020">Ortomosaico 2020</option>
+                    <option value="orto1979">Ortomosaico 1979</option>
                 </select>
             </div>
         </div>
@@ -1763,6 +1771,7 @@
                     <option value="googleearth">Google Earth</option>
                     <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
                     <option value="ortomosaico2020">Ortomosaico 2020</option>
+                    <option value="orto1979">Ortomosaico 1979</option>
                 </select>
             </div>
         </div>
@@ -2217,6 +2226,9 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
         <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <!-- GeoRaster: leitura de COG (Cloud-Optimized GeoTIFF) direto no browser -->
+        <script src="https://unpkg.com/georaster@1.6.0/dist/georaster.bundle.min.js"></script>
+        <script src="https://unpkg.com/georaster-layer-for-leaflet@3.10.0/dist/georaster-layer-for-leaflet.min.js"></script>
 
         <script>
         // ========== SELETOR DE BASE CARTOGRÁFICA ==========
@@ -2281,15 +2293,23 @@
 
         function setBaseMap(base) {
             activeBaseKey = base;
+            // Remove todas as bases conhecidas
             map.removeLayer(layer_OpenStreetMap_0);
             map.removeLayer(layer_Ortomosaico2010SC_1);
             map.removeLayer(layer_GoogleEarth_2);
             map.removeLayer(layer_Ortomosaico2020_3);
+            if (layer_Orto1979_COG) map.removeLayer(layer_Orto1979_COG);
             switch(base) {
                 case 'openstreetmap':   map.addLayer(layer_OpenStreetMap_0);    break;
                 case 'ortomosaico2010': map.addLayer(layer_Ortomosaico2010SC_1); break;
                 case 'googleearth':     map.addLayer(layer_GoogleEarth_2);      break;
                 case 'ortomosaico2020': map.addLayer(layer_Ortomosaico2020_3);  break;
+                case 'orto1979':
+                    _carregarOrto1979(function(){
+                        // só adiciona se ainda for a base ativa
+                        if (activeBaseKey === 'orto1979') map.addLayer(layer_Orto1979_COG);
+                    });
+                    break;
             }
             // Se havia visualização ativa, remove o badge e restaura a base normalmente
             _satRestoreBaseBadge(false);
@@ -2300,6 +2320,7 @@
             map.removeLayer(layer_Ortomosaico2010SC_1);
             map.removeLayer(layer_GoogleEarth_2);
             map.removeLayer(layer_Ortomosaico2020_3);
+            if (layer_Orto1979_COG) map.removeLayer(layer_Orto1979_COG);
             _satRestoreBaseBadge(true);
         }
 
@@ -3951,6 +3972,8 @@
 
         map.createPane('pane_Ortomosaico2020_3');
         map.getPane('pane_Ortomosaico2020_3').style.zIndex = 203;
+        map.createPane('pane_Orto1979_COG');
+        map.getPane('pane_Orto1979_COG').style.zIndex = 204;
         var layer_Ortomosaico2020_3 = L.tileLayer('https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png', {
             pane: 'pane_Ortomosaico2020_3',
             opacity: 1.0,
@@ -3960,6 +3983,51 @@
             minNativeZoom: 0,
             maxNativeZoom: 18
         });
+
+        // ── Ortomosaico 1979 — COG (Cloud-Optimized GeoTIFF) ──────────────────
+        // Carregado via georaster-layer-for-leaflet usando range requests HTTP
+        var layer_Orto1979_COG = null; // será instanciado ao primeiro uso
+        var _orto1979Url = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
+        var _orto1979Loading = false;
+        var _orto1979Ready   = false;
+
+        function _carregarOrto1979(onReady) {
+            if (_orto1979Ready && layer_Orto1979_COG) { onReady && onReady(); return; }
+            if (_orto1979Loading) { return; }
+            _orto1979Loading = true;
+            // Indicador visual
+            var toast = document.createElement('div');
+            toast.id = 'orto1979-toast';
+            toast.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);'
+                + 'background:rgba(10,20,45,0.97);color:#7ab8d9;padding:8px 18px;border-radius:8px;'
+                + 'border:1px solid rgba(52,152,219,0.4);font-size:0.82em;z-index:9999;'
+                + 'display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,0.5);';
+            toast.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando Ortomosaico 1979…';
+            document.body.appendChild(toast);
+
+            fetch(_orto1979Url)
+                .then(function(r){ return r.arrayBuffer(); })
+                .then(function(ab){ return parseGeoraster(ab); })
+                .then(function(gr){
+                    layer_Orto1979_COG = new GeoRasterLayer({
+                        georaster: gr,
+                        opacity: 1,
+                        resolution: 256,
+                        pane: 'pane_Orto1979_COG'
+                    });
+                    _orto1979Ready   = true;
+                    _orto1979Loading = false;
+                    var t = document.getElementById('orto1979-toast');
+                    if (t) t.remove();
+                    onReady && onReady();
+                })
+                .catch(function(err){
+                    _orto1979Loading = false;
+                    var t = document.getElementById('orto1979-toast');
+                    if (t) { t.style.color='#e74c3c'; t.innerHTML='<i class="fas fa-exclamation-circle"></i> Erro ao carregar Ortomosaico 1979'; setTimeout(function(){ t.remove(); }, 4000); }
+                    console.error('[Orto1979 COG]', err);
+                });
+        }
         map.createPane('pane_MDT2012_4');
         map.getPane('pane_MDT2012_4').style.zIndex = 650;
         var layer_MDT2012_4 = L.tileLayer.wms("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", {
@@ -7450,7 +7518,8 @@
             openstreetmap:   { type:'tile', url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png' },
             googleearth:     { type:'tile', url:'https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}' },
             ortomosaico2010: { type:'wms',  url:'http://sigsc.sc.gov.br/sigserver/SIGSC/wms', layers:'OrtoRGB-Landsat-2012' },
-            ortomosaico2020: { type:'tile', url:'https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png' }
+            ortomosaico2020: { type:'tile', url:'https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png' },
+            orto1979:        { type:'cog',  url: _orto1979Url }
         };
 
         function toggleComparativo() {
@@ -7554,7 +7623,7 @@
         var compMirrorMap = {}; // chave = leaflet _leaflet_id → layer espelho
 
         function _compSetBase(side, baseKey) {
-            var hdrMap = { openstreetmap:'osm', ortomosaico2010:'orto2010', googleearth:'google', ortomosaico2020:'orto2020' };
+            var hdrMap = { openstreetmap:'osm', ortomosaico2010:'orto2010', googleearth:'google', ortomosaico2020:'orto2020', orto1979:'orto1979' };
             if (side === 'left') {
                 setBaseMap(baseKey);
                 setHeaderBaseLabel(
@@ -7571,6 +7640,18 @@
                 compRightBase = L.tileLayer.wms(cfg.url, {
                     layers: cfg.layers, format:'image/png', transparent:false, maxZoom:22
                 }).addTo(compRightMap);
+            } else if (cfg.type === 'cog') {
+                // COG: reutiliza a camada já carregada (lazy) e espelha no mapa direito
+                _carregarOrto1979(function(){
+                    if (layer_Orto1979_COG) {
+                        // GeoRasterLayer pode ser adicionado a um segundo mapa criando nova instância
+                        compRightBase = new GeoRasterLayer({
+                            georaster: layer_Orto1979_COG.options.georaster,
+                            opacity: 1,
+                            resolution: 256
+                        }).addTo(compRightMap);
+                    }
+                });
             } else {
                 compRightBase = L.tileLayer(cfg.url, { maxZoom:22, attribution:'' }).addTo(compRightMap);
             }
