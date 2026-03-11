@@ -697,7 +697,76 @@
             border-radius: 2px;
         }
 
-        /* ── Attribution ── */
+        /* ── Régua (leaflet-measure) ── */
+        .leaflet-control-measure a.leaflet-control-measure-toggle,
+        .leaflet-control-measure-toggle {
+            background: rgba(10,20,42,0.92) !important;
+            backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(52,152,219,0.35) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+            color: #7ab8d9 !important;
+            width: 34px !important;
+            height: 34px !important;
+            line-height: 34px !important;
+            font-size: 1em !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-decoration: none !important;
+            transition: background 0.18s, color 0.18s !important;
+        }
+        .leaflet-control-measure-toggle:hover {
+            background: rgba(52,152,219,0.22) !important;
+            color: #fff !important;
+        }
+        .leaflet-control-measure-toggle.active,
+        .leaflet-control-measure-toggle.leaflet-pelias-active {
+            background: rgba(52,152,219,0.28) !important;
+            color: #fff !important;
+            border-color: rgba(52,152,219,0.7) !important;
+        }
+        /* Painel de resultado da medição */
+        .leaflet-control-measure .results {
+            background: rgba(10,20,45,0.97) !important;
+            border: 1px solid rgba(52,152,219,0.32) !important;
+            border-radius: 8px !important;
+            color: #b8d4e8 !important;
+            font-size: 0.82em !important;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5) !important;
+        }
+        .leaflet-control-measure .results h3 {
+            color: #3498db !important;
+            font-size: 0.85em !important;
+            border-bottom: 1px solid rgba(52,152,219,0.25) !important;
+            padding-bottom: 4px !important;
+            margin-bottom: 6px !important;
+        }
+
+        /* ── Localizador (L.Control.Locate) ── */
+        .leaflet-control-locate a {
+            background: rgba(10,20,42,0.92) !important;
+            backdrop-filter: blur(10px) !important;
+            color: #7ab8d9 !important;
+            transition: background 0.18s, color 0.18s !important;
+        }
+        .leaflet-control-locate a:hover {
+            background: rgba(52,152,219,0.22) !important;
+            color: #fff !important;
+        }
+        .leaflet-control-locate.active a {
+            background: rgba(52,152,219,0.28) !important;
+            color: #5dade2 !important;
+            border-color: rgba(52,152,219,0.7) !important;
+        }
+        .leaflet-control-locate.active.following a {
+            color: #fff !important;
+            background: rgba(52,152,219,0.45) !important;
+        }
+        /* Pulso do localizador */
+        .leaflet-control-locate-location-marker circle {
+            fill: #3498db !important;
+        }
         .leaflet-control-attribution {
             background: rgba(8,18,36,0.82) !important;
             backdrop-filter: blur(6px) !important;
@@ -3788,17 +3857,48 @@
         }
 
         var zoomControl = L.control.zoom({ position: 'topleft' }).addTo(map);
-        L.control.locate({ locateOptions: { maxZoom: 19 } }).addTo(map);
+        L.control.locate({
+            position: 'topleft',
+            locateOptions: { maxZoom: 19 },
+            strings: {
+                title:       'Mostrar minha localização',
+                metersUnit:  'metros',
+                feetUnit:    'pés',
+                popup:       'Você está a menos de {distance} {unit} deste ponto',
+                outsideMapBoundsMsg: 'Você parece estar fora dos limites do mapa'
+            }
+        }).addTo(map);
         var measureControl = new L.Control.Measure({
             position: 'topleft',
             primaryLengthUnit: 'meters',
             secondaryLengthUnit: 'kilometers',
             primaryAreaUnit: 'sqmeters',
-            secondaryAreaUnit: 'hectares'
+            secondaryAreaUnit: 'hectares',
+            labels: {
+                measureDistancesAndAreas: 'Medir distâncias e áreas',
+                startPrompt:              'Clique para iniciar a medição',
+                continuePrompt:           'Clique para continuar',
+                finishPrompt:             'Clique no último ponto para finalizar',
+                lastPoint:                'Último ponto',
+                area:                     'Área',
+                distance:                 'Distância',
+                linearMeasurement:        'Medição linear',
+                areaMeasurement:          'Medição de área'
+            },
+            unitControlTitle: {
+                text:   'Mudar unidade',
+                meters: 'metros',
+                kilometers: 'quilômetros',
+                feet:   'pés',
+                miles:  'milhas'
+            }
         });
         measureControl.addTo(map);
-        document.getElementsByClassName('leaflet-control-measure-toggle')[0].innerHTML = '';
-        document.getElementsByClassName('leaflet-control-measure-toggle')[0].className += ' fas fa-ruler';
+        // Substituir ícone padrão pelo Font Awesome e traduzir title
+        var measureToggle = document.getElementsByClassName('leaflet-control-measure-toggle')[0];
+        measureToggle.innerHTML = '';
+        measureToggle.className += ' fas fa-ruler';
+        measureToggle.title = 'Medir distâncias e áreas';
 
         var bounds_group = new L.featureGroup([]);
         function setBounds() { }
