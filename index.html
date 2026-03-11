@@ -2226,28 +2226,10 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
         <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-        <!-- GeoRaster: leitura de COG (Cloud-Optimized GeoTIFF) direto no browser -->
-        <script src="https://unpkg.com/georaster@1.6.0/dist/georaster.bundle.min.js"></script>
-        <script src="https://unpkg.com/proj4@2.9.0/dist/proj4.js"></script>
-        <script src="https://unpkg.com/georaster-layer-for-leaflet@3.10.0/dist/georaster-layer-for-leaflet.min.js"></script>
+        <!-- GeoTIFF.js: leitura de COG direto no browser (UMD, sem require) -->
+        <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 
         <script>
-        // ── Proj4: registrar projeções brasileiras comuns usadas em COGs ──────
-        // Executado antes do mapa ser criado, para estar disponível quando georaster precisar
-        (function() {
-            if (typeof proj4 === 'undefined') return;
-            // SIRGAS 2000 / UTM zona 22S (EPSG:31982) — Jaraguá do Sul
-            proj4.defs('EPSG:31982', '+proj=utm +zone=22 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
-            // SIRGAS 2000 / UTM zona 23S (EPSG:31983)
-            proj4.defs('EPSG:31983', '+proj=utm +zone=23 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
-            // SAD69 / UTM zona 22S (EPSG:29192) — dados históricos
-            proj4.defs('EPSG:29192', '+proj=utm +zone=22 +south +ellps=aust_SA +towgs84=-67.35,3.88,-38.22,0,0,0,0 +units=m +no_defs');
-            // SAD69 / UTM zona 23S (EPSG:29193)
-            proj4.defs('EPSG:29193', '+proj=utm +zone=23 +south +ellps=aust_SA +towgs84=-67.35,3.88,-38.22,0,0,0,0 +units=m +no_defs');
-            // Corrego Alegre / UTM zona 22S (EPSG:22522) — levantamentos ainda mais antigos
-            proj4.defs('EPSG:22522', '+proj=utm +zone=22 +south +ellps=intl +towgs84=-206,172,-6,0,0,0,0 +units=m +no_defs');
-        })();
-
         // ========== SELETOR DE BASE CARTOGRÁFICA ==========
         function toggleHeaderBase() {
             var btn = document.getElementById('header-base-btn');
@@ -4000,12 +3982,16 @@
             maxNativeZoom: 18
         });
 
-        // ── Ortomosaico 1979 — COG (Cloud-Optimized GeoTIFF) ──────────────────
+        // ── Ortomosaico 1979 — COG via geotiff.js + proxy CORS ───────────────
         var layer_Orto1979_COG  = null;
-        var _orto1979Georaster  = null; // georaster object reutilizável
+        var _orto1979TiffObj    = null;
+        var _orto1979ImageObj   = null;
+        var _orto1979Meta       = null;
         var _orto1979Url        = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
+        var _orto1979ProxyUrl   = 'https://corsproxy.io/?' + encodeURIComponent('https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif');
         var _orto1979Loading    = false;
         var _orto1979Ready      = false;
+        var _orto1979Callbacks  = [];
 
         function _orto1979Toast(msg, isError) {
             var t = document.getElementById('orto1979-toast');
@@ -4015,113 +4001,138 @@
                 t.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);'
                     + 'background:rgba(10,20,45,0.97);padding:8px 18px;border-radius:8px;'
                     + 'border:1px solid rgba(52,152,219,0.4);font-size:0.82em;z-index:9999;'
-                    + 'display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,0.5);';
+                    + 'display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,0.5);pointer-events:none;';
                 document.body.appendChild(t);
             }
             t.style.color = isError ? '#e74c3c' : '#7ab8d9';
             t.innerHTML   = msg;
-            if (isError) setTimeout(function(){ var x=document.getElementById('orto1979-toast'); if(x) x.remove(); }, 5000);
+            if (isError) setTimeout(function(){ var x=document.getElementById('orto1979-toast'); if(x) x.remove(); }, 6000);
         }
 
-        function _orto1979BuildLayer(gr, targetPane) {
-            var nbands = gr.numberOfRasters;
-            var nodata = gr.noDataValue;
-
-            // Função de cor: suporte a 1 banda (cinza), 3 bandas (RGB) e 4 bandas (RGBA)
-            function pixelFn(values) {
-                if (!values || values.every(function(v){ return v === null || v === nodata || v === undefined; })) return null;
-
-                var r, g, b, a = 255;
-                if (nbands >= 3) {
-                    var max = (gr.maxs && gr.maxs[0] > 255) ? gr.maxs[0] : 255;
-                    r = Math.min(255, Math.round(((values[0] || 0) / max) * 255));
-                    g = Math.min(255, Math.round(((values[1] || 0) / max) * 255));
-                    b = Math.min(255, Math.round(((values[2] || 0) / max) * 255));
-                    if (nbands >= 4 && values[3] !== null && values[3] !== undefined)
-                        a = Math.min(255, Math.round(((values[3] || 0) / max) * 255));
-                } else {
-                    var max1 = (gr.maxs && gr.maxs[0] > 255) ? gr.maxs[0] : 255;
-                    var v = Math.min(255, Math.round(((values[0] || 0) / max1) * 255));
-                    r = g = b = v;
-                }
-                return 'rgba(' + r + ',' + g + ',' + b + ',' + (a/255).toFixed(3) + ')';
+        // GridLayer que renderiza o COG tile a tile via geotiff.js
+        // O COG está em EPSG:3857, mesmo CRS do Leaflet/Slippy map — sem reprojeção necessária
+        function _buildOrto1979CanvasLayer(image, meta, pane) {
+            function latLngToMerc(lat, lng) {
+                return {
+                    x: lng * 20037508.342 / 180,
+                    y: Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180) * 20037508.342 / 180
+                };
             }
 
-            var opts = {
-                georaster: gr,
-                opacity: 1,
-                resolution: 256,
-                pane: targetPane || 'pane_Orto1979_COG',
-                pixelValuesToColorFn: pixelFn
-            };
+            var rW = meta.bbox[0], rS = meta.bbox[1], rE = meta.bbox[2], rN = meta.bbox[3];
 
-            // Injeta proj4 para reprojeção automática se a projeção do raster for conhecida
-            if (typeof proj4 !== 'undefined') opts.proj4 = proj4;
+            var Orto1979GridLayer = L.GridLayer.extend({
+                createTile: function(coords, done) {
+                    var canvas = document.createElement('canvas');
+                    var sz = this.getTileSize();
+                    canvas.width  = sz.x;
+                    canvas.height = sz.y;
 
-            return new GeoRasterLayer(opts);
+                    var tb = this._tileCoordsToBounds(coords);
+                    var mSW = latLngToMerc(tb.getSouth(), tb.getWest());
+                    var mNE = latLngToMerc(tb.getNorth(), tb.getEast());
+
+                    // Interseção com o bbox do raster
+                    var iW = Math.max(mSW.x, rW), iE = Math.min(mNE.x, rE);
+                    var iS = Math.max(mSW.y, rS), iN = Math.min(mNE.y, rN);
+                    if (iW >= iE || iS >= iN) { done(null, canvas); return canvas; }
+
+                    // Pixel coords no raster (origem topo-esquerdo)
+                    var rx = rE - rW, ry = rN - rS;
+                    var pxW = Math.max(0, Math.floor(((iW - rW) / rx) * meta.width));
+                    var pxE = Math.min(meta.width,  Math.ceil( ((iE - rW) / rx) * meta.width));
+                    var pxN_r = Math.max(0, Math.floor(((rN - iN) / ry) * meta.height));
+                    var pxS_r = Math.min(meta.height, Math.ceil( ((rN - iS) / ry) * meta.height));
+                    if (pxE <= pxW || pxS_r <= pxN_r) { done(null, canvas); return canvas; }
+
+                    // Dimensões de destino no canvas (proporção da interseção)
+                    var tw = mNE.x - mSW.x, th = mNE.y - mSW.y;
+                    var dstX = Math.round(((iW - mSW.x) / tw) * sz.x);
+                    var dstY = Math.round(((mNE.y - iN) / th) * sz.y);
+                    var dstW = Math.max(1, Math.round(((iE - iW) / tw) * sz.x));
+                    var dstH = Math.max(1, Math.round(((iN - iS) / th) * sz.y));
+
+                    image.readRGB({
+                        window: [pxW, pxN_r, pxE, pxS_r],
+                        width:  dstW,
+                        height: dstH,
+                        interleave: true,
+                        enableAlpha: false
+                    }).then(function(data) {
+                        var ctx = canvas.getContext('2d');
+                        var imgd = ctx.createImageData(dstW, dstH);
+                        var n = dstW * dstH;
+                        for (var i = 0; i < n; i++) {
+                            imgd.data[i*4]   = data[i*3];
+                            imgd.data[i*4+1] = data[i*3+1];
+                            imgd.data[i*4+2] = data[i*3+2];
+                            imgd.data[i*4+3] = 255;
+                        }
+                        // Desenha em canvas temporário e escala para posição correta no tile
+                        var tmp = document.createElement('canvas');
+                        tmp.width = dstW; tmp.height = dstH;
+                        tmp.getContext('2d').putImageData(imgd, 0, 0);
+                        ctx.drawImage(tmp, dstX, dstY, dstW, dstH);
+                        done(null, canvas);
+                    }).catch(function(e) { done(e, canvas); });
+
+                    return canvas;
+                }
+            });
+
+            return new Orto1979GridLayer({
+                tileSize: 256, minZoom: 1, maxZoom: 22,
+                opacity: 1, attribution: 'Ortomosaico 1979',
+                pane: pane || 'pane_Orto1979_COG'
+            });
         }
 
-        function _carregarOrto1979(onReady, targetPane) {
-            // Se já carregado, só cria nova instância de layer se necessário
-            if (_orto1979Ready && _orto1979Georaster) {
-                if (!layer_Orto1979_COG || targetPane) {
-                    var lyr = _orto1979BuildLayer(_orto1979Georaster, targetPane);
-                    if (!targetPane) layer_Orto1979_COG = lyr;
-                    onReady && onReady(lyr);
-                } else {
-                    onReady && onReady(layer_Orto1979_COG);
-                }
+        function _carregarOrto1979(onReady, forComp) {
+            if (_orto1979Ready && _orto1979ImageObj) {
+                var lyr = _buildOrto1979CanvasLayer(_orto1979ImageObj, _orto1979Meta, forComp ? null : 'pane_Orto1979_COG');
+                if (!forComp) layer_Orto1979_COG = lyr;
+                onReady && onReady(lyr);
                 return;
             }
-            if (_orto1979Loading) {
-                // Enfileira callback
-                var _prev = _orto1979Loading;
-                if (typeof _prev === 'function') {
-                    _orto1979Loading = function(lyr){ _prev(lyr); onReady && onReady(lyr); };
-                } else {
-                    _orto1979Loading = function(lyr){ onReady && onReady(lyr); };
-                }
-                return;
-            }
-            _orto1979Loading = onReady || true;
+            _orto1979Callbacks.push({ fn: onReady, forComp: !!forComp });
+            if (_orto1979Loading) return;
+            _orto1979Loading = true;
 
             _orto1979Toast('<i class="fas fa-spinner fa-spin"></i> Carregando Ortomosaico 1979…', false);
 
-            fetch(_orto1979Url)
-                .then(function(r) {
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    return r.arrayBuffer();
-                })
-                .then(function(ab) { return parseGeoraster(ab); })                .then(function(gr) {
-                    _orto1979Georaster = gr;
-                    _orto1979Ready     = true;
+            if (typeof GeoTIFF === 'undefined') {
+                _orto1979Loading = false;
+                _orto1979Toast('<i class="fas fa-exclamation-circle"></i> GeoTIFF.js não carregado', true);
+                return;
+            }
 
-                    // Log de diagnóstico no console
-                    console.log('[Orto1979 COG] Carregado:', {
-                        bandas: gr.numberOfRasters,
-                        crs: gr.projection,
-                        width: gr.width, height: gr.height,
-                        nodata: gr.noDataValue,
-                        mins: gr.mins, maxs: gr.maxs,
-                        bbox: [gr.xmin, gr.ymin, gr.xmax, gr.ymax]
-                    });
-
-                    var lyr = _orto1979BuildLayer(gr, targetPane);
-                    if (!targetPane) layer_Orto1979_COG = lyr;
-
-                    var cb = _orto1979Loading;
+            GeoTIFF.fromUrl(_orto1979ProxyUrl, { allowFullFile: true })
+                .then(function(tiff) { _orto1979TiffObj = tiff; return tiff.getImage(); })
+                .then(function(img) {
+                    _orto1979ImageObj = img;
+                    _orto1979Meta = {
+                        width:  img.getWidth(),
+                        height: img.getHeight(),
+                        bbox:   img.getBoundingBox(),   // [w,s,e,n] em EPSG:3857
+                        nbands: (img.getFileDirectory().SamplesPerPixel || 3)
+                    };
+                    _orto1979Ready  = true;
                     _orto1979Loading = false;
-
+                    console.log('[Orto1979 COG] OK', _orto1979Meta);
                     var t = document.getElementById('orto1979-toast');
                     if (t) t.remove();
-
-                    if (typeof cb === 'function') cb(lyr);
-                    else if (onReady) onReady(lyr);
+                    var cbs = _orto1979Callbacks.splice(0);
+                    cbs.forEach(function(cb) {
+                        var lyr = _buildOrto1979CanvasLayer(_orto1979ImageObj, _orto1979Meta, cb.forComp ? null : 'pane_Orto1979_COG');
+                        if (!cb.forComp) layer_Orto1979_COG = lyr;
+                        cb.fn && cb.fn(lyr);
+                    });
                 })
                 .catch(function(err) {
                     _orto1979Loading = false;
-                    _orto1979Toast('<i class="fas fa-exclamation-circle"></i> Erro ao carregar Ortomosaico 1979: ' + err.message, true);
-                    console.error('[Orto1979 COG] Erro:', err);
+                    _orto1979Callbacks = [];
+                    _orto1979Toast('<i class="fas fa-exclamation-circle"></i> Erro 1979: ' + err.message, true);
+                    console.error('[Orto1979 COG]', err);
                 });
         }
         map.createPane('pane_MDT2012_4');
