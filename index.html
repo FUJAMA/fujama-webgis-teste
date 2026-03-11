@@ -6919,10 +6919,11 @@
                 hideEls.forEach(function(el) { el.style.visibility = el.dataset._capHidden || ''; });
             }
 
-            // Captura um elemento recortando o screenshot do body completo
-            // Isso garante que tiles, SVGs e o header sejam tratados corretamente
-            function captureRect(rectEl) {
-                var rect = rectEl.getBoundingClientRect();
+            // Captura o mapa (sem comparativo): body inteiro ignorando header, crop da área do mapa
+            function captureMapSimples() {
+                var headerH = document.getElementById('app-header').getBoundingClientRect().height;
+                var mapW = window.innerWidth;
+                var mapH = window.innerHeight - headerH;
                 return html2canvas(document.body, {
                     useCORS: true,
                     allowTaint: true,
@@ -6930,31 +6931,23 @@
                     foreignObjectRendering: false,
                     imageTimeout: 15000,
                     scale: dpr,
-                    x: 0,
-                    y: 0,
+                    x: 0, y: 0,
                     width:  window.innerWidth,
                     height: window.innerHeight,
                     windowWidth:  window.innerWidth,
                     windowHeight: window.innerHeight,
-                    scrollX: 0,
-                    scrollY: 0,
+                    scrollX: 0, scrollY: 0,
                     ignoreElements: function(elem) {
-                        return elem.id === 'modal-captura' ||
-                               elem.id === 'btn-salvar-imagem';
+                        return elem.id === 'modal-captura'     ||
+                               elem.id === 'btn-salvar-imagem' ||
+                               elem.id === 'app-header';
                     }
                 }).then(function(full) {
-                    // Recortar exatamente o elemento dentro do screenshot completo
+                    // Header ignorado → mapa começa em y=0 do canvas full
                     var out = document.createElement('canvas');
-                    out.width  = Math.round(rect.width  * dpr);
-                    out.height = Math.round(rect.height * dpr);
-                    out.getContext('2d').drawImage(
-                        full,
-                        Math.round(rect.left * dpr),
-                        Math.round(rect.top  * dpr),
-                        out.width,
-                        out.height,
-                        0, 0, out.width, out.height
-                    );
+                    out.width  = Math.round(mapW * dpr);
+                    out.height = Math.round(mapH * dpr);
+                    out.getContext('2d').drawImage(full, 0, 0, out.width, out.height, 0, 0, out.width, out.height);
                     return out;
                 });
             }
@@ -7000,8 +6993,18 @@
             }
 
             if (compAtivo) {
-                // Capturar os dois painéis separadamente (ambos a partir do body completo)
-                // mas numa única chamada ao html2canvas para eficiência
+                // O #map tem clipPath aplicado — getBoundingClientRect ignora clip.
+                // Calculamos os rects visuais reais usando compSplit e a geometria da viewport.
+                var headerH = document.getElementById('app-header').getBoundingClientRect().height;
+                var vw = window.innerWidth;
+                var vh = window.innerHeight - headerH;
+                var splitPx = Math.round(vw * compSplit / 100);
+
+                // Rect visual real do lado esquerdo (mapa principal cortado)
+                var rectLeft  = { left: 0,        top: headerH, width: splitPx,        height: vh };
+                // Rect visual real do lado direito (comp-right-map)
+                var rectRight = { left: splitPx,  top: headerH, width: vw - splitPx,   height: vh };
+
                 html2canvas(document.body, {
                     useCORS: true,
                     allowTaint: true,
@@ -7010,43 +7013,40 @@
                     imageTimeout: 15000,
                     scale: dpr,
                     x: 0, y: 0,
-                    width:  window.innerWidth,
+                    width:  vw,
                     height: window.innerHeight,
-                    windowWidth:  window.innerWidth,
+                    windowWidth:  vw,
                     windowHeight: window.innerHeight,
                     scrollX: 0, scrollY: 0,
                     ignoreElements: function(elem) {
-                        return elem.id === 'modal-captura'    ||
-                               elem.id === 'btn-salvar-imagem';
+                        return elem.id === 'modal-captura'     ||
+                               elem.id === 'btn-salvar-imagem' ||
+                               elem.id === 'app-header'        ||
+                               elem.id === 'comp-divider'      ||
+                               elem.id === 'comp-left-ui';
                     }
                 }).then(function(full) {
-                    var mapEl   = document.getElementById('map');
-                    var rightEl = document.getElementById('comp-right-map');
-                    var r1 = mapEl.getBoundingClientRect();
-                    var r2 = rightEl.getBoundingClientRect();
-
-                    // Usar a mesma altura para ambos os lados (menor das duas)
-                    var targetH = Math.min(r1.height, r2.height);
-                    var targetW = Math.round(r1.width * (targetH / r1.height));
-
-                    function cropFromFull(rect, outW, outH) {
-                        var tmp = document.createElement('canvas');
-                        tmp.width = outW * dpr; tmp.height = outH * dpr;
-                        tmp.getContext('2d').drawImage(
-                            full,
-                            Math.round(rect.left * dpr), Math.round(rect.top * dpr),
-                            Math.round(rect.width * dpr), Math.round(rect.height * dpr),
-                            0, 0, outW * dpr, outH * dpr
-                        );
+                    // Header foi ignorado no render → conteúdo do mapa começa em y=0 do canvas.
+                    // rectLeft/rectRight têm top=headerH (posição na viewport),
+                    // mas no canvas full o offset do header não existe.
+                    function cropFromFull(rect) {
+                        var srcX = Math.round(rect.left   * dpr);
+                        var srcY = 0; // header ignorado → tudo começa em y=0
+                        var srcW = Math.round(rect.width  * dpr);
+                        var srcH = Math.round(rect.height * dpr);
+                        var tmp  = document.createElement('canvas');
+                        tmp.width  = srcW;
+                        tmp.height = srcH;
+                        tmp.getContext('2d').drawImage(full, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
                         return tmp;
                     }
 
-                    var c1 = cropFromFull(r1, targetW, targetH);
-                    var c2 = cropFromFull(r2, targetW, targetH);
+                    var c1 = cropFromFull(rectLeft);
+                    var c2 = cropFromFull(rectRight);
 
                     var combined = document.createElement('canvas');
                     combined.width  = c1.width + c2.width;
-                    combined.height = c1.height;
+                    combined.height = Math.max(c1.height, c2.height);
                     var ctx = combined.getContext('2d');
                     ctx.drawImage(c1, 0, 0);
                     ctx.drawImage(c2, c1.width, 0);
@@ -7058,7 +7058,7 @@
                     alert('Erro na captura: ' + e.message);
                 });
             } else {
-                captureRect(document.getElementById('map')).then(finalizar).catch(function(e) {
+                captureMapSimples().then(finalizar).catch(function(e) {
                     restoreEls();
                     prog.classList.remove('ativo');
                     document.getElementById('modal-captura').classList.remove('ativo');
@@ -7092,8 +7092,10 @@
             var _memDpr = window.devicePixelRatio || 1;
 
             setTimeout(function() {
-                var mapEl   = document.getElementById('map');
-                var mapRect = mapEl.getBoundingClientRect();
+                var mapEl    = document.getElementById('map');
+                var headerH  = document.getElementById('app-header').getBoundingClientRect().height;
+                var mapW     = window.innerWidth;
+                var mapH     = window.innerHeight - headerH;
                 html2canvas(document.body, {
                     useCORS: true, allowTaint: true, logging: false,
                     foreignObjectRendering: false,
@@ -7106,19 +7108,17 @@
                     windowHeight: window.innerHeight,
                     scrollX: 0, scrollY: 0,
                     ignoreElements: function(elem) {
-                        // Não ocultar nenhum elemento do corpo — o recorte posterior
-                        // já garante que apenas a área do mapa será usada
-                        return false;
+                        // Ignorar header → mapa começa em y=0 no canvas resultante
+                        return elem.id === 'app-header';
                     }
                 }).then(function(full) {
-                    // Recortar exatamente a área visível do mapa
+                    // Header ignorado → mapa começa em y=0
                     var mapCanvas = document.createElement('canvas');
-                    mapCanvas.width  = Math.round(mapRect.width  * _memDpr);
-                    mapCanvas.height = Math.round(mapRect.height * _memDpr);
+                    mapCanvas.width  = Math.round(mapW * _memDpr);
+                    mapCanvas.height = Math.round(mapH * _memDpr);
                     mapCanvas.getContext('2d').drawImage(
                         full,
-                        Math.round(mapRect.left * _memDpr),
-                        Math.round(mapRect.top  * _memDpr),
+                        0, 0,
                         mapCanvas.width, mapCanvas.height,
                         0, 0, mapCanvas.width, mapCanvas.height
                     );
