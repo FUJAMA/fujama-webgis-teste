@@ -1552,16 +1552,11 @@
         <div id="modal-captura">
             <span class="cap-close" onclick="toggleModalCaptura()"><i class="fas fa-times"></i></span>
             <h4><i class="fas fa-camera"></i> Salvar Imagem do Mapa</h4>
-            <div class="cap-info" id="cap-modo-info">Captura o mapa principal com as camadas ativas.</div>
-            <div class="cap-row">
-                <input type="checkbox" id="cap-incluir-info" checked>
-                <label for="cap-incluir-info">Incluir info do mapa-base e camadas</label>
-            </div>
+            <div class="cap-info">O browser solicitará permissão para capturar a aba atual.</div>
             <div class="cap-btns">
                 <button class="cap-btn jpg" onclick="capturarImagem('jpg')"><i class="fas fa-image"></i> JPG</button>
                 <button class="cap-btn pdf" onclick="capturarImagem('pdf')"><i class="fas fa-file-pdf"></i> PDF</button>
             </div>
-            <div id="cap-progress"><i class="fas fa-spinner fa-spin"></i> Gerando captura…</div>
         </div>
 
         <div id="map"></div>
@@ -6894,253 +6889,66 @@
         }
 
         function capturarImagem(formato) {
+            // Fecha o modal antes de capturar para não aparecer na imagem
             document.getElementById('modal-captura').classList.remove('ativo');
-            var prog = document.getElementById('cap-progress');
-            prog.classList.add('ativo');
-            document.getElementById('modal-captura').classList.add('ativo');
+            var dataStr = new Date().toISOString().slice(0,10);
 
-            var incluirInfo = document.getElementById('cap-incluir-info').checked;
-            var camadas     = incluirInfo ? _getCamadasAtivas() : [];
-            var dataStr     = new Date().toISOString().slice(0,10);
-            var dpr         = window.devicePixelRatio || 1;
+            // Usa a Screen Capture API (getDisplayMedia) para capturar a aba atual
+            // O browser abre um seletor — o usuário confirma e escolhe "Esta aba"
+            navigator.mediaDevices.getDisplayMedia({
+                video: { mediaSource: 'screen', cursor: 'never' },
+                preferCurrentTab: true
+            }).then(function(stream) {
+                var video = document.createElement('video');
+                video.srcObject = stream;
+                video.onloadedmetadata = function() {
+                    video.play();
+                    var canvas = document.createElement('canvas');
+                    canvas.width  = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0);
+                    stream.getTracks().forEach(function(t){ t.stop(); });
 
-            // Ocultar elementos UI que não afetam o layout do mapa
-            var hideEls = document.querySelectorAll(
-                '.leaflet-top, .leaflet-bottom, .leaflet-control-layers, ' +
-                '#btn-salvar-imagem, #modal-captura, .fab-mobile, ' +
-                '#comp-left-ui, .comp-base-sel'
-            );
-            hideEls.forEach(function(el) {
-                el.dataset._capHidden = el.style.visibility;
-                el.style.visibility = 'hidden';
-            });
-
-            function restoreEls() {
-                hideEls.forEach(function(el) { el.style.visibility = el.dataset._capHidden || ''; });
-            }
-
-            // Captura o corpo inteiro sem alterar layout, depois recorta pelo rect do elemento.
-            // Isso preserva as coordenadas internas do Leaflet (tiles, SVG, marcadores).
-            function capturarBodyERecortar(rect) {
-                return html2canvas(document.body, {
-                    useCORS: true,
-                    allowTaint: true,
-                    logging: false,
-                    foreignObjectRendering: false,
-                    imageTimeout: 15000,
-                    scale: dpr,
-                    x: 0, y: 0,
-                    width:  window.innerWidth,
-                    height: window.innerHeight,
-                    windowWidth:  window.innerWidth,
-                    windowHeight: window.innerHeight,
-                    scrollX: 0, scrollY: 0
-                    // Sem ignoreElements: layout intacto, coords do Leaflet preservadas
-                }).then(function(full) {
-                    var sx = Math.round(rect.left   * dpr);
-                    var sy = Math.round(rect.top    * dpr);
-                    var sw = Math.round(rect.width  * dpr);
-                    var sh = Math.round(rect.height * dpr);
-                    var out = document.createElement('canvas');
-                    out.width  = sw;
-                    out.height = sh;
-                    out.getContext('2d').drawImage(full, sx, sy, sw, sh, 0, 0, sw, sh);
-                    return out;
-                });
-            }
-
-            function finalizar(canvas) {
-                restoreEls();
-                prog.classList.remove('ativo');
-                document.getElementById('modal-captura').classList.remove('ativo');
-
-                if (incluirInfo && camadas.length) {
-                    _desenharRodapeCaptura(canvas.getContext('2d'), canvas, camadas);
-                }
-
-                // Dimensões CSS reais
-                var cssW = canvas.width  / dpr;
-                var cssH = canvas.height / dpr;
-
-                if (formato === 'jpg') {
-                    var a = document.createElement('a');
-                    a.download = 'mapa_fujama_' + dataStr + '.jpg';
-                    a.href = canvas.toDataURL('image/jpeg', 0.92);
-                    a.click();
-                } else {
-                    var imgData = canvas.toDataURL('image/jpeg', 0.92);
-                    var doc2 = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-                    var pw = doc2.internal.pageSize.getWidth();
-                    var ph = doc2.internal.pageSize.getHeight();
-                    var mPad   = 8;
-                    var availW = pw - 2 * mPad;
-                    var availH = ph - 2 * mPad;
-                    var PX2MM  = 0.264583;
-                    var imgMmW = cssW * PX2MM;
-                    var imgMmH = cssH * PX2MM;
-                    var ratio  = Math.min(availW / imgMmW, availH / imgMmH);
-                    var iw = imgMmW * ratio;
-                    var ih = imgMmH * ratio;
-                    doc2.addImage(imgData, 'JPEG',
-                        mPad + (availW - iw) / 2,
-                        mPad + (availH - ih) / 2,
-                        iw, ih);
-                    doc2.save('mapa_fujama_' + dataStr + '.pdf');
-                }
-            }
-
-            if (compAtivo) {
-                // Medir rects ANTES de qualquer mudança — coords absolutas da viewport
-                var mapElRect   = document.getElementById('map').getBoundingClientRect();
-                var rightElRect = document.getElementById('comp-right-map').getBoundingClientRect();
-
-                // Para o lado esquerdo o #map tem clipPath (html2canvas ignora clip),
-                // então usamos compSplit para calcular a largura visual real.
-                var splitPx = Math.round(window.innerWidth * compSplit / 100);
-                var rectLeft = {
-                    left:   0,
-                    top:    mapElRect.top,
-                    width:  splitPx,
-                    height: mapElRect.height
-                };
-                // Lado direito: rect real do comp-right-map
-                var rectRight = rightElRect;
-
-                // Captura única do body inteiro, sem alterar layout
-                html2canvas(document.body, {
-                    useCORS: true,
-                    allowTaint: true,
-                    logging: false,
-                    foreignObjectRendering: false,
-                    imageTimeout: 15000,
-                    scale: dpr,
-                    x: 0, y: 0,
-                    width:  window.innerWidth,
-                    height: window.innerHeight,
-                    windowWidth:  window.innerWidth,
-                    windowHeight: window.innerHeight,
-                    scrollX: 0, scrollY: 0
-                }).then(function(full) {
-                    function cropRect(rect) {
-                        var sx = Math.round(rect.left   * dpr);
-                        var sy = Math.round(rect.top    * dpr);
-                        var sw = Math.round(rect.width  * dpr);
-                        var sh = Math.round(rect.height * dpr);
-                        var tmp = document.createElement('canvas');
-                        tmp.width  = sw;
-                        tmp.height = sh;
-                        tmp.getContext('2d').drawImage(full, sx, sy, sw, sh, 0, 0, sw, sh);
-                        return tmp;
+                    if (formato === 'jpg') {
+                        var a = document.createElement('a');
+                        a.download = 'mapa_fujama_' + dataStr + '.jpg';
+                        a.href = canvas.toDataURL('image/jpeg', 0.92);
+                        a.click();
+                    } else {
+                        var dpr    = window.devicePixelRatio || 1;
+                        var cssW   = canvas.width  / dpr;
+                        var cssH   = canvas.height / dpr;
+                        var doc2   = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                        var pw     = doc2.internal.pageSize.getWidth();
+                        var ph     = doc2.internal.pageSize.getHeight();
+                        var mPad   = 8;
+                        var availW = pw - 2 * mPad;
+                        var availH = ph - 2 * mPad;
+                        var PX2MM  = 0.264583;
+                        var ratio  = Math.min(availW / (cssW * PX2MM), availH / (cssH * PX2MM));
+                        var iw     = cssW * PX2MM * ratio;
+                        var ih     = cssH * PX2MM * ratio;
+                        doc2.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG',
+                            mPad + (availW - iw) / 2,
+                            mPad + (availH - ih) / 2,
+                            iw, ih);
+                        doc2.save('mapa_fujama_' + dataStr + '.pdf');
                     }
-
-                    var c1 = cropRect(rectLeft);
-                    var c2 = cropRect(rectRight);
-
-                    var combined = document.createElement('canvas');
-                    combined.width  = c1.width + c2.width;
-                    combined.height = Math.max(c1.height, c2.height);
-                    var ctx = combined.getContext('2d');
-                    ctx.drawImage(c1, 0, 0);
-                    ctx.drawImage(c2, c1.width, 0);
-                    finalizar(combined);
-                }).catch(function(e) {
-                    restoreEls();
-                    prog.classList.remove('ativo');
-                    document.getElementById('modal-captura').classList.remove('ativo');
-                    alert('Erro na captura: ' + e.message);
-                });
-            } else {
-                // Medir o rect do mapa ANTES de qualquer mudança — coords reais da viewport
-                var mapRect = document.getElementById('map').getBoundingClientRect();
-                // Ocultar dashboard via visibility (não afeta layout já medido)
-                var dashCapEl = document.getElementById('dashboard');
-                if (dashCapEl) dashCapEl.style.visibility = 'hidden';
-                capturarBodyERecortar(mapRect).then(function(canvas) {
-                    if (dashCapEl) dashCapEl.style.visibility = '';
-                    finalizar(canvas);
-                }).catch(function(e) {
-                    if (dashCapEl) dashCapEl.style.visibility = '';
-                    restoreEls();
-                    prog.classList.remove('ativo');
-                    document.getElementById('modal-captura').classList.remove('ativo');
-                    alert('Erro na captura: ' + e.message);
-                });
-            }
+                };
+            }).catch(function(e) {
+                if (e.name !== 'NotAllowedError') {
+                    alert('Não foi possível capturar a tela: ' + e.message);
+                }
+            });
         }
 
-                function exportarMemorialPDF() {
+        function exportarMemorialPDF() {
             if (!drawAreaFinalizado || drawAreaPontos.length < 3) return;
-
-            // 1. Captura o mapa ANTES de gerar o PDF (com Google Earth como base)
-            var btnEl = document.getElementById('btnMemorialPDF');
-            if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aguarde…'; }
-
-            // Guardar base atual e trocar para Google Earth para a captura
-            var baseAntes = activeBaseKey;
-            if (activeBaseKey !== 'googleearth') setBaseMap('googleearth');
-
-            // Fit no polígono desenhado para centralizar — padding maior = menos zoom
-            var pts = drawAreaPontos;
-            var latlngs = pts.map(function(p){ return [p.lat, p.lng]; });
-            var poly = L.polygon(latlngs);
-            map.fitBounds(poly.getBounds(), { padding: [120, 120] });
-
-            // Ocultar apenas elementos UI que não afetam o layout do mapa
-            var hideEls = document.querySelectorAll('.leaflet-top,.leaflet-bottom,.leaflet-control-layers,#btn-salvar-imagem,#modal-captura,.fab-mobile,#comp-left-ui,.comp-base-sel');
-            hideEls.forEach(function(el){ el.dataset._mHidden = el.style.visibility; el.style.visibility='hidden'; });
-
-            // Captura o dpr antes do async
-            var _memDpr = window.devicePixelRatio || 1;
-
-            setTimeout(function() {
-                // Medir o rect REAL do mapa AGORA (após fitBounds e sem alterar layout)
-                var _memMapRect = document.getElementById('map').getBoundingClientRect();
-                // Ocultar dashboard via visibility após medir — não afeta o layout já medido
-                var _memDashEl = document.getElementById('dashboard');
-                if (_memDashEl) _memDashEl.style.visibility = 'hidden';
-
-                html2canvas(document.body, {
-                    useCORS: true, allowTaint: true, logging: false,
-                    foreignObjectRendering: false,
-                    imageTimeout: 15000,
-                    scale: _memDpr,
-                    x: 0, y: 0,
-                    width:  window.innerWidth,
-                    height: window.innerHeight,
-                    windowWidth:  window.innerWidth,
-                    windowHeight: window.innerHeight,
-                    scrollX: 0, scrollY: 0
-                    // Sem ignoreElements: layout intacto = coords Leaflet corretas
-                }).then(function(full) {
-                    // Recortar pelo rect absoluto do mapa
-                    var sx = Math.round(_memMapRect.left   * _memDpr);
-                    var sy = Math.round(_memMapRect.top    * _memDpr);
-                    var sw = Math.round(_memMapRect.width  * _memDpr);
-                    var sh = Math.round(_memMapRect.height * _memDpr);
-                    var mapCanvas = document.createElement('canvas');
-                    mapCanvas.width  = sw;
-                    mapCanvas.height = sh;
-                    mapCanvas.getContext('2d').drawImage(full, sx, sy, sw, sh, 0, 0, sw, sh);
-
-                    // Restaurar estado
-                    if (_memDashEl) _memDashEl.style.visibility = '';
-                    hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
-                    if (activeBaseKey !== baseAntes) setBaseMap(baseAntes);
-                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-file-pdf"></i> Memorial PDF'; }
-
-                    _gerarMemorialComMapa(mapCanvas, _memDpr);
-                }).catch(function(e) {
-                    if (_memDashEl) _memDashEl.style.visibility = '';
-                    hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
-                    if (activeBaseKey !== baseAntes) setBaseMap(baseAntes);
-                    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-file-pdf"></i> Memorial PDF'; }
-                    _gerarMemorialComMapa(null, _memDpr);
-                });
-            }, 800); // aguarda tiles carregarem
+            _gerarMemorialComMapa();
         }
 
-        function _gerarMemorialComMapa(mapCanvas, dpr) {
-            dpr = dpr || window.devicePixelRatio || 1;
+        function _gerarMemorialComMapa() {
+            var dpr = window.devicePixelRatio || 1;
             var pts = drawAreaPontos;
             var doc = new window.jspdf.jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
             var margin=15, y=margin, pw=210-2*margin;
@@ -7236,51 +7044,6 @@
             });
 
             y+=8;
-
-            // ---- Página de mapa (A4 landscape para melhor proporção) ----
-            if (mapCanvas) {
-                doc.addPage('a4', 'landscape');
-                var pageW = 297;  // A4 landscape
-                var pageH = 210;
-                var hdrH2 = 14;
-                var ftrH  = 8;
-                var mPad  = 8;
-
-                // Dimensões CSS reais (canvas foi capturado com scale=dpr)
-                var cssCanvW = mapCanvas.width  / dpr;
-                var cssCanvH = mapCanvas.height / dpr;
-
-                // Converter pixels CSS → mm (96 dpi: 1px CSS = 0.264583 mm)
-                var PX2MM = 0.264583;
-                var imgMmW = cssCanvW * PX2MM;
-                var imgMmH = cssCanvH * PX2MM;
-
-                // Área útil disponível na página (em mm)
-                var availW = pageW - 2 * mPad;
-                var availH = pageH - hdrH2 - ftrH - 2 * mPad;
-
-                // Escala para caber na área útil mantendo proporção
-                var fitRatio = Math.min(availW / imgMmW, availH / imgMmH);
-                var iw = imgMmW * fitRatio;
-                var ih = imgMmH * fitRatio;
-
-                // Centralizar na área útil
-                var mx = mPad + (availW - iw) / 2;
-                var my = hdrH2 + mPad + (availH - ih) / 2;
-
-                // Cabeçalho da página de mapa
-                doc.setFillColor(10,25,50);
-                doc.rect(0, 0, pageW, hdrH2, 'F');
-                doc.setTextColor(255,255,255);
-                doc.setFontSize(9); doc.setFont(undefined,'bold');
-                doc.text('MAPA DE LOCALIZAÇÃO DA ÁREA — Google Earth Pro', pageW / 2, hdrH2 - 4, {align:'center'});
-
-                doc.addImage(mapCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', mx, my, iw, ih);
-
-                // Rodapé
-                doc.setFontSize(7); doc.setTextColor(120,120,120); doc.setFont(undefined,'normal');
-                doc.text('Imagem gerada automaticamente via Google Earth. Uso interno FUJAMA.', pageW / 2, pageH - 3, {align:'center'});
-            }
 
             // Última página: rodapé geral
             doc.setFontSize(8); doc.setTextColor(100,100,100);
