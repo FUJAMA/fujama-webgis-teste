@@ -6904,7 +6904,7 @@
             var dataStr     = new Date().toISOString().slice(0,10);
             var dpr         = window.devicePixelRatio || 1;
 
-            // Ocultar elementos UI
+            // Ocultar elementos UI (incluindo dashboard para captura limpa)
             var hideEls = document.querySelectorAll(
                 '.leaflet-top, .leaflet-bottom, .leaflet-control-layers, ' +
                 '#btn-salvar-imagem, #modal-captura, .fab-mobile, ' +
@@ -6919,11 +6919,17 @@
                 hideEls.forEach(function(el) { el.style.visibility = el.dataset._capHidden || ''; });
             }
 
-            // Captura o mapa (sem comparativo): body inteiro ignorando header, crop da área do mapa
+            // Captura o mapa (sem comparativo): body inteiro ignorando header e dashboard
             function captureMapSimples() {
-                var headerH = document.getElementById('app-header').getBoundingClientRect().height;
+                var headerH    = document.getElementById('app-header').getBoundingClientRect().height;
+                var dashEl     = document.getElementById('dashboard');
+                // Usar display:none temporariamente para que o dashboard não ocupe espaço no layout
+                var dashPrevDisplay = dashEl ? dashEl.style.display : '';
+                if (dashEl) dashEl.style.display = 'none';
+
                 var mapW = window.innerWidth;
                 var mapH = window.innerHeight - headerH;
+
                 return html2canvas(document.body, {
                     useCORS: true,
                     allowTaint: true,
@@ -6943,12 +6949,17 @@
                                elem.id === 'app-header';
                     }
                 }).then(function(full) {
+                    // Restaurar dashboard
+                    if (dashEl) dashEl.style.display = dashPrevDisplay;
                     // Header ignorado → mapa começa em y=0 do canvas full
                     var out = document.createElement('canvas');
                     out.width  = Math.round(mapW * dpr);
                     out.height = Math.round(mapH * dpr);
                     out.getContext('2d').drawImage(full, 0, 0, out.width, out.height, 0, 0, out.width, out.height);
                     return out;
+                }).catch(function(e) {
+                    if (dashEl) dashEl.style.display = dashPrevDisplay;
+                    throw e;
                 });
             }
 
@@ -6996,6 +7007,10 @@
                 // O #map tem clipPath aplicado — getBoundingClientRect ignora clip.
                 // Calculamos os rects visuais reais usando compSplit e a geometria da viewport.
                 var headerH = document.getElementById('app-header').getBoundingClientRect().height;
+                var dashEl2 = document.getElementById('dashboard');
+                var dashPrev2 = dashEl2 ? dashEl2.style.display : '';
+                if (dashEl2) dashEl2.style.display = 'none';
+
                 var vw = window.innerWidth;
                 var vh = window.innerHeight - headerH;
                 var splitPx = Math.round(vw * compSplit / 100);
@@ -7044,6 +7059,8 @@
                     var c1 = cropFromFull(rectLeft);
                     var c2 = cropFromFull(rectRight);
 
+                    if (dashEl2) dashEl2.style.display = dashPrev2;
+
                     var combined = document.createElement('canvas');
                     combined.width  = c1.width + c2.width;
                     combined.height = Math.max(c1.height, c2.height);
@@ -7052,6 +7069,7 @@
                     ctx.drawImage(c2, c1.width, 0);
                     finalizar(combined);
                 }).catch(function(e) {
+                    if (dashEl2) dashEl2.style.display = dashPrev2;
                     restoreEls();
                     prog.classList.remove('ativo');
                     document.getElementById('modal-captura').classList.remove('ativo');
@@ -7084,18 +7102,23 @@
             var poly = L.polygon(latlngs);
             map.fitBounds(poly.getBounds(), { padding: [120, 120] });
 
-            // Ocultar UI para captura limpa
-            var hideEls = document.querySelectorAll('.leaflet-top,.leaflet-bottom,.leaflet-control-layers,#btn-salvar-imagem,#modal-captura,.fab-mobile,#comp-left-ui,.comp-base-sel');
+            // Ocultar UI para captura limpa (incluindo dashboard)
+            var hideEls = document.querySelectorAll('.leaflet-top,.leaflet-bottom,.leaflet-control-layers,#btn-salvar-imagem,#modal-captura,.fab-mobile,#comp-left-ui,.comp-base-sel,#dashboard,.dashboard-abas');
             hideEls.forEach(function(el){ el.dataset._mHidden = el.style.visibility; el.style.visibility='hidden'; });
+
+            // Dashboard precisa de display:none para não ocupar espaço no layout
+            var _memDashEl = document.getElementById('dashboard');
+            var _memDashDisplay = _memDashEl ? _memDashEl.style.display : '';
+            if (_memDashEl) _memDashEl.style.display = 'none';
 
             // Captura o dpr antes do async
             var _memDpr = window.devicePixelRatio || 1;
 
             setTimeout(function() {
-                var mapEl    = document.getElementById('map');
                 var headerH  = document.getElementById('app-header').getBoundingClientRect().height;
                 var mapW     = window.innerWidth;
                 var mapH     = window.innerHeight - headerH;
+                // Dashboard está com display:none → mapH cobre toda a área abaixo do header
                 html2canvas(document.body, {
                     useCORS: true, allowTaint: true, logging: false,
                     foreignObjectRendering: false,
@@ -7108,18 +7131,18 @@
                     windowHeight: window.innerHeight,
                     scrollX: 0, scrollY: 0,
                     ignoreElements: function(elem) {
-                        // Ignorar header → mapa começa em y=0 no canvas resultante
                         return elem.id === 'app-header';
                     }
                 }).then(function(full) {
+                    // Restaurar dashboard
+                    if (_memDashEl) _memDashEl.style.display = _memDashDisplay;
                     // Header ignorado → mapa começa em y=0
                     var mapCanvas = document.createElement('canvas');
                     mapCanvas.width  = Math.round(mapW * _memDpr);
                     mapCanvas.height = Math.round(mapH * _memDpr);
                     mapCanvas.getContext('2d').drawImage(
                         full,
-                        0, 0,
-                        mapCanvas.width, mapCanvas.height,
+                        0, 0, mapCanvas.width, mapCanvas.height,
                         0, 0, mapCanvas.width, mapCanvas.height
                     );
                     // Restaurar estado
@@ -7129,6 +7152,7 @@
 
                     _gerarMemorialComMapa(mapCanvas, _memDpr);
                 }).catch(function(e) {
+                    if (_memDashEl) _memDashEl.style.display = _memDashDisplay;
                     hideEls.forEach(function(el){ el.style.visibility = el.dataset._mHidden || ''; });
                     if (activeBaseKey !== baseAntes) setBaseMap(baseAntes);
                     if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-file-pdf"></i> Memorial PDF'; }
