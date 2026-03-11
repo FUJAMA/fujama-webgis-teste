@@ -3988,7 +3988,12 @@
         var _orto1979ImageObj   = null;
         var _orto1979Meta       = null;
         var _orto1979Url        = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
-        var _orto1979ProxyUrl   = 'https://corsproxy.io/?' + encodeURIComponent('https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif');
+        // Proxies CORS em ordem de preferência (fallback automático)
+        var _orto1979Proxies = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+            'https://cors-anywhere.herokuapp.com/',
+        ];
         var _orto1979Loading    = false;
         var _orto1979Ready      = false;
         var _orto1979Callbacks  = [];
@@ -4106,7 +4111,25 @@
                 return;
             }
 
-            GeoTIFF.fromUrl(_orto1979ProxyUrl, { allowFullFile: true })
+            // Tenta cada proxy em sequência até um funcionar
+            function _tryProxy(proxies, idx) {
+                if (idx >= proxies.length) {
+                    throw new Error('Todos os proxies CORS falharam');
+                }
+                var proxyUrl = proxies[idx] + encodeURIComponent(_orto1979Url);
+                return fetch(proxyUrl)
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.arrayBuffer();
+                    })
+                    .catch(function(e) {
+                        console.warn('[Orto1979] Proxy ' + proxies[idx] + ' falhou:', e.message, '— tentando próximo…');
+                        return _tryProxy(proxies, idx + 1);
+                    });
+            }
+
+            _tryProxy(_orto1979Proxies, 0)
+                .then(function(ab) { return GeoTIFF.fromArrayBuffer(ab); })
                 .then(function(tiff) { _orto1979TiffObj = tiff; return tiff.getImage(); })
                 .then(function(img) {
                     _orto1979ImageObj = img;
