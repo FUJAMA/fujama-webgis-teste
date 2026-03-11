@@ -566,6 +566,161 @@
             margin-right: 4px;
         }
 
+        /* ══════════════════════════════════════════════
+           LEAFLET CONTROLS — DESIGN FUJAMA
+        ══════════════════════════════════════════════ */
+
+        /* ── Botões de Zoom e demais controles da barra ── */
+        .leaflet-bar {
+            border: 1px solid rgba(52,152,219,0.35) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+            overflow: hidden;
+        }
+        .leaflet-bar a,
+        .leaflet-bar a:hover {
+            background: rgba(10,20,42,0.92) !important;
+            backdrop-filter: blur(10px);
+            color: #7ab8d9 !important;
+            border-bottom: 1px solid rgba(52,152,219,0.2) !important;
+            width: 34px !important;
+            height: 34px !important;
+            line-height: 34px !important;
+            font-size: 1.1em !important;
+            font-weight: 700 !important;
+            transition: background 0.18s, color 0.18s !important;
+        }
+        .leaflet-bar a:last-child {
+            border-bottom: none !important;
+        }
+        .leaflet-bar a:hover {
+            background: rgba(52,152,219,0.22) !important;
+            color: #fff !important;
+        }
+        .leaflet-bar a.leaflet-disabled {
+            background: rgba(10,20,42,0.6) !important;
+            color: rgba(122,184,217,0.3) !important;
+            cursor: default !important;
+        }
+
+        /* ── Painel de camadas (toggle + expanded) ── */
+        .leaflet-control-layers {
+            background: rgba(10,20,45,0.97) !important;
+            backdrop-filter: blur(14px) !important;
+            border: 1px solid rgba(52,152,219,0.32) !important;
+            border-radius: 10px !important;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.55) !important;
+            color: #c0d8ee !important;
+            font-size: 0.82em !important;
+            min-width: 200px;
+        }
+        /* Botão recolhido (ícone de camadas) */
+        .leaflet-control-layers-toggle {
+            background-color: rgba(10,20,42,0.92) !important;
+            background-image: none !important;
+            width: 34px !important;
+            height: 34px !important;
+            border-radius: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .leaflet-control-layers-toggle::after {
+            content: '\f5fd'; /* fa-layer-group */
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            color: #7ab8d9;
+            font-size: 1em;
+        }
+        .leaflet-control-layers-toggle:hover {
+            background: rgba(52,152,219,0.22) !important;
+        }
+        .leaflet-control-layers-toggle:hover::after {
+            color: #fff;
+        }
+        /* Cabeçalho do painel expandido */
+        .leaflet-control-layers-list {
+            padding: 8px 4px 8px 4px !important;
+        }
+        .leaflet-control-layers-separator {
+            border-top: 1px solid rgba(52,152,219,0.2) !important;
+            margin: 6px 0 !important;
+        }
+        /* Labels das camadas */
+        .leaflet-control-layers label {
+            color: #b8d4e8 !important;
+            font-size: 0.83em !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            padding: 4px 10px !important;
+            border-radius: 5px !important;
+            transition: background 0.15s !important;
+            cursor: pointer !important;
+            margin: 0 !important;
+        }
+        .leaflet-control-layers label:hover {
+            background: rgba(52,152,219,0.15) !important;
+            color: #fff !important;
+        }
+        /* Checkboxes e radio dentro das camadas */
+        .leaflet-control-layers input[type="checkbox"],
+        .leaflet-control-layers input[type="radio"] {
+            accent-color: #3498db;
+            width: 13px;
+            height: 13px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        /* Título de grupos na árvore de camadas */
+        .leaflet-control-layers-group-label {
+            color: #3498db !important;
+            font-weight: 700 !important;
+            font-size: 0.78em !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            padding: 5px 10px 2px !important;
+        }
+        .leaflet-control-layers-group-toggle {
+            color: #7ab8d9 !important;
+        }
+        /* Seção Base Maps (h6 nativo) */
+        .leaflet-control-layers-base,
+        .leaflet-control-layers-overlays {
+            padding: 0 !important;
+        }
+        /* Scrollbar do painel de camadas */
+        .leaflet-control-layers::-webkit-scrollbar { width: 4px; }
+        .leaflet-control-layers::-webkit-scrollbar-track { background: transparent; }
+        .leaflet-control-layers::-webkit-scrollbar-thumb {
+            background: rgba(52,152,219,0.4);
+            border-radius: 2px;
+        }
+
+        /* ── Attribution ── */
+        .leaflet-control-attribution {
+            background: rgba(8,18,36,0.82) !important;
+            backdrop-filter: blur(6px) !important;
+            color: rgba(160,190,210,0.7) !important;
+            font-size: 0.68em !important;
+            border-radius: 5px 0 0 0 !important;
+            border: none !important;
+            padding: 2px 6px !important;
+        }
+        .leaflet-control-attribution a {
+            color: #3498db !important;
+        }
+
+        /* ── Scale bar ── */
+        .leaflet-control-scale-line {
+            background: rgba(8,18,36,0.82) !important;
+            border: 1px solid rgba(52,152,219,0.4) !important;
+            border-top: none !important;
+            color: #7ab8d9 !important;
+            font-size: 0.72em !important;
+            padding: 1px 5px !important;
+        }
+
         /* ===== BOTÃO FLUTUANTE MOBILE (abre/fecha painel) ===== */
         .fab-mobile {
             display: none;
