@@ -4008,9 +4008,10 @@
         var _orto1979Url     = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
         // Proxies CORS em ordem de preferência — usados apenas se o servidor não tiver CORS configurado
         var _orto1979Proxies = [
-            '',  // tenta URL direta primeiro (funciona se Netlify tiver _headers com CORS)
+            '',
             'https://api.allorigins.win/raw?url=',
-            'https://corsproxy.io/?',
+            'https://thingproxy.freeboard.io/fetch/',
+            'https://api.codetabs.com/v1/proxy?quest=',
         ];
         var _orto1979Loading    = false;
         var _orto1979Ready      = false;
@@ -4227,7 +4228,8 @@
         var _mdtProxies     = [
             '',
             'https://api.allorigins.win/raw?url=',
-            'https://corsproxy.io/?',
+            'https://thingproxy.freeboard.io/fetch/',
+            'https://api.codetabs.com/v1/proxy?quest=',
         ];
         var _mdtLoading     = false;
         var _mdtReady       = false;
@@ -4273,79 +4275,89 @@
         }
 
         function _buildMdtCanvasLayer(image, meta, pane) {
-            // MDT está em EPSG:3857 — bbox já em Web Mercator
-            var rW = meta.bbox[0], rS = meta.bbox[1], rE = meta.bbox[2], rN = meta.bbox[3];
-            var vmin = meta.vmin, vmax = meta.vmax;
-
-            function latLngToMerc(lat, lng) {
+            // UTM zona 22S (WGS84) → LatLng
+            function utm22sToLatLng(E, N) {
+                var a=6378137.0, f=1/298.257223563, b=a*(1-f), e2=(a*a-b*b)/(a*a), k0=0.9996;
+                var E0=500000, N0=10000000, lon0=-51*Math.PI/180;
+                var x=E-E0, y=N-N0, M=y/k0;
+                var mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
+                var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+                var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
+                var sp=Math.sin(phi1),cp=Math.cos(phi1),tp=Math.tan(phi1);
+                var N1=a/Math.sqrt(1-e2*sp*sp),T1=tp*tp,C1=e2/(1-e2)*cp*cp,R1=a*(1-e2)/Math.pow(1-e2*sp*sp,1.5),D=x/(N1*k0);
+                var lat=phi1-(N1*tp/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24+(61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
+                var lon=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120)/cp;
+                return {lat:lat*180/Math.PI, lng:lon*180/Math.PI};
+            }
+            function llToMerc(lat,lng){
                 return {
-                    x: lng * 20037508.342 / 180,
-                    y: Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180) * 20037508.342 / 180
+                    x:lng*20037508.342/180,
+                    y:Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180
                 };
             }
 
+            // Converte bbox UTM → Web Mercator
+            var utmSW=utm22sToLatLng(meta.bbox[0],meta.bbox[1]);
+            var utmNE=utm22sToLatLng(meta.bbox[2],meta.bbox[3]);
+            var mSW=llToMerc(utmSW.lat,utmSW.lng);
+            var mNE=llToMerc(utmNE.lat,utmNE.lng);
+            var rW=mSW.x, rS=mSW.y, rE=mNE.x, rN=mNE.y;
+            console.log('[MDT COG] bbox WebMercator:', {rW:rW,rS:rS,rE:rE,rN:rN});
+
+            var vmin=meta.vmin, vmax=meta.vmax, nodata=meta.nodata;
+
             var MdtGridLayer = L.GridLayer.extend({
                 createTile: function(coords, done) {
-                    var canvas = document.createElement('canvas');
-                    var sz = this.getTileSize();
-                    canvas.width  = sz.x;
-                    canvas.height = sz.y;
+                    var canvas=document.createElement('canvas');
+                    var sz=this.getTileSize();
+                    canvas.width=sz.x; canvas.height=sz.y;
 
-                    var tb  = this._tileCoordsToBounds(coords);
-                    var tSW = latLngToMerc(tb.getSouth(), tb.getWest());
-                    var tNE = latLngToMerc(tb.getNorth(), tb.getEast());
+                    var tb=this._tileCoordsToBounds(coords);
+                    var tSW=llToMerc(tb.getSouth(),tb.getWest());
+                    var tNE=llToMerc(tb.getNorth(),tb.getEast());
 
-                    var iW = Math.max(tSW.x, rW), iE = Math.min(tNE.x, rE);
-                    var iS = Math.max(tSW.y, rS), iN = Math.min(tNE.y, rN);
-                    if (iW >= iE || iS >= iN) { done(null, canvas); return canvas; }
+                    var iW=Math.max(tSW.x,rW), iE=Math.min(tNE.x,rE);
+                    var iS=Math.max(tSW.y,rS), iN=Math.min(tNE.y,rN);
+                    if(iW>=iE||iS>=iN){done(null,canvas);return canvas;}
 
-                    var rx = rE - rW, ry = rN - rS;
-                    var pxW  = Math.max(0,           Math.floor(((iW - rW) / rx) * meta.width));
-                    var pxE  = Math.min(meta.width,  Math.ceil( ((iE - rW) / rx) * meta.width));
-                    var pxNr = Math.max(0,            Math.floor(((rN - iN) / ry) * meta.height));
-                    var pxSr = Math.min(meta.height,  Math.ceil( ((rN - iS) / ry) * meta.height));
-                    if (pxE <= pxW || pxSr <= pxNr) { done(null, canvas); return canvas; }
+                    var rx=rE-rW, ry=rN-rS;
+                    var pxW=Math.max(0,           Math.floor(((iW-rW)/rx)*meta.width));
+                    var pxE=Math.min(meta.width,  Math.ceil( ((iE-rW)/rx)*meta.width));
+                    var pxNr=Math.max(0,           Math.floor(((rN-iN)/ry)*meta.height));
+                    var pxSr=Math.min(meta.height, Math.ceil( ((rN-iS)/ry)*meta.height));
+                    if(pxE<=pxW||pxSr<=pxNr){done(null,canvas);return canvas;}
 
-                    var tw = tNE.x - tSW.x, th = tNE.y - tSW.y;
-                    var dstX = Math.round(((iW - tSW.x) / tw) * sz.x);
-                    var dstY = Math.round(((tNE.y - iN) / th) * sz.y);
-                    var dstW = Math.max(1, Math.round(((iE - iW) / tw) * sz.x));
-                    var dstH = Math.max(1, Math.round(((iN - iS) / th) * sz.y));
+                    var tw=tNE.x-tSW.x, th=tNE.y-tSW.y;
+                    var dstX=Math.round(((iW-tSW.x)/tw)*sz.x);
+                    var dstY=Math.round(((tNE.y-iN)/th)*sz.y);
+                    var dstW=Math.max(1,Math.round(((iE-iW)/tw)*sz.x));
+                    var dstH=Math.max(1,Math.round(((iN-iS)/th)*sz.y));
 
-                    image.readRasters({
-                        window: [pxW, pxNr, pxE, pxSr],
-                        width: dstW, height: dstH, interleave: false
-                    }).then(function(rasters) {
-                        var band = rasters[0];
-                        var ctx  = canvas.getContext('2d');
-                        var imgd = ctx.createImageData(dstW, dstH);
-                        var nodata = meta.nodata;
-                        for (var i = 0; i < dstW * dstH; i++) {
-                            var v = band[i];
-                            if (v === nodata || v === -9999 || isNaN(v)) {
-                                imgd.data[i*4+3] = 0; continue;
+                    image.readRasters({window:[pxW,pxNr,pxE,pxSr],width:dstW,height:dstH,interleave:false})
+                        .then(function(rasters){
+                            var band=rasters[0];
+                            var ctx=canvas.getContext('2d');
+                            var imgd=ctx.createImageData(dstW,dstH);
+                            for(var i=0;i<dstW*dstH;i++){
+                                var v=band[i];
+                                if(v===nodata||v===-9999||isNaN(v)||!isFinite(v)){imgd.data[i*4+3]=0;continue;}
+                                var rgb=_mdtColor(v,vmin,vmax);
+                                imgd.data[i*4]=rgb[0]; imgd.data[i*4+1]=rgb[1]; imgd.data[i*4+2]=rgb[2]; imgd.data[i*4+3]=255;
                             }
-                            var rgb = _mdtColor(v, vmin, vmax);
-                            imgd.data[i*4]   = rgb[0];
-                            imgd.data[i*4+1] = rgb[1];
-                            imgd.data[i*4+2] = rgb[2];
-                            imgd.data[i*4+3] = 255;
-                        }
-                        var tmp = document.createElement('canvas');
-                        tmp.width = dstW; tmp.height = dstH;
-                        tmp.getContext('2d').putImageData(imgd, 0, 0);
-                        canvas.getContext('2d').drawImage(tmp, dstX, dstY, dstW, dstH);
-                        done(null, canvas);
-                    }).catch(function(e) { done(e, canvas); });
-
+                            var tmp=document.createElement('canvas');
+                            tmp.width=dstW; tmp.height=dstH;
+                            tmp.getContext('2d').putImageData(imgd,0,0);
+                            canvas.getContext('2d').drawImage(tmp,dstX,dstY,dstW,dstH);
+                            done(null,canvas);
+                        }).catch(function(e){done(e,canvas);});
                     return canvas;
                 }
             });
 
             return new MdtGridLayer({
-                tileSize: 256, minZoom: 1, maxZoom: 22,
-                opacity: 1, attribution: 'MDT COG',
-                pane: pane || 'pane_MDT_COG'
+                tileSize:256, minZoom:1, maxZoom:22,
+                opacity:1, attribution:'MDT COG',
+                pane: pane||'pane_MDT_COG'
             });
         }
 
