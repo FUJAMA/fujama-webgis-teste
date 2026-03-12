@@ -1695,17 +1695,23 @@
                     <div class="hdr-base-opt active" id="hdrbase-osm" onclick="setBaseMap('openstreetmap'); setHeaderBaseLabel('OpenStreetMap','hdrbase-osm')">
                         <i class="fas fa-map"></i> OpenStreetMap
                     </div>
+                    <div class="hdr-base-opt" id="hdrbase-mdt" onclick="setBaseMap('mdt'); setHeaderBaseLabel('MDT','hdrbase-mdt')">
+                        <i class="fas fa-mountain"></i> MDT
+                    </div>
+                    <div class="hdr-base-opt" id="hdrbase-orto1979" onclick="setBaseMap('orto1979'); setHeaderBaseLabel('Ortomosaico 1979','hdrbase-orto1979')">
+                        <i class="fas fa-history"></i> Ortomosaico 1979
+                    </div>
                     <div class="hdr-base-opt" id="hdrbase-orto2010" onclick="setBaseMap('ortomosaico2010'); setHeaderBaseLabel('Ortomosaico 2010 (SC)','hdrbase-orto2010')">
                         <i class="fas fa-satellite"></i> Ortomosaico 2010 (SC)
-                    </div>
-                    <div class="hdr-base-opt" id="hdrbase-google" onclick="setBaseMap('googleearth'); setHeaderBaseLabel('Google Earth','hdrbase-google')">
-                        <i class="fas fa-globe"></i> Google Earth
                     </div>
                     <div class="hdr-base-opt" id="hdrbase-orto2020" onclick="setBaseMap('ortomosaico2020'); setHeaderBaseLabel('Ortomosaico 2020','hdrbase-orto2020')">
                         <i class="fas fa-satellite"></i> Ortomosaico 2020
                     </div>
-                    <div class="hdr-base-opt" id="hdrbase-orto1979" onclick="setBaseMap('orto1979'); setHeaderBaseLabel('Ortomosaico 1979','hdrbase-orto1979')">
-                        <i class="fas fa-history"></i> Ortomosaico 1979
+                    <div class="hdr-base-opt" id="hdrbase-google" onclick="setBaseMap('googleearth'); setHeaderBaseLabel('Google Earth','hdrbase-google')">
+                        <i class="fas fa-globe"></i> Google Earth
+                    </div>
+                    <div class="hdr-base-opt" id="hdrbase-googlehybrid" onclick="setBaseMap('googlehybrid'); setHeaderBaseLabel('Google Earth Hybrid','hdrbase-googlehybrid')">
+                        <i class="fas fa-globe"></i> Google Earth Hybrid
                     </div>
                 </div>
             </div>
@@ -1752,10 +1758,12 @@
                 <i class="fas fa-layer-group"></i>
                 <select id="comp-base-right" onchange="setCompBase('right', this.value)">
                     <option value="openstreetmap">OpenStreetMap</option>
-                    <option value="googleearth" selected>Google Earth</option>
+                    <option value="mdt">MDT</option>
+                    <option value="orto1979">Ortomosaico 1979</option>
                     <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
                     <option value="ortomosaico2020">Ortomosaico 2020</option>
-                    <option value="orto1979">Ortomosaico 1979</option>
+                    <option value="googleearth" selected>Google Earth</option>
+                    <option value="googlehybrid">Google Earth Hybrid</option>
                 </select>
             </div>
         </div>
@@ -1768,10 +1776,12 @@
                 <i class="fas fa-layer-group"></i>
                 <select id="comp-base-left" onchange="setCompBase('left', this.value)">
                     <option value="openstreetmap">OpenStreetMap</option>
-                    <option value="googleearth">Google Earth</option>
+                    <option value="mdt">MDT</option>
+                    <option value="orto1979">Ortomosaico 1979</option>
                     <option value="ortomosaico2010">Ortomosaico 2010 (SC)</option>
                     <option value="ortomosaico2020">Ortomosaico 2020</option>
-                    <option value="orto1979">Ortomosaico 1979</option>
+                    <option value="googleearth">Google Earth</option>
+                    <option value="googlehybrid">Google Earth Hybrid</option>
                 </select>
             </div>
         </div>
@@ -2292,24 +2302,30 @@
 
         function setBaseMap(base) {
             activeBaseKey = base;
-            // Remove todas as bases conhecidas
             map.removeLayer(layer_OpenStreetMap_0);
             map.removeLayer(layer_Ortomosaico2010SC_1);
             map.removeLayer(layer_GoogleEarth_2);
             map.removeLayer(layer_Ortomosaico2020_3);
+            map.removeLayer(layer_GoogleHybrid);
             if (layer_Orto1979_COG) map.removeLayer(layer_Orto1979_COG);
+            if (layer_MDT_COG)      map.removeLayer(layer_MDT_COG);
             switch(base) {
                 case 'openstreetmap':   map.addLayer(layer_OpenStreetMap_0);    break;
                 case 'ortomosaico2010': map.addLayer(layer_Ortomosaico2010SC_1); break;
                 case 'googleearth':     map.addLayer(layer_GoogleEarth_2);      break;
+                case 'googlehybrid':    map.addLayer(layer_GoogleHybrid);       break;
                 case 'ortomosaico2020': map.addLayer(layer_Ortomosaico2020_3);  break;
                 case 'orto1979':
                     _carregarOrto1979(function(lyr){
                         if (activeBaseKey === 'orto1979') map.addLayer(lyr);
                     });
                     break;
+                case 'mdt':
+                    _carregarMDT(function(lyr){
+                        if (activeBaseKey === 'mdt') map.addLayer(lyr);
+                    });
+                    break;
             }
-            // Se havia visualização ativa, remove o badge e restaura a base normalmente
             _satRestoreBaseBadge(false);
         }
 
@@ -2318,7 +2334,9 @@
             map.removeLayer(layer_Ortomosaico2010SC_1);
             map.removeLayer(layer_GoogleEarth_2);
             map.removeLayer(layer_Ortomosaico2020_3);
+            map.removeLayer(layer_GoogleHybrid);
             if (layer_Orto1979_COG) map.removeLayer(layer_Orto1979_COG);
+            if (layer_MDT_COG)      map.removeLayer(layer_MDT_COG);
             _satRestoreBaseBadge(true);
         }
 
@@ -4200,7 +4218,221 @@
                     console.error('[Orto1979 COG]', err);
                 });
         }
-        map.createPane('pane_MDT2012_4');
+
+        // ── MDT — COG em EPSG:3857 via geotiff.js ────────────────────────────
+        var layer_MDT_COG   = null;
+        var _mdtImageObj    = null;
+        var _mdtMeta        = null;
+        var _mdtUrl         = 'https://stirring-profiterole-935ac4.netlify.app/Mosaico_geral_cog.tif';
+        var _mdtProxies     = [
+            '',
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+        ];
+        var _mdtLoading     = false;
+        var _mdtReady       = false;
+        var _mdtCallbacks   = [];
+
+        function _mdtToast(msg, isError) {
+            var t = document.getElementById('mdt-cog-toast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'mdt-cog-toast';
+                t.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);'
+                    + 'background:rgba(10,20,45,0.97);padding:8px 18px;border-radius:8px;'
+                    + 'border:1px solid rgba(52,152,219,0.4);font-size:0.82em;z-index:9999;'
+                    + 'display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,0.5);pointer-events:none;';
+                document.body.appendChild(t);
+            }
+            t.style.color = isError ? '#e74c3c' : '#7ab8d9';
+            t.innerHTML   = msg;
+            if (isError) setTimeout(function(){ var x=document.getElementById('mdt-cog-toast'); if(x) x.remove(); }, 6000);
+        }
+
+        // Paleta hipsométrica para MDT (azul→verde→amarelo→laranja→vermelho→branco)
+        function _mdtColor(v, vmin, vmax) {
+            var t = Math.max(0, Math.min(1, (v - vmin) / (vmax - vmin)));
+            var stops = [
+                [0.00,  48, 120, 200],  // azul escuro (cotas baixas)
+                [0.15,  80, 180, 120],  // verde
+                [0.35, 160, 210,  80],  // verde-amarelo
+                [0.55, 240, 200,  50],  // amarelo
+                [0.70, 220, 120,  30],  // laranja
+                [0.85, 180,  60,  20],  // vermelho
+                [1.00, 255, 255, 255],  // branco (cumes)
+            ];
+            var i = 0;
+            while (i < stops.length - 2 && t > stops[i+1][0]) i++;
+            var a = stops[i], b = stops[i+1];
+            var f = (t - a[0]) / (b[0] - a[0]);
+            return [
+                Math.round(a[1] + f*(b[1]-a[1])),
+                Math.round(a[2] + f*(b[2]-a[2])),
+                Math.round(a[3] + f*(b[3]-a[3]))
+            ];
+        }
+
+        function _buildMdtCanvasLayer(image, meta, pane) {
+            // MDT está em EPSG:3857 — bbox já em Web Mercator
+            var rW = meta.bbox[0], rS = meta.bbox[1], rE = meta.bbox[2], rN = meta.bbox[3];
+            var vmin = meta.vmin, vmax = meta.vmax;
+
+            function latLngToMerc(lat, lng) {
+                return {
+                    x: lng * 20037508.342 / 180,
+                    y: Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180) * 20037508.342 / 180
+                };
+            }
+
+            var MdtGridLayer = L.GridLayer.extend({
+                createTile: function(coords, done) {
+                    var canvas = document.createElement('canvas');
+                    var sz = this.getTileSize();
+                    canvas.width  = sz.x;
+                    canvas.height = sz.y;
+
+                    var tb  = this._tileCoordsToBounds(coords);
+                    var tSW = latLngToMerc(tb.getSouth(), tb.getWest());
+                    var tNE = latLngToMerc(tb.getNorth(), tb.getEast());
+
+                    var iW = Math.max(tSW.x, rW), iE = Math.min(tNE.x, rE);
+                    var iS = Math.max(tSW.y, rS), iN = Math.min(tNE.y, rN);
+                    if (iW >= iE || iS >= iN) { done(null, canvas); return canvas; }
+
+                    var rx = rE - rW, ry = rN - rS;
+                    var pxW  = Math.max(0,           Math.floor(((iW - rW) / rx) * meta.width));
+                    var pxE  = Math.min(meta.width,  Math.ceil( ((iE - rW) / rx) * meta.width));
+                    var pxNr = Math.max(0,            Math.floor(((rN - iN) / ry) * meta.height));
+                    var pxSr = Math.min(meta.height,  Math.ceil( ((rN - iS) / ry) * meta.height));
+                    if (pxE <= pxW || pxSr <= pxNr) { done(null, canvas); return canvas; }
+
+                    var tw = tNE.x - tSW.x, th = tNE.y - tSW.y;
+                    var dstX = Math.round(((iW - tSW.x) / tw) * sz.x);
+                    var dstY = Math.round(((tNE.y - iN) / th) * sz.y);
+                    var dstW = Math.max(1, Math.round(((iE - iW) / tw) * sz.x));
+                    var dstH = Math.max(1, Math.round(((iN - iS) / th) * sz.y));
+
+                    image.readRasters({
+                        window: [pxW, pxNr, pxE, pxSr],
+                        width: dstW, height: dstH, interleave: false
+                    }).then(function(rasters) {
+                        var band = rasters[0];
+                        var ctx  = canvas.getContext('2d');
+                        var imgd = ctx.createImageData(dstW, dstH);
+                        var nodata = meta.nodata;
+                        for (var i = 0; i < dstW * dstH; i++) {
+                            var v = band[i];
+                            if (v === nodata || v === -9999 || isNaN(v)) {
+                                imgd.data[i*4+3] = 0; continue;
+                            }
+                            var rgb = _mdtColor(v, vmin, vmax);
+                            imgd.data[i*4]   = rgb[0];
+                            imgd.data[i*4+1] = rgb[1];
+                            imgd.data[i*4+2] = rgb[2];
+                            imgd.data[i*4+3] = 255;
+                        }
+                        var tmp = document.createElement('canvas');
+                        tmp.width = dstW; tmp.height = dstH;
+                        tmp.getContext('2d').putImageData(imgd, 0, 0);
+                        canvas.getContext('2d').drawImage(tmp, dstX, dstY, dstW, dstH);
+                        done(null, canvas);
+                    }).catch(function(e) { done(e, canvas); });
+
+                    return canvas;
+                }
+            });
+
+            return new MdtGridLayer({
+                tileSize: 256, minZoom: 1, maxZoom: 22,
+                opacity: 1, attribution: 'MDT COG',
+                pane: pane || 'pane_MDT_COG'
+            });
+        }
+
+        function _carregarMDT(onReady, forComp) {
+            if (_mdtReady && _mdtImageObj) {
+                var lyr = _buildMdtCanvasLayer(_mdtImageObj, _mdtMeta, forComp ? null : 'pane_MDT_COG');
+                if (!forComp) layer_MDT_COG = lyr;
+                onReady && onReady(lyr);
+                return;
+            }
+            _mdtCallbacks.push({ fn: onReady, forComp: !!forComp });
+            if (_mdtLoading) return;
+            _mdtLoading = true;
+
+            _mdtToast('<i class="fas fa-spinner fa-spin"></i> Carregando MDT…', false);
+
+            function _tryMdtProxy(proxies, idx) {
+                if (idx >= proxies.length) throw new Error('Todos os proxies MDT falharam');
+                var url = proxies[idx] ? proxies[idx] + encodeURIComponent(_mdtUrl) : _mdtUrl;
+                return fetch(url)
+                    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+                    .catch(function(e) {
+                        console.warn('[MDT COG] ' + (proxies[idx]||'URL direta') + ' falhou:', e.message);
+                        return _tryMdtProxy(proxies, idx + 1);
+                    });
+            }
+
+            _tryMdtProxy(_mdtProxies, 0)
+                .then(function(ab) { return GeoTIFF.fromArrayBuffer(ab); })
+                .then(function(tiff) { return tiff.getImage(); })
+                .then(function(img) {
+                    var fd = img.getFileDirectory();
+                    var nodata = fd.GDAL_NODATA ? parseFloat(fd.GDAL_NODATA) : -9999;
+                    // Lê amostra para calcular min/max real (usa overview menor se disponível)
+                    return img.readRasters({ width: 256, height: 256, interleave: false })
+                        .then(function(sample) {
+                            var band = sample[0];
+                            var vmin = Infinity, vmax = -Infinity;
+                            for (var i = 0; i < band.length; i++) {
+                                var v = band[i];
+                                if (v === nodata || v === -9999 || isNaN(v) || !isFinite(v)) continue;
+                                if (v < vmin) vmin = v;
+                                if (v > vmax) vmax = v;
+                            }
+                            // Fallback se amostra não tiver dados válidos
+                            if (!isFinite(vmin)) { vmin = 0; vmax = 1800; }
+                            _mdtImageObj = img;
+                            _mdtMeta = {
+                                width:  img.getWidth(),
+                                height: img.getHeight(),
+                                bbox:   img.getBoundingBox(),   // EPSG:3857
+                                nbands: fd.SamplesPerPixel || 1,
+                                nodata: nodata,
+                                vmin: vmin, vmax: vmax
+                            };
+                            _mdtReady   = true;
+                            _mdtLoading = false;
+                            console.log('[MDT COG] OK', _mdtMeta);
+                            var t = document.getElementById('mdt-cog-toast');
+                            if (t) t.remove();
+                            var cbs = _mdtCallbacks.splice(0);
+                            cbs.forEach(function(cb) {
+                                var lyr = _buildMdtCanvasLayer(_mdtImageObj, _mdtMeta, cb.forComp ? null : 'pane_MDT_COG');
+                                if (!cb.forComp) layer_MDT_COG = lyr;
+                                cb.fn && cb.fn(lyr);
+                            });
+                        });
+                })
+                .catch(function(err) {
+                    _mdtLoading = false;
+                    _mdtCallbacks = [];
+                    _mdtToast('<i class="fas fa-exclamation-circle"></i> Erro MDT: ' + err.message, true);
+                    console.error('[MDT COG]', err);
+                });
+        }
+
+        // ── Google Earth Hybrid ───────────────────────────────────────────────
+        map.createPane('pane_GoogleHybrid');
+        map.getPane('pane_GoogleHybrid').style.zIndex = 205;
+        var layer_GoogleHybrid = L.tileLayer('https://mt0.google.com/vt/lyrs=y&hl=pt-BR&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleHybrid',
+            opacity: 1.0, attribution: '', minZoom: 1, maxZoom: 22
+        });
+
+        map.createPane('pane_MDT_COG');
+        map.getPane('pane_MDT_COG').style.zIndex = 206;
+
         map.getPane('pane_MDT2012_4').style.zIndex = 650;
         var layer_MDT2012_4 = L.tileLayer.wms("http://sigsc.sc.gov.br/sigserver/SIGSC/wms", {
             layers: 'MDT-2012',
@@ -7290,9 +7522,12 @@
                 } else {
                     var baseNomes = {
                         openstreetmap: 'OpenStreetMap',
+                        mdt: 'MDT',
+                        orto1979: 'Ortomosaico 1979',
                         ortomosaico2010: 'Ortomosaico 2010 (SC)',
+                        ortomosaico2020: 'Ortomosaico 2020',
                         googleearth: 'Google Earth',
-                        ortomosaico2020: 'Ortomosaico 2020'
+                        googlehybrid: 'Google Earth Hybrid'
                     };
                     info.textContent = 'Mapa-base: ' + (baseNomes[activeBaseKey] || activeBaseKey) + '.';
                 }
@@ -7303,9 +7538,12 @@
             var ativas = [];
             var baseNomes = {
                 openstreetmap: 'OpenStreetMap',
+                mdt: 'MDT',
+                orto1979: 'Ortomosaico 1979',
                 ortomosaico2010: 'Ortomosaico 2010 (SC)',
+                ortomosaico2020: 'Ortomosaico 2020',
                 googleearth: 'Google Earth',
-                ortomosaico2020: 'Ortomosaico 2020'
+                googlehybrid: 'Google Earth Hybrid'
             };
             ativas.push('Base: ' + (baseNomes[activeBaseKey] || activeBaseKey));
             // Percorre overlaysTree para encontrar camadas ativas
@@ -7689,9 +7927,11 @@
         var compBaseConfigs = {
             openstreetmap:   { type:'tile', url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png' },
             googleearth:     { type:'tile', url:'https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}' },
+            googlehybrid:    { type:'tile', url:'https://mt0.google.com/vt/lyrs=y&hl=pt-BR&x={x}&y={y}&z={z}' },
             ortomosaico2010: { type:'wms',  url:'http://sigsc.sc.gov.br/sigserver/SIGSC/wms', layers:'OrtoRGB-Landsat-2012' },
             ortomosaico2020: { type:'tile', url:'https://www.jaraguadosul.sc.gov.br/geo/ortomosaico2020/{z}/{x}/{y}.png' },
-            orto1979:        { type:'cog',  url: _orto1979Url }
+            orto1979:        { type:'cog-orto1979' },
+            mdt:             { type:'cog-mdt' }
         };
 
         function toggleComparativo() {
@@ -7795,7 +8035,11 @@
         var compMirrorMap = {}; // chave = leaflet _leaflet_id → layer espelho
 
         function _compSetBase(side, baseKey) {
-            var hdrMap = { openstreetmap:'osm', ortomosaico2010:'orto2010', googleearth:'google', ortomosaico2020:'orto2020', orto1979:'orto1979' };
+            var hdrMap = {
+                openstreetmap:'osm', ortomosaico2010:'orto2010', googleearth:'google',
+                ortomosaico2020:'orto2020', orto1979:'orto1979',
+                googlehybrid:'googlehybrid', mdt:'mdt'
+            };
             if (side === 'left') {
                 setBaseMap(baseKey);
                 setHeaderBaseLabel(
@@ -7812,12 +8056,10 @@
                 compRightBase = L.tileLayer.wms(cfg.url, {
                     layers: cfg.layers, format:'image/png', transparent:false, maxZoom:22
                 }).addTo(compRightMap);
-            } else if (cfg.type === 'cog') {
-                // COG: cria nova instância independente para o mapa direito
-                _carregarOrto1979(function(lyr){
-                    compRightBase = lyr;
-                    compRightBase.addTo(compRightMap);
-                }, 'pane_default');
+            } else if (cfg.type === 'cog-orto1979') {
+                _carregarOrto1979(function(lyr){ compRightBase = lyr; lyr.addTo(compRightMap); }, true);
+            } else if (cfg.type === 'cog-mdt') {
+                _carregarMDT(function(lyr){ compRightBase = lyr; lyr.addTo(compRightMap); }, true);
             } else {
                 compRightBase = L.tileLayer(cfg.url, { maxZoom:22, attribution:'' }).addTo(compRightMap);
             }
