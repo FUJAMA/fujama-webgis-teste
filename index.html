@@ -2149,10 +2149,10 @@
                         <button class="btn-acao" onclick="cancelDraw()" style="background:#e74c3c; margin-top:10px;">Cancelar desenho</button>
                     </div>
 
-                    </div><!-- /card-collapsible -->
                     <button class="generate-report-btn" id="generateReportBtn" onclick="generateReport()" disabled>
                         <i class="fas fa-file-download"></i> Gerar Relatório
                     </button>
+                    </div><!-- /card-collapsible -->
                 </div>
 
                 <!-- ===== Card: Perfil de Elevação ===== -->
@@ -2190,7 +2190,7 @@
                         <!-- Resultados -->
                         <div id="perfilResultados" style="display:none;">
                             <div class="perfil-chart-wrap">
-                                <canvas id="perfilElevacaoChart" height="130"></canvas>
+                                <canvas id="perfilElevacaoChart" height="95"></canvas>
                             </div>
                             <div class="perfil-stats-row" id="perfilStatsRow"></div>
                             <div id="perfilLegenda" style="margin-bottom:8px;"></div>
@@ -2203,9 +2203,10 @@
                                             <th>Alt. ini (m)</th>
                                             <th>Alt. fin (m)</th>
                                             <th>Δ Alt (m)</th>
-                                            <th>Decliv.</th>
-                                            <th>Ângulo</th>
-                                            <th>Classe</th>
+                                            <th>Decliv. méd.</th>
+                                            <th>Maior decl.</th>
+                                            <th>Cls. máx</th>
+                                            <th>Cls. méd.</th>
                                         </tr>
                                     </thead>
                                     <tbody id="perfilTabelaBody"></tbody>
@@ -7165,7 +7166,21 @@
                     var dz = elevFim - elevIni;
                     var percDecl = dSeg > 0 ? (Math.abs(dz) / dSeg * 100) : 0;
                     var angGrau  = dSeg > 0 ? Math.abs(Math.atan(dz / dSeg) * 180 / Math.PI) : 0;
+                    // Maior declividade: percorre pares de amostras consecutivas do segmento
+                    var idxIni = dados.indexOf(ptsSeg[0]);
+                    var idxFim = dados.indexOf(ptsSeg[ptsSeg.length-1]);
+                    var maxPerc = 0, maxAng = 0;
+                    for (var k = idxIni + 1; k <= idxFim; k++) {
+                        var dx2 = dists[k] - dists[k-1];
+                        var dz2 = Math.abs(elevs[k] - elevs[k-1]);
+                        if (dx2 > 0) {
+                            var p2 = dz2 / dx2 * 100;
+                            var a2 = Math.atan(dz2 / dx2) * 180 / Math.PI;
+                            if (p2 > maxPerc) { maxPerc = p2; maxAng = a2; }
+                        }
+                    }
                     var cls = _perfilClassifica(angGrau);
+                    var clsMax = _perfilClassifica(maxAng);
                     segDados.push({
                         seg: s + 1,
                         dist: dSeg,
@@ -7174,41 +7189,92 @@
                         dz: dz,
                         perc: percDecl,
                         ang: angGrau,
-                        cls: cls
+                        maxPerc: maxPerc,
+                        maxAng: maxAng,
+                        cls: cls,
+                        clsMax: clsMax
                     });
                 }
+
+                // Declividade por amostra (para segundo eixo no gráfico)
+                var slopeData = elevs.map(function(e, i) {
+                    if (i === 0) return null;
+                    var dx = dists[i] - dists[i-1];
+                    var dz = Math.abs(elevs[i] - elevs[i-1]);
+                    return dx > 0 ? parseFloat((dz / dx * 100).toFixed(1)) : 0;
+                });
+                // Primeiro ponto = mesmo que o segundo (sem ponto anterior)
+                slopeData[0] = slopeData[1] !== undefined ? slopeData[1] : 0;
+
+                // Cores do gráfico por declividade (por ponto)
+                var pointColors = elevs.map(function(e, i) {
+                    if (i === 0) return 'rgba(230,126,34,0.8)';
+                    var dz = elevs[i] - elevs[i-1];
+                    var dx = dists[i] - dists[i-1];
+                    var ang = dx > 0 ? Math.abs(Math.atan(dz/dx) * 180 / Math.PI) : 0;
+                    var cls = _perfilClassifica(ang).cls;
+                    var colorMap = { 'decl-plano': 'rgba(39,174,96,0.7)', 'decl-suave': 'rgba(241,196,15,0.7)',
+                        'decl-moderado': 'rgba(230,126,34,0.7)', 'decl-forte': 'rgba(231,76,60,0.7)',
+                        'decl-mforte': 'rgba(155,89,182,0.7)', 'decl-app': 'rgba(189,195,199,0.7)' };
+                    return colorMap[cls] || 'rgba(52,152,219,0.7)';
+                });
 
                 // ── Renderiza gráfico ──────────────────────────────
                 document.getElementById('perfilResultados').style.display = 'block';
                 if (_perfilChartInst) { _perfilChartInst.destroy(); _perfilChartInst = null; }
 
                 var ctx = document.getElementById('perfilElevacaoChart').getContext('2d');
-                var grad = ctx.createLinearGradient(0, 0, 0, 130);
-                grad.addColorStop(0,   'rgba(230,126,34,0.55)');
-                grad.addColorStop(0.6, 'rgba(41,128,185,0.25)');
+                var grad = ctx.createLinearGradient(0, 0, 0, 95);
+                grad.addColorStop(0,   'rgba(230,126,34,0.50)');
+                grad.addColorStop(0.6, 'rgba(41,128,185,0.20)');
                 grad.addColorStop(1,   'rgba(10,20,42,0.0)');
 
                 _perfilChartInst = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: labels,
-                        datasets: [{
-                            label: 'Elevação (m)',
-                            data: elevs,
-                            borderColor: 'rgba(230,126,34,0.9)',
-                            backgroundColor: grad,
-                            borderWidth: 2,
-                            pointRadius: elevs.length > 80 ? 0 : 2,
-                            pointBackgroundColor: pointColors,
-                            tension: 0.3,
-                            fill: true
-                        }]
+                        datasets: [
+                            {
+                                label: 'Elevação (m)',
+                                data: elevs,
+                                borderColor: 'rgba(230,126,34,0.9)',
+                                backgroundColor: grad,
+                                borderWidth: 2,
+                                pointRadius: elevs.length > 80 ? 0 : 2,
+                                pointBackgroundColor: pointColors,
+                                tension: 0.3,
+                                fill: true,
+                                yAxisID: 'yElev',
+                                order: 2
+                            },
+                            {
+                                label: 'Declividade (%)',
+                                data: slopeData,
+                                borderColor: 'rgba(52,152,219,0.75)',
+                                backgroundColor: 'transparent',
+                                borderWidth: 1.5,
+                                pointRadius: 0,
+                                tension: 0.2,
+                                fill: false,
+                                yAxisID: 'ySlope',
+                                order: 1,
+                                borderDash: [3,3]
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
-                        animation: { duration: 600 },
+                        animation: { duration: 500 },
+                        interaction: { mode: 'index', intersect: false },
                         plugins: {
-                            legend: { display: false },
+                            legend: {
+                                display: true,
+                                labels: {
+                                    color: '#888', font: { size: 10 },
+                                    boxWidth: 14, padding: 10,
+                                    usePointStyle: true
+                                }
+                            },
                             tooltip: {
                                 backgroundColor: 'rgba(10,20,45,0.95)',
                                 titleColor: '#7ab8d9',
@@ -7217,7 +7283,10 @@
                                 borderWidth: 1,
                                 callbacks: {
                                     title: function(items) { return 'Dist: ' + labels[items[0].dataIndex]; },
-                                    label: function(item) { return 'Elevação: ' + item.raw.toFixed(1) + ' m'; }
+                                    label: function(item) {
+                                        if (item.datasetIndex === 0) return 'Elevação: ' + item.raw.toFixed(1) + ' m';
+                                        return 'Declividade: ' + (item.raw !== null ? item.raw.toFixed(1) : '—') + '%';
+                                    }
                                 }
                             }
                         },
@@ -7226,11 +7295,19 @@
                                 ticks: { color: '#888', maxTicksLimit: 8, font: { size: 10 } },
                                 grid: { color: 'rgba(255,255,255,0.05)' }
                             },
-                            y: {
-                                ticks: { color: '#888', font: { size: 10 },
-                                    callback: function(v) { return v.toFixed(0) + 'm'; }
+                            yElev: {
+                                position: 'left',
+                                ticks: { color: '#e67e22', font: { size: 10 },
+                                    callback: function(v) { return v.toFixed(1) + 'm'; }
                                 },
-                                grid: { color: 'rgba(255,255,255,0.08)' }
+                                grid: { color: 'rgba(255,255,255,0.07)' }
+                            },
+                            ySlope: {
+                                position: 'right',
+                                ticks: { color: '#3498db', font: { size: 10 },
+                                    callback: function(v) { return v.toFixed(1) + '%'; }
+                                },
+                                grid: { drawOnChartArea: false }
                             }
                         }
                     }
@@ -7257,8 +7334,12 @@
                     {cls:'decl-mforte',  lbl:'25–45° Muito forte'},
                     {cls:'decl-app',     lbl:'>45° Poss. APP'}
                 ];
-                // Mostra apenas classes presentes nos segmentos
-                var clsPresentes = segDados.map(function(s){ return s.cls.cls; });
+                // Mostra apenas classes presentes nos segmentos (média e máxima)
+                var clsPresentes = segDados.reduce(function(acc, s){
+                    if (acc.indexOf(s.cls.cls) < 0) acc.push(s.cls.cls);
+                    if (acc.indexOf(s.clsMax.cls) < 0) acc.push(s.clsMax.cls);
+                    return acc;
+                }, []);
                 var legHtml = '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;">'
                     + classes.filter(function(c){ return clsPresentes.indexOf(c.cls) >= 0; })
                         .map(function(c){ return '<span class="decl-badge '+c.cls+'">'+c.lbl+'</span>'; }).join('')
@@ -7274,8 +7355,9 @@
                         + '<td>' + s.elevIni.toFixed(1) + '</td>'
                         + '<td>' + s.elevFim.toFixed(1) + '</td>'
                         + '<td>' + dzStr + '</td>'
-                        + '<td>' + s.perc.toFixed(1) + '%</td>'
-                        + '<td>' + s.ang.toFixed(1) + '°</td>'
+                        + '<td>' + s.perc.toFixed(1) + '%&nbsp;(' + s.ang.toFixed(1) + '°)</td>'
+                        + '<td>' + s.maxPerc.toFixed(1) + '%&nbsp;(' + s.maxAng.toFixed(1) + '°)</td>'
+                        + '<td><span class="decl-badge ' + s.clsMax.cls + '">' + s.clsMax.label + '</span></td>'
                         + '<td><span class="decl-badge ' + s.cls.cls + '">' + s.cls.label + '</span></td>'
                         + '</tr>';
                 }).join('');
