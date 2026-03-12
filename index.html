@@ -551,6 +551,76 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
         }
         .perfil-tooltip::before { display: none !important; }
+
+        /* Card Análise Volumétrica */
+        .card-volumetria { border-left-color: #8e44ad; }
+        .vol-sem-mdt {
+            background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3);
+            border-radius: 6px; padding: 10px; color: #e74c3c; font-size: 0.85em; text-align: center;
+        }
+        .vol-cota-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .vol-cota-row label { color: #aaa; font-size: 0.82em; white-space: nowrap; }
+        .vol-cota-input {
+            flex: 1; background: #1a1a2e; border: 1px solid rgba(142,68,173,0.5);
+            color: #fff; padding: 7px 10px; border-radius: 6px; font-size: 0.92em;
+        }
+        .vol-cota-input:focus { outline: none; border-color: #8e44ad; }
+        .vol-cota-unit { color: #888; font-size: 0.82em; }
+        .vol-btn-draw {
+            width: 100%; padding: 10px 14px; border-radius: 8px;
+            border: 2px solid rgba(142,68,173,0.5); background: rgba(142,68,173,0.12);
+            color: #9b59b6; font-size: 0.9em; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: all 0.25s; font-weight: 600; margin-bottom: 10px;
+        }
+        .vol-btn-draw:hover { background: rgba(142,68,173,0.25); border-color: #9b59b6; }
+        .vol-btn-draw.ativo {
+            background: rgba(142,68,173,0.3); border-color: #9b59b6; color: #fff;
+            animation: vol-pulse 1.5s infinite;
+        }
+        @keyframes vol-pulse {
+            0%,100% { box-shadow: 0 0 8px rgba(142,68,173,0.4); }
+            50%      { box-shadow: 0 0 20px rgba(142,68,173,0.75); }
+        }
+        .vol-hint {
+            font-size: 0.8em; color: #888; text-align: center;
+            padding: 8px; border: 1px dashed #444; border-radius: 6px; margin-bottom: 10px;
+        }
+        .vol-acoes { display: flex; gap: 8px; margin-bottom: 10px; }
+        .vol-acoes button {
+            flex: 1; padding: 7px 8px; border-radius: 6px; border: none;
+            cursor: pointer; font-size: 0.82em; font-weight: 600;
+        }
+        .vol-btn-calc  { background: #8e44ad; color: #fff; }
+        .vol-btn-calc:disabled { background: #555; color: #888; cursor: not-allowed; }
+        .vol-btn-limpar { background: rgba(231,76,60,0.2); color: #e74c3c; border: 1px solid rgba(231,76,60,0.4) !important; }
+        .vol-status { font-size: 0.82em; color: #9b59b6; margin-bottom: 8px; min-height: 18px; text-align: center; }
+        .vol-resultado {
+            background: rgba(5,12,28,0.7); border-radius: 10px;
+            border: 1px solid rgba(142,68,173,0.3); padding: 14px; margin-bottom: 10px;
+        }
+        .vol-resultado-titulo {
+            font-size: 0.75em; color: #9b59b6; text-transform: uppercase;
+            letter-spacing: 0.08em; margin-bottom: 10px; font-weight: 700;
+        }
+        .vol-cards-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .vol-card { flex: 1; border-radius: 8px; padding: 10px 8px; text-align: center; }
+        .vol-card.corte  { background: rgba(231,76,60,0.12); border: 1px solid rgba(231,76,60,0.4); }
+        .vol-card.aterro { background: rgba(39,174,96,0.12);  border: 1px solid rgba(39,174,96,0.4); }
+        .vol-card .vc-icon  { font-size: 1.3em; margin-bottom: 3px; }
+        .vol-card .vc-label { font-size: 0.7em; color: #aaa; margin-bottom: 3px; }
+        .vol-card .vc-val   { font-size: 1em; font-weight: 700; }
+        .vol-card.corte  .vc-val { color: #e74c3c; }
+        .vol-card.aterro .vc-val { color: #2ecc71; }
+        .vol-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 6px; height: 12px; overflow: hidden; display: flex; margin-bottom: 8px; }
+        .vol-bar-corte  { background: linear-gradient(90deg,#c0392b,#e74c3c); transition: width 0.6s; }
+        .vol-bar-aterro { background: linear-gradient(90deg,#27ae60,#2ecc71); transition: width 0.6s; }
+        .vol-stats-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px; }
+        .vol-stat-item { background: rgba(10,20,42,0.6); border-radius: 5px; padding: 5px 8px; border: 1px solid rgba(255,255,255,0.07); }
+        .vol-stat-item .vsi-lbl { font-size: 0.68em; color: #777; }
+        .vol-stat-item .vsi-val { font-size: 0.85em; font-weight: 600; color: #ccc; }
+        .vol-legenda { display: flex; align-items: center; gap: 6px; font-size: 0.72em; color: #888; margin-top: 6px; }
+        .vol-grad-bar { flex: 1; height: 9px; border-radius: 4px; background: linear-gradient(90deg,#8e44ad 0%,#2980b9 20%,#27ae60 40%,#f1c40f 60%,#e67e22 80%,#e74c3c 100%); }
         .upload-acoes {
             display: flex;
             gap: 10px;
@@ -2225,6 +2295,113 @@
 
                     </div><!-- /card-collapsible -->
                 </div><!-- /card-perfil-elevacao -->
+
+                <!-- ===== Card: Análise Volumétrica ===== -->
+                <div class="dashboard-card card-volumetria">
+                    <div class="card-header" onclick="toggleCard(this); volVerificaMdt()">
+                        <i class="fas fa-layer-group"></i> Análise Volumétrica
+                        <i class="fas fa-chevron-right card-chev"></i>
+                    </div>
+                    <div class="card-collapsible">
+
+                        <div id="volSemMdt" class="vol-sem-mdt" style="display:none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Ative o mapa base <strong>MDT</strong> para usar a análise volumétrica.
+                        </div>
+
+                        <div id="volControles">
+                            <!-- Cota de referência -->
+                            <div class="vol-cota-row">
+                                <label><i class="fas fa-ruler-vertical"></i> Cota alvo:</label>
+                                <input type="number" id="volCotaInput" class="vol-cota-input"
+                                    placeholder="ex: 850" step="0.1" min="-500" max="9000">
+                                <span class="vol-cota-unit">m</span>
+                            </div>
+                            <!-- Info da cota média da área -->
+                            <div id="volCotaInfo" style="font-size:0.78em;color:#888;margin-bottom:8px;min-height:16px;text-align:center;"></div>
+
+                            <!-- Botão traçar -->
+                            <button class="vol-btn-draw" id="volBtnDraw" onclick="volToggleDraw()">
+                                <i class="fas fa-draw-polygon"></i> Desenhar Área
+                            </button>
+                            <div class="vol-hint" id="volHint">
+                                Clique para adicionar vértices. Duplo clique para fechar o polígono.
+                            </div>
+
+                            <!-- Ações -->
+                            <div class="vol-acoes">
+                                <button class="vol-btn-calc" id="volBtnCalc" onclick="volCalcular()" disabled>
+                                    <i class="fas fa-calculator"></i> Calcular
+                                </button>
+                                <button class="vol-btn-limpar" onclick="volLimpar()">
+                                    <i class="fas fa-trash-alt"></i> Limpar
+                                </button>
+                            </div>
+                            <div class="vol-status" id="volStatus"></div>
+                        </div>
+
+                        <!-- Resultados -->
+                        <div id="volResultados" style="display:none;">
+                            <div class="vol-resultado">
+                                <div class="vol-resultado-titulo">
+                                    <i class="fas fa-chart-bar"></i> Resultado — Cota <span id="volCotaLabel">—</span> m
+                                </div>
+                                <!-- Barras de proporção corte/aterro -->
+                                <div class="vol-bar-wrap">
+                                    <div class="vol-bar-corte"  id="volBarCorte"  style="width:50%"></div>
+                                    <div class="vol-bar-aterro" id="volBarAterro" style="width:50%"></div>
+                                </div>
+                                <!-- Cards principais -->
+                                <div class="vol-cards-row">
+                                    <div class="vol-card corte">
+                                        <div class="vc-icon">⛏️</div>
+                                        <div class="vc-label">Volume de Corte</div>
+                                        <div class="vc-val" id="volCorteVal">—</div>
+                                    </div>
+                                    <div class="vol-card aterro">
+                                        <div class="vc-icon">🏗️</div>
+                                        <div class="vc-label">Volume de Aterro</div>
+                                        <div class="vc-val" id="volAterroVal">—</div>
+                                    </div>
+                                </div>
+                                <!-- Stats adicionais -->
+                                <div class="vol-stats-mini">
+                                    <div class="vol-stat-item">
+                                        <div class="vsi-lbl">Área analisada</div>
+                                        <div class="vsi-val" id="volAreaVal">—</div>
+                                    </div>
+                                    <div class="vol-stat-item">
+                                        <div class="vsi-lbl">Saldo (corte−aterro)</div>
+                                        <div class="vsi-val" id="volSaldoVal">—</div>
+                                    </div>
+                                    <div class="vol-stat-item">
+                                        <div class="vsi-lbl">Alt. mín. da área</div>
+                                        <div class="vsi-val" id="volMinVal">—</div>
+                                    </div>
+                                    <div class="vol-stat-item">
+                                        <div class="vsi-lbl">Alt. máx. da área</div>
+                                        <div class="vsi-val" id="volMaxVal">—</div>
+                                    </div>
+                                    <div class="vol-stat-item">
+                                        <div class="vsi-lbl">Alt. média da área</div>
+                                        <div class="vsi-val" id="volMedVal">—</div>
+                                    </div>
+                                    <div class="vol-stat-item">
+                                        <div class="vsi-lbl">Pixels amostrados</div>
+                                        <div class="vsi-val" id="volPixelsVal">—</div>
+                                    </div>
+                                </div>
+                                <!-- Legenda heatmap -->
+                                <div class="vol-legenda">
+                                    <span>Aterro</span>
+                                    <div class="vol-grad-bar"></div>
+                                    <span>Corte</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- /card-collapsible -->
+                </div><!-- /card-volumetria -->
 
             </div>
 
@@ -7450,6 +7627,345 @@
                 controles.style.display = 'none';
             }
         }
+
+        // ========== ANÁLISE VOLUMÉTRICA ==========
+        var _volAtivo        = false;
+        var _volPontos       = [];
+        var _volPolyline     = null;
+        var _volPolygon      = null;
+        var _volPreviewLine  = null;
+        var _volHeatLayer    = null;   // camada heatmap no mapa
+
+        function _volMdtDisponivel() { return _mdtReady && _mdtImageObj && _mdtMeta; }
+
+        function volVerificaMdt() {
+            var el = document.getElementById('volSemMdt');
+            var ct = document.getElementById('volControles');
+            if (!el || !ct) return;
+            if (_volMdtDisponivel()) { el.style.display = 'none'; ct.style.display = 'block'; }
+            else                     { el.style.display = 'block'; ct.style.display = 'none'; }
+        }
+
+        // Point-in-polygon (ray casting)
+        function _volPtInPoly(pt, polygon) {
+            var x = pt.lng, y = pt.lat;
+            var inside = false;
+            var vs = polygon.map(function(p){ return [p.lng, p.lat]; });
+            for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+                var xi = vs[i][0], yi = vs[i][1];
+                var xj = vs[j][0], yj = vs[j][1];
+                var intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // Converte L.LatLng → pixel MDT (reutiliza lógica do perfil)
+        function _volLatLngToPixel(latlng) {
+            return _perfilLatLngToPixel(latlng);
+        }
+
+        // Toggle desenho
+        function volToggleDraw() {
+            if (!_volMdtDisponivel()) {
+                document.getElementById('volSemMdt').style.display = 'block';
+                document.getElementById('volControles').style.display = 'none';
+                return;
+            }
+            _volAtivo = !_volAtivo;
+            var btn = document.getElementById('volBtnDraw');
+            if (_volAtivo) {
+                btn.classList.add('ativo');
+                btn.innerHTML = '<i class="fas fa-stop-circle"></i> Parar Desenho';
+                map.getContainer().style.cursor = 'crosshair';
+                document.getElementById('volHint').style.display = 'block';
+            } else {
+                btn.classList.remove('ativo');
+                btn.innerHTML = '<i class="fas fa-draw-polygon"></i> Desenhar Área';
+                map.getContainer().style.cursor = '';
+                _volRemovePreview();
+            }
+        }
+
+        function _volRemovePreview() {
+            if (_volPreviewLine) { map.removeLayer(_volPreviewLine); _volPreviewLine = null; }
+        }
+
+        function _volMapClick(e) {
+            if (!_volAtivo) return;
+            _volPontos.push(e.latlng);
+            // Atualiza polyline de rascunho
+            if (_volPolyline) map.removeLayer(_volPolyline);
+            if (_volPontos.length > 1) {
+                _volPolyline = L.polyline(_volPontos, { color: '#9b59b6', weight: 2, dashArray: '6,4', pane: 'overlayPane' }).addTo(map);
+            }
+            // Marca vértice
+            L.circleMarker(e.latlng, { radius: 4, color: '#8e44ad', fillColor: '#9b59b6', fillOpacity: 1, weight: 2, pane: 'overlayPane' }).addTo(map);
+            document.getElementById('volBtnCalc').disabled = (_volPontos.length < 3);
+            var n = _volPontos.length;
+            document.getElementById('volStatus').textContent = n + ' vértice' + (n > 1 ? 's' : '') + (n >= 3 ? ' — pronto para calcular ou continue.' : '.');
+        }
+
+        function _volMapDblClick(e) {
+            if (!_volAtivo || _volPontos.length < 3) return;
+            L.DomEvent.stop(e);
+            // Fecha polígono
+            if (_volPolyline) { map.removeLayer(_volPolyline); _volPolyline = null; }
+            _volRemovePreview();
+            if (_volPolygon) { map.removeLayer(_volPolygon); _volPolygon = null; }
+            _volPolygon = L.polygon(_volPontos, { color: '#8e44ad', weight: 2, fillColor: '#9b59b6', fillOpacity: 0.15, pane: 'overlayPane' }).addTo(map);
+            volToggleDraw(); // desativa modo desenho
+            volCalcular();
+        }
+
+        function _volMapMouseMove(e) {
+            if (!_volAtivo || _volPontos.length === 0) return;
+            _volRemovePreview();
+            _volPreviewLine = L.polyline([_volPontos[_volPontos.length - 1], e.latlng], {
+                color: '#9b59b6', weight: 1.5, opacity: 0.5, dashArray: '4,4', pane: 'overlayPane', interactive: false
+            }).addTo(map);
+        }
+
+        function volLimpar() {
+            if (_volAtivo) volToggleDraw();
+            _volPontos = [];
+            if (_volPolyline)  { map.removeLayer(_volPolyline);  _volPolyline = null; }
+            if (_volPolygon)   { map.removeLayer(_volPolygon);   _volPolygon = null; }
+            if (_volHeatLayer) { map.removeLayer(_volHeatLayer); _volHeatLayer = null; }
+            _volRemovePreview();
+            // Remove marcadores de vértice (todos com pane overlayPane que são circleMarker roxo)
+            document.getElementById('volBtnCalc').disabled = true;
+            document.getElementById('volStatus').textContent = '';
+            document.getElementById('volResultados').style.display = 'none';
+            document.getElementById('volCotaInfo').textContent = '';
+        }
+
+        // Formata volume em m³ ou km³
+        function _volFmtVol(v) {
+            if (v >= 1e6) return (v/1e6).toFixed(3) + ' km³';
+            if (v >= 1000) return (v/1000).toFixed(1) + ' mil m³';
+            return v.toFixed(1) + ' m³';
+        }
+        function _volFmtArea(a) {
+            if (a >= 1e6) return (a/1e6).toFixed(4) + ' km²';
+            if (a >= 10000) return (a/10000).toFixed(2) + ' ha';
+            return a.toFixed(1) + ' m²';
+        }
+
+        function volCalcular() {
+            if (_volPontos.length < 3) return;
+            if (!_volMdtDisponivel()) return;
+
+            var cotaStr = document.getElementById('volCotaInput').value;
+            if (cotaStr === '' || isNaN(parseFloat(cotaStr))) {
+                document.getElementById('volStatus').textContent = 'Informe a cota alvo antes de calcular.';
+                return;
+            }
+            var cotaAlvo = parseFloat(cotaStr);
+
+            var status = document.getElementById('volStatus');
+            status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculando... aguarde.';
+            document.getElementById('volBtnCalc').disabled = true;
+
+            // Bounding box do polígono em LatLng
+            var lats = _volPontos.map(function(p){ return p.lat; });
+            var lngs = _volPontos.map(function(p){ return p.lng; });
+            var bbN = Math.max.apply(null, lats), bbS = Math.min.apply(null, lats);
+            var bbE = Math.max.apply(null, lngs), bbW = Math.min.apply(null, lngs);
+
+            // Bounding box em pixels do raster
+            var meta  = _mdtMeta;
+            var pxSW  = _volLatLngToPixel(L.latLng(bbS, bbW));
+            var pxNE  = _volLatLngToPixel(L.latLng(bbN, bbE));
+            var cMin  = Math.max(0, Math.min(pxSW.col, pxNE.col));
+            var cMax  = Math.min(meta.width  - 1, Math.max(pxSW.col, pxNE.col));
+            var rMin  = Math.max(0, Math.min(pxSW.row, pxNE.row));
+            var rMax  = Math.min(meta.height - 1, Math.max(pxSW.row, pxNE.row));
+
+            // Lê bloco do raster de uma vez (mais eficiente que pixel a pixel)
+            var bW = cMax - cMin + 1;
+            var bH = rMax - rMin + 1;
+
+            _mdtImageObj.readRasters({
+                window: [cMin, rMin, cMax + 1, rMax + 1],
+                width: bW, height: bH, interleave: false
+            }).then(function(bands) {
+                var band = bands[0];
+                var nodata = meta.nodata;
+
+                // Tamanho de pixel real em metros (UTM 22S, bbox em metros UTM)
+                var utmW = meta.bbox[2] - meta.bbox[0];  // largura em metros UTM
+                var utmH = meta.bbox[3] - meta.bbox[1];  // altura  em metros UTM
+                var pixW = utmW / meta.width;
+                var pixH = utmH / meta.height;
+                var pixArea = pixW * pixH;  // m² por pixel
+
+                // Pré-computa pixel→latLng para a grade (necessário para point-in-polygon)
+                // Para eficiência, usamos interpolação bilinear nos cantos do bbox
+                // Converte pixel (col,row) → LatLng via inversa do _perfilLatLngToPixel
+                function pixToLatLng(col, row) {
+                    // inversa: col = (mx - mSW.x)/(mNE.x-mSW.x)*W → mx = mSW.x + col/W*(mNE.x-mSW.x)
+                    // Pré-calculamos os extremos uma vez
+                    return _pixToLL(col, row);
+                }
+
+                // Pré-calcula transformação inversa
+                var _utm22sToLL_inner = (function() {
+                    var a=6378137, f=1/298.257223563;
+                    var e2=2*f-f*f, k0=0.9996, lon0=-51*Math.PI/180, N0=10000000;
+                    function utm22sToLatLng(E, N) {
+                        var x=(E-500000)/k0, y=(N-N0)/k0;
+                        var M=y/k0;
+                        var mu=M/(a*(1-e2/4-3*e2*e2/64));
+                        var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+                        var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)
+                            +(21*e1*e1/16)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
+                        var N1=a/Math.sqrt(1-e2*Math.sin(phi1)*Math.sin(phi1));
+                        var T1=Math.tan(phi1)*Math.tan(phi1);
+                        var C1=e2/(1-e2)*Math.cos(phi1)*Math.cos(phi1);
+                        var R1=a*(1-e2)/Math.pow(1-e2*Math.sin(phi1)*Math.sin(phi1),1.5);
+                        var D=x/N1;
+                        var lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2)*D*D*D*D/24
+                            +(61+90*T1+298*C1+45*T1*T1)*D*D*D*D*D*D/720);
+                        var lng=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2+24*T1*T1)*D*D*D*D*D/120)/Math.cos(phi1);
+                        return { lat: lat*180/Math.PI, lng: lng*180/Math.PI };
+                    }
+                    function llToMerc(lat,lng) {
+                        return { x: lng*20037508.342/180, y: Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180 };
+                    }
+                    var sw=utm22sToLatLng(meta.bbox[0],meta.bbox[1]);
+                    var ne=utm22sToLatLng(meta.bbox[2],meta.bbox[3]);
+                    var mSW=llToMerc(sw.lat,sw.lng);
+                    var mNE=llToMerc(ne.lat,ne.lng);
+                    // mercator→ latLng (approx, inversa da projeção web mercator)
+                    function mercToLL(mx, my) {
+                        var lng = mx / 20037508.342 * 180;
+                        var lat = Math.atan(Math.exp(my / 20037508.342 * Math.PI)) * 360 / Math.PI - 90;
+                        return { lat: lat, lng: lng };
+                    }
+                    return function(col, row) {
+                        var mx = mSW.x + col / meta.width  * (mNE.x - mSW.x);
+                        var my = mNE.y - row / meta.height * (mNE.y - mSW.y);
+                        return mercToLL(mx, my);
+                    };
+                })();
+                var _pixToLL = _utm22sToLL_inner;
+
+                // Itera pixels do bloco, verifica se está no polígono
+                var volCorte  = 0, volAterro = 0;
+                var pixCount  = 0, pixValid  = 0;
+                var sumElev   = 0, vmin = Infinity, vmax = -Infinity;
+
+                // Para o heatmap: guarda pontos com dz
+                var heatPts = [];
+
+                for (var r = 0; r < bH; r++) {
+                    for (var c = 0; c < bW; c++) {
+                        var idx = r * bW + c;
+                        var v = band[idx];
+                        if (v === nodata || v === -9999 || !isFinite(v)) continue;
+
+                        var absCol = cMin + c;
+                        var absRow = rMin + r;
+                        var ll = _pixToLL(absCol + 0.5, absRow + 0.5);
+
+                        if (!_volPtInPoly(ll, _volPontos)) continue;
+
+                        pixValid++;
+                        var dz = cotaAlvo - v;
+                        sumElev += v;
+                        if (v < vmin) vmin = v;
+                        if (v > vmax) vmax = v;
+
+                        if (dz > 0) {
+                            volAterro += dz * pixArea;  // abaixo da cota → precisa aterro
+                        } else {
+                            volCorte  += (-dz) * pixArea; // acima da cota → precisa corte
+                        }
+                        // Coleta para heatmap (subamostra para não sobrecarregar)
+                        if (pixValid % 4 === 0) {
+                            heatPts.push({ ll: ll, dz: dz });
+                        }
+                    }
+                }
+
+                if (pixValid === 0) {
+                    status.textContent = 'Nenhum pixel MDT válido na área selecionada.';
+                    document.getElementById('volBtnCalc').disabled = false;
+                    return;
+                }
+
+                var areaTotal = pixValid * pixArea;
+                var elevMedia = sumElev / pixValid;
+                var saldo     = volCorte - volAterro;
+
+                // ── Atualiza UI ──────────────────────────────────────
+                document.getElementById('volResultados').style.display = 'block';
+                document.getElementById('volCotaLabel').textContent = cotaAlvo.toFixed(1);
+
+                // Barras proporcionais
+                var total = volCorte + volAterro || 1;
+                document.getElementById('volBarCorte').style.width  = (volCorte  / total * 100).toFixed(1) + '%';
+                document.getElementById('volBarAterro').style.width = (volAterro / total * 100).toFixed(1) + '%';
+
+                document.getElementById('volCorteVal').textContent  = _volFmtVol(volCorte);
+                document.getElementById('volAterroVal').textContent = _volFmtVol(volAterro);
+                document.getElementById('volAreaVal').textContent   = _volFmtArea(areaTotal);
+                document.getElementById('volSaldoVal').textContent  = (saldo >= 0 ? '+' : '') + _volFmtVol(Math.abs(saldo)) + (saldo > 0 ? ' (excesso corte)' : saldo < 0 ? ' (déficit)' : '');
+                document.getElementById('volMinVal').textContent   = vmin.toFixed(1) + ' m';
+                document.getElementById('volMaxVal').textContent   = vmax.toFixed(1) + ' m';
+                document.getElementById('volMedVal').textContent   = elevMedia.toFixed(1) + ' m';
+                document.getElementById('volPixelsVal').textContent = pixValid.toLocaleString('pt-BR');
+
+                // ── Heatmap no mapa ──────────────────────────────────
+                if (_volHeatLayer) { map.removeLayer(_volHeatLayer); _volHeatLayer = null; }
+                var maxAbsDz = 0;
+                heatPts.forEach(function(p){ if (Math.abs(p.dz) > maxAbsDz) maxAbsDz = Math.abs(p.dz); });
+                if (maxAbsDz === 0) maxAbsDz = 1;
+
+                _volHeatLayer = L.layerGroup();
+                heatPts.forEach(function(p) {
+                    var t = Math.max(-1, Math.min(1, p.dz / maxAbsDz)); // -1=corte, +1=aterro
+                    var color;
+                    if (t >= 0) {
+                        // aterro: roxo→azul→verde
+                        var r2 = Math.round(142 * (1-t) + 39 * t);
+                        var g2 = Math.round(68  * (1-t) + 174 * t);
+                        var b2 = Math.round(173 * (1-t) + 96  * t);
+                        color = 'rgb('+r2+','+g2+','+b2+')';
+                    } else {
+                        // corte: amarelo→laranja→vermelho
+                        var s = -t;
+                        var r2 = Math.round(241 * (1-s) + 192 * s);
+                        var g2 = Math.round(196 * (1-s) + 57  * s);
+                        var b2 = Math.round(15  * (1-s) + 43  * s);
+                        color = 'rgb('+r2+','+g2+','+b2+')';
+                    }
+                    L.circleMarker(p.ll, {
+                        radius: 3, color: 'transparent',
+                        fillColor: color, fillOpacity: 0.72, weight: 0,
+                        pane: 'overlayPane', interactive: false
+                    }).addTo(_volHeatLayer);
+                });
+                _volHeatLayer.addTo(map);
+
+                // Info cota média
+                document.getElementById('volCotaInfo').innerHTML =
+                    'Cota média da área: <b style="color:#9b59b6">' + elevMedia.toFixed(1) + ' m</b>';
+
+                status.textContent = 'Cálculo concluído. ' + pixValid.toLocaleString('pt-BR') + ' pixels analisados.';
+                document.getElementById('volBtnCalc').disabled = false;
+            }).catch(function(err) {
+                status.textContent = 'Erro: ' + err.message;
+                document.getElementById('volBtnCalc').disabled = false;
+                console.error('[Volumetria]', err);
+            });
+        }
+
+        // Eventos mapa para volumetria
+        map.on('click', function(e)    { if (_volAtivo) _volMapClick(e); });
+        map.on('dblclick', function(e) { if (_volAtivo) _volMapDblClick(e); });
+        map.on('mousemove', function(e){ if (_volAtivo) _volMapMouseMove(e); });
 
         // ========== EVENTOS DO MAPA ==========
         map.on('mousemove', function(e) {
