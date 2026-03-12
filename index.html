@@ -7095,40 +7095,34 @@
         // Converte L.LatLng → pixel do raster MDT (col, row)
         function _perfilLatLngToPixel(latlng) {
             var meta = _mdtMeta;
-            // bbox está em UTM 22S → converter para mercator internamente
-            // Usamos o mesmo pipeline que _buildMdtCanvasLayer
+            // Usa EXATAMENTE o mesmo pipeline de _buildMdtCanvasLayer
             function utm22sToLatLng(E, N) {
-                var a=6378137, f=1/298.257223563, b=a*(1-f);
-                var e2=2*f-f*f, e=Math.sqrt(e2);
-                var k0=0.9996, lon0=-51*Math.PI/180;
-                var x=(E-500000)/k0, y=(N-10000000)/k0;
-                var M=y/k0; // meridional arc approx
-                var mu=M/(a*(1-e2/4-3*e2*e2/64));
+                var a=6378137.0, f=1/298.257223563, b=a*(1-f), e2=(a*a-b*b)/(a*a), k0=0.9996;
+                var E0=500000, N0=10000000, lon0=-51*Math.PI/180;
+                var x=E-E0, y=N-N0, M=y/k0;
+                var mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
                 var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
-                var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)
-                    +(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)
-                    +(151*e1*e1*e1/96)*Math.sin(6*mu);
-                var N1=a/Math.sqrt(1-e2*Math.sin(phi1)*Math.sin(phi1));
-                var T1=Math.tan(phi1)*Math.tan(phi1);
-                var C1=e2/(1-e2)*Math.cos(phi1)*Math.cos(phi1);
-                var R1=a*(1-e2)/Math.pow(1-e2*Math.sin(phi1)*Math.sin(phi1),1.5);
-                var D=x/N1;
-                var lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2)*D*D*D*D/24
-                    +(61+90*T1+298*C1+45*T1*T1-252*e2-3*C1*C1)*D*D*D*D*D*D/720);
-                var lng=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2+24*T1*T1)*D*D*D*D*D/120)/Math.cos(phi1);
-                return { lat: lat*180/Math.PI, lng: lng*180/Math.PI };
+                var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
+                var sp=Math.sin(phi1),cp=Math.cos(phi1),tp=Math.tan(phi1);
+                var N1=a/Math.sqrt(1-e2*sp*sp),T1=tp*tp,C1=e2/(1-e2)*cp*cp,R1=a*(1-e2)/Math.pow(1-e2*sp*sp,1.5),D=x/(N1*k0);
+                var lat=phi1-(N1*tp/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24+(61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
+                var lon=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120)/cp;
+                return {lat:lat*180/Math.PI, lng:lon*180/Math.PI};
             }
             function llToMerc(lat,lng){
-                return { x: lng*20037508.342/180, y: Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180 };
+                return {
+                    x: lng*20037508.342/180,
+                    y: Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180
+                };
             }
             var sw = utm22sToLatLng(meta.bbox[0], meta.bbox[1]);
             var ne = utm22sToLatLng(meta.bbox[2], meta.bbox[3]);
             var mSW = llToMerc(sw.lat, sw.lng);
             var mNE = llToMerc(ne.lat, ne.lng);
             var pt  = llToMerc(latlng.lat, latlng.lng);
-            var col = Math.round((pt.x - mSW.x) / (mNE.x - mSW.x) * meta.width);
-            var row = Math.round((mNE.y - pt.y) / (mNE.y - mSW.y) * meta.height);
-            return { col: col, row: row };
+            var col = (pt.x - mSW.x) / (mNE.x - mSW.x) * meta.width;
+            var row = (mNE.y - pt.y) / (mNE.y - mSW.y) * meta.height;
+            return { col: Math.round(col), row: Math.round(row) };
         }
 
         // Amostra elevação de um ponto via readRasters (1×1 pixel)
@@ -7809,26 +7803,20 @@
                     return _pixToLL(col, row);
                 }
 
-                // Pré-calcula transformação inversa
+                // Pré-calcula transformação inversa (mesma fórmula exata de _buildMdtCanvasLayer)
                 var _utm22sToLL_inner = (function() {
-                    var a=6378137, f=1/298.257223563;
-                    var e2=2*f-f*f, k0=0.9996, lon0=-51*Math.PI/180, N0=10000000;
+                    var a=6378137.0, f=1/298.257223563, b=a*(1-f), e2=(a*a-b*b)/(a*a), k0=0.9996;
+                    var E0=500000, N0=10000000, lon0=-51*Math.PI/180;
                     function utm22sToLatLng(E, N) {
-                        var x=(E-500000)/k0, y=(N-N0)/k0;
-                        var M=y/k0;
-                        var mu=M/(a*(1-e2/4-3*e2*e2/64));
+                        var x=E-E0, y=N-N0, M=y/k0;
+                        var mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
                         var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
-                        var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)
-                            +(21*e1*e1/16)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
-                        var N1=a/Math.sqrt(1-e2*Math.sin(phi1)*Math.sin(phi1));
-                        var T1=Math.tan(phi1)*Math.tan(phi1);
-                        var C1=e2/(1-e2)*Math.cos(phi1)*Math.cos(phi1);
-                        var R1=a*(1-e2)/Math.pow(1-e2*Math.sin(phi1)*Math.sin(phi1),1.5);
-                        var D=x/N1;
-                        var lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2)*D*D*D*D/24
-                            +(61+90*T1+298*C1+45*T1*T1)*D*D*D*D*D*D/720);
-                        var lng=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2+24*T1*T1)*D*D*D*D*D/120)/Math.cos(phi1);
-                        return { lat: lat*180/Math.PI, lng: lng*180/Math.PI };
+                        var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
+                        var sp=Math.sin(phi1),cp=Math.cos(phi1),tp=Math.tan(phi1);
+                        var N1=a/Math.sqrt(1-e2*sp*sp),T1=tp*tp,C1=e2/(1-e2)*cp*cp,R1=a*(1-e2)/Math.pow(1-e2*sp*sp,1.5),D=x/(N1*k0);
+                        var lat=phi1-(N1*tp/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24+(61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
+                        var lon=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120)/cp;
+                        return {lat:lat*180/Math.PI, lng:lon*180/Math.PI};
                     }
                     function llToMerc(lat,lng) {
                         return { x: lng*20037508.342/180, y: Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180 };
@@ -7837,7 +7825,6 @@
                     var ne=utm22sToLatLng(meta.bbox[2],meta.bbox[3]);
                     var mSW=llToMerc(sw.lat,sw.lng);
                     var mNE=llToMerc(ne.lat,ne.lng);
-                    // mercator→ latLng (approx, inversa da projeção web mercator)
                     function mercToLL(mx, my) {
                         var lng = mx / 20037508.342 * 180;
                         var lat = Math.atan(Math.exp(my / 20037508.342 * Math.PI)) * 360 / Math.PI - 90;
