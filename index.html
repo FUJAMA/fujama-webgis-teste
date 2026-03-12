@@ -4762,8 +4762,11 @@
                         var lat2=Math.atan(Math.exp(c.my/20037508.342*Math.PI))*360/Math.PI-90;
                         var utm=latLngToUtm(lat2,lng2);
                         var mdt=ortoToMdtUtm(utm.E,utm.N);
-                        cCols.push((mdt.E-bboxW)/bboxDW*W);
-                        cRows.push((bboxN-mdt.N)/bboxDH*H);
+                        // mdt is in UTM_mdt space; convert to EPSG:3857 to match meta.bbox
+                        var mdtLL=utm22sToLatLng(mdt.E,mdt.N);
+                        var mdtM=llToMerc(mdtLL.lat,mdtLL.lng);
+                        cCols.push((mdtM.x-bboxW)/bboxDW*W);
+                        cRows.push((bboxN-mdtM.y)/bboxDH*H);
                     });
                     var pxW2=Math.max(0,           Math.floor(Math.min.apply(null,cCols))-2);
                     var pxE2=Math.min(W,            Math.ceil( Math.max.apply(null,cCols))+2);
@@ -4789,8 +4792,11 @@
                                     var lat2=Math.atan(Math.exp(my/20037508.342*Math.PI))*360/Math.PI-90;
                                     var utm=latLngToUtm(lat2,lng2);
                                     var mdt=ortoToMdtUtm(utm.E,utm.N);
-                                    var col=Math.round((mdt.E-bboxW)/bboxDW*W);
-                                    var row=Math.round((bboxN-mdt.N)/bboxDH*H);
+                                    // mdt is in UTM_mdt space; convert to EPSG:3857 to match meta.bbox
+                                    var mdtLL=utm22sToLatLng(mdt.E,mdt.N);
+                                    var mdtM=llToMerc(mdtLL.lat,mdtLL.lng);
+                                    var col=Math.round((mdtM.x-bboxW)/bboxDW*W);
+                                    var row=Math.round((bboxN-mdtM.y)/bboxDH*H);
                                     if(col<pxW2||col>=pxE2||row<pxNr2||row>=pxSr2) continue;
                                     var sc=col-pxW2, sr=row-pxNr2;
                                     if(sc<0||sc>=rW2||sr<0||sr>=rH2) continue;
