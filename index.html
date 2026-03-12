@@ -4022,10 +4022,10 @@
             if (!t) {
                 t = document.createElement('div');
                 t.id = 'orto1979-toast';
-                t.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);'
-                    + 'background:rgba(10,20,45,0.97);padding:8px 18px;border-radius:8px;'
-                    + 'border:1px solid rgba(52,152,219,0.4);font-size:0.82em;z-index:9999;'
-                    + 'display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,0.5);pointer-events:none;';
+                t.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);'
+                    + 'background:rgba(10,20,45,0.97);padding:14px 28px;border-radius:10px;'
+                    + 'border:1px solid rgba(52,152,219,0.5);font-size:0.92em;z-index:9999;'
+                    + 'display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.7);pointer-events:none;';
                 document.body.appendChild(t);
             }
             t.style.color = isError ? '#e74c3c' : '#7ab8d9';
@@ -4240,10 +4240,10 @@
             if (!t) {
                 t = document.createElement('div');
                 t.id = 'mdt-cog-toast';
-                t.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);'
-                    + 'background:rgba(10,20,45,0.97);padding:8px 18px;border-radius:8px;'
-                    + 'border:1px solid rgba(52,152,219,0.4);font-size:0.82em;z-index:9999;'
-                    + 'display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,0,0,0.5);pointer-events:none;';
+                t.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);'
+                    + 'background:rgba(10,20,45,0.97);padding:14px 28px;border-radius:10px;'
+                    + 'border:1px solid rgba(52,152,219,0.5);font-size:0.92em;z-index:9999;'
+                    + 'display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.7);pointer-events:none;';
                 document.body.appendChild(t);
             }
             t.style.color = isError ? '#e74c3c' : '#7ab8d9';
@@ -4251,27 +4251,62 @@
             if (isError) setTimeout(function(){ var x=document.getElementById('mdt-cog-toast'); if(x) x.remove(); }, 6000);
         }
 
-        // Paleta hipsométrica para MDT (azul→verde→amarelo→laranja→vermelho→branco)
-        function _mdtColor(v, vmin, vmax) {
+        // ── MDT: hillshade (sombreado de relevo) ─────────────────────────────
+        // Calcula sombreado por diferenças finitas + blend com paleta hipsométrica
+        function _mdtHillshade(band, w, h, cellSize, nodata) {
+            // Parâmetros de iluminação (azimute 315°, altitude 45° — padrão ESRI)
+            var azRad  = (315 - 90) * Math.PI / 180;   // convertido para eixo matemático
+            var altRad = 45 * Math.PI / 180;
+            var sunX   = Math.cos(altRad) * Math.cos(azRad);
+            var sunY   = Math.cos(altRad) * Math.sin(azRad);
+            var sunZ   = Math.sin(altRad);
+
+            var hs = new Float32Array(w * h);
+            for (var r = 0; r < h; r++) {
+                for (var c = 0; c < w; c++) {
+                    var idx = r * w + c;
+                    var v = band[idx];
+                    if (v === nodata || !isFinite(v)) { hs[idx] = -1; continue; }
+
+                    // Vizinhos com clamp às bordas
+                    var cL = Math.max(0, c-1), cR = Math.min(w-1, c+1);
+                    var rU = Math.max(0, r-1), rD = Math.min(h-1, r+1);
+                    var vW = band[r*w+cL], vE = band[r*w+cR];
+                    var vN = band[rU*w+c], vS = band[rD*w+c];
+                    // Substituir nodata pelo valor central
+                    if (!isFinite(vW)||vW===nodata) vW=v;
+                    if (!isFinite(vE)||vE===nodata) vE=v;
+                    if (!isFinite(vN)||vN===nodata) vN=v;
+                    if (!isFinite(vS)||vS===nodata) vS=v;
+
+                    // Gradiente (dz/dx, dz/dy) via diferenças centrais
+                    var dzdx = (vE - vW) / (2 * cellSize);
+                    var dzdy = (vN - vS) / (2 * cellSize);   // N=y maior → sinal positivo
+
+                    // Normal do terreno (não normalizada aqui — normaliza no dot product)
+                    var nLen = Math.sqrt(dzdx*dzdx + dzdy*dzdy + 1);
+                    var dot  = (-dzdx*sunX + -dzdy*sunY + sunZ) / nLen;
+                    hs[idx]  = Math.max(0, dot);   // 0..1
+                }
+            }
+            return hs;
+        }
+
+        function _mdtColorHyps(v, vmin, vmax) {
             var t = Math.max(0, Math.min(1, (v - vmin) / (vmax - vmin)));
             var stops = [
-                [0.00,  48, 120, 200],  // azul escuro (cotas baixas)
-                [0.15,  80, 180, 120],  // verde
-                [0.35, 160, 210,  80],  // verde-amarelo
-                [0.55, 240, 200,  50],  // amarelo
-                [0.70, 220, 120,  30],  // laranja
-                [0.85, 180,  60,  20],  // vermelho
-                [1.00, 255, 255, 255],  // branco (cumes)
+                [0.00,  34,  85, 170],
+                [0.12,  60, 160, 100],
+                [0.30, 140, 200,  70],
+                [0.50, 230, 210,  60],
+                [0.68, 210, 120,  30],
+                [0.85, 160,  60,  20],
+                [1.00, 240, 230, 220],
             ];
             var i = 0;
-            while (i < stops.length - 2 && t > stops[i+1][0]) i++;
-            var a = stops[i], b = stops[i+1];
-            var f = (t - a[0]) / (b[0] - a[0]);
-            return [
-                Math.round(a[1] + f*(b[1]-a[1])),
-                Math.round(a[2] + f*(b[2]-a[2])),
-                Math.round(a[3] + f*(b[3]-a[3]))
-            ];
+            while (i < stops.length-2 && t > stops[i+1][0]) i++;
+            var a=stops[i], b=stops[i+1], f=(t-a[0])/(b[0]-a[0]);
+            return [Math.round(a[1]+f*(b[1]-a[1])), Math.round(a[2]+f*(b[2]-a[2])), Math.round(a[3]+f*(b[3]-a[3]))];
         }
 
         function _buildMdtCanvasLayer(image, meta, pane) {
@@ -4333,16 +4368,48 @@
                     var dstW=Math.max(1,Math.round(((iE-iW)/tw)*sz.x));
                     var dstH=Math.max(1,Math.round(((iN-iS)/th)*sz.y));
 
-                    image.readRasters({window:[pxW,pxNr,pxE,pxSr],width:dstW,height:dstH,interleave:false})
+                    // Lê janela +1px em cada borda para gradientes nas bordas do tile
+                    var pad=1;
+                    var rpxW=Math.max(0,pxW-pad), rpxE=Math.min(meta.width,pxE+pad);
+                    var rpxNr=Math.max(0,pxNr-pad), rpxSr=Math.min(meta.height,pxSr+pad);
+                    var rW2=rpxE-rpxW, rH2=rpxSr-rpxNr;
+
+                    // cellSize em metros no terreno por pixel lido
+                    var cellSize = Math.max((rE-rW)/meta.width, (rN-rS)/meta.height);
+
+                    image.readRasters({window:[rpxW,rpxNr,rpxE,rpxSr],width:rW2,height:rH2,interleave:false})
                         .then(function(rasters){
                             var band=rasters[0];
+                            var hs=_mdtHillshade(band,rW2,rH2,cellSize,nodata);
+
                             var ctx=canvas.getContext('2d');
                             var imgd=ctx.createImageData(dstW,dstH);
-                            for(var i=0;i<dstW*dstH;i++){
-                                var v=band[i];
-                                if(v===nodata||v===-9999||isNaN(v)||!isFinite(v)){imgd.data[i*4+3]=0;continue;}
-                                var rgb=_mdtColor(v,vmin,vmax);
-                                imgd.data[i*4]=rgb[0]; imgd.data[i*4+1]=rgb[1]; imgd.data[i*4+2]=rgb[2]; imgd.data[i*4+3]=255;
+
+                            // Offsets do padding dentro dos dados lidos
+                            var offC=pxW-rpxW, offR=pxNr-rpxNr;
+
+                            for(var dr=0;dr<dstH;dr++){
+                                for(var dc=0;dc<dstW;dc++){
+                                    // Posição no raster lido (mapeia dstW×dstH → rW2×rH2 com offset)
+                                    var sc=offC+Math.round(dc*(pxE-pxW)/dstW);
+                                    var sr=offR+Math.round(dr*(pxSr-pxNr)/dstH);
+                                    sc=Math.min(rW2-1,sc); sr=Math.min(rH2-1,sr);
+                                    var si=sr*rW2+sc;
+                                    var di=(dr*dstW+dc)*4;
+                                    var v=band[si];
+                                    if(v===nodata||!isFinite(v)){imgd.data[di+3]=0;continue;}
+
+                                    var h=hs[si]; // 0..1 hillshade
+                                    var rgb=_mdtColorHyps(v,vmin,vmax);
+
+                                    // Blend: hillshade escurece/clareia a cor hipsométrica
+                                    // h=0.5 → cor original; h<0.5 → escurece; h>0.5 → clareia
+                                    var blend = h * 1.8; // amplia contraste
+                                    imgd.data[di]  =Math.min(255,Math.round(rgb[0]*blend));
+                                    imgd.data[di+1]=Math.min(255,Math.round(rgb[1]*blend));
+                                    imgd.data[di+2]=Math.min(255,Math.round(rgb[2]*blend));
+                                    imgd.data[di+3]=255;
+                                }
                             }
                             var tmp=document.createElement('canvas');
                             tmp.width=dstW; tmp.height=dstH;
