@@ -449,6 +449,99 @@
         .card-visualizacao {
             border-left-color: #f39c12;
         }
+        /* Card Perfil de Elevação */
+        .card-perfil-elevacao { border-left-color: #e67e22; }
+        .perfil-btn-draw {
+            width: 100%; padding: 10px 14px; border-radius: 8px;
+            border: 2px solid rgba(230,126,34,0.5); background: rgba(230,126,34,0.12);
+            color: #e67e22; font-size: 0.9em; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: all 0.25s; font-weight: 600; margin-bottom: 10px;
+        }
+        .perfil-btn-draw:hover { background: rgba(230,126,34,0.25); border-color: #e67e22; }
+        .perfil-btn-draw.ativo {
+            background: rgba(230,126,34,0.3); border-color: #e67e22;
+            color: #fff; box-shadow: 0 0 12px rgba(230,126,34,0.4);
+            animation: perfil-pulse 1.5s infinite;
+        }
+        @keyframes perfil-pulse {
+            0%,100% { box-shadow: 0 0 8px rgba(230,126,34,0.4); }
+            50%      { box-shadow: 0 0 18px rgba(230,126,34,0.7); }
+        }
+        .perfil-hint {
+            font-size: 0.8em; color: #888; text-align: center;
+            padding: 8px; border: 1px dashed #444; border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .perfil-acoes {
+            display: flex; gap: 8px; margin-bottom: 10px;
+        }
+        .perfil-acoes button {
+            flex: 1; padding: 7px 8px; border-radius: 6px; border: none;
+            cursor: pointer; font-size: 0.82em; font-weight: 600;
+        }
+        .perfil-btn-gerar {
+            background: #e67e22; color: #fff;
+        }
+        .perfil-btn-gerar:disabled {
+            background: #555; color: #888; cursor: not-allowed;
+        }
+        .perfil-btn-limpar {
+            background: rgba(231,76,60,0.2); color: #e74c3c;
+            border: 1px solid rgba(231,76,60,0.4) !important;
+        }
+        .perfil-status {
+            font-size: 0.82em; color: #7ab8d9; margin-bottom: 8px;
+            min-height: 18px; text-align: center;
+        }
+        .perfil-chart-wrap {
+            background: rgba(5,12,28,0.7); border-radius: 8px;
+            padding: 10px 6px 6px; margin-bottom: 10px;
+            border: 1px solid rgba(52,152,219,0.2);
+            position: relative;
+        }
+        #perfilElevacaoChart { display: block; width: 100%; }
+        .perfil-stats-row {
+            display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;
+        }
+        .perfil-stat {
+            flex: 1 1 80px; background: rgba(10,20,42,0.7);
+            border: 1px solid rgba(52,152,219,0.25); border-radius: 6px;
+            padding: 7px 8px; text-align: center;
+        }
+        .perfil-stat .pst-label { font-size: 0.7em; color: #888; margin-bottom: 2px; }
+        .perfil-stat .pst-val   { font-size: 1em; font-weight: 700; color: #7ab8d9; }
+        .perfil-tabela-wrap {
+            max-height: 200px; overflow-y: auto;
+            border: 1px solid rgba(52,152,219,0.2); border-radius: 6px;
+        }
+        .perfil-tabela {
+            width: 100%; border-collapse: collapse; font-size: 0.78em;
+        }
+        .perfil-tabela th {
+            background: rgba(20,35,60,0.9); color: #7ab8d9;
+            padding: 6px 6px; text-align: center; position: sticky; top: 0;
+            border-bottom: 1px solid rgba(52,152,219,0.3);
+        }
+        .perfil-tabela td {
+            padding: 5px 6px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: #ccc;
+        }
+        .perfil-tabela tr:hover td { background: rgba(52,152,219,0.1); }
+        .decl-badge {
+            display: inline-block; padding: 2px 7px; border-radius: 10px;
+            font-size: 0.85em; font-weight: 600; white-space: nowrap;
+        }
+        .decl-plano     { background: rgba(39,174,96,0.25);  color: #2ecc71; border: 1px solid #27ae60; }
+        .decl-suave     { background: rgba(241,196,15,0.2);  color: #f1c40f; border: 1px solid #f39c12; }
+        .decl-moderado  { background: rgba(230,126,34,0.2);  color: #e67e22; border: 1px solid #d35400; }
+        .decl-forte     { background: rgba(231,76,60,0.2);   color: #e74c3c; border: 1px solid #c0392b; }
+        .decl-mforte    { background: rgba(155,89,182,0.25); color: #9b59b6; border: 1px solid #8e44ad; }
+        .decl-app       { background: rgba(52,73,94,0.4);    color: #ecf0f1; border: 1px solid #7f8c8d; }
+        .perfil-sem-mdt {
+            background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3);
+            border-radius: 6px; padding: 10px; color: #e74c3c; font-size: 0.85em; text-align: center;
+        }
         .upload-acoes {
             display: flex;
             gap: 10px;
@@ -2061,6 +2154,68 @@
                         <i class="fas fa-file-download"></i> Gerar Relatório
                     </button>
                 </div>
+
+                <!-- ===== Card: Perfil de Elevação ===== -->
+                <div class="dashboard-card card-perfil-elevacao">
+                    <div class="card-header" onclick="toggleCard(this); perfilVerificaMdt()">
+                        <i class="fas fa-mountain"></i> Perfil de Elevação
+                        <i class="fas fa-chevron-right card-chev"></i>
+                    </div>
+                    <div class="card-collapsible">
+
+                        <!-- Aviso se MDT não carregado -->
+                        <div id="perfilSemMdt" class="perfil-sem-mdt" style="display:none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Ative o mapa base <strong>MDT</strong> para usar o perfil de elevação.
+                        </div>
+
+                        <div id="perfilControles">
+                            <button class="perfil-btn-draw" id="perfilBtnDraw" onclick="perfilToggleTrace()">
+                                <i class="fas fa-route"></i> Traçar Caminho
+                            </button>
+                            <div class="perfil-hint" id="perfilHint">
+                                Clique no mapa para adicionar pontos. Duplo clique para finalizar.
+                            </div>
+                            <div class="perfil-acoes">
+                                <button class="perfil-btn-gerar" id="perfilBtnGerar" onclick="perfilGerarGrafico()" disabled>
+                                    <i class="fas fa-chart-area"></i> Gerar Perfil
+                                </button>
+                                <button class="perfil-btn-limpar" onclick="perfilLimpar()">
+                                    <i class="fas fa-trash-alt"></i> Limpar
+                                </button>
+                            </div>
+                            <div class="perfil-status" id="perfilStatus"></div>
+                        </div>
+
+                        <!-- Resultados -->
+                        <div id="perfilResultados" style="display:none;">
+                            <div class="perfil-chart-wrap">
+                                <canvas id="perfilElevacaoChart" height="130"></canvas>
+                            </div>
+                            <div class="perfil-stats-row" id="perfilStatsRow"></div>
+                            <div id="perfilLegenda" style="margin-bottom:8px;"></div>
+                            <div class="perfil-tabela-wrap">
+                                <table class="perfil-tabela">
+                                    <thead>
+                                        <tr>
+                                            <th>Seg.</th>
+                                            <th>Dist. (m)</th>
+                                            <th>Alt. ini (m)</th>
+                                            <th>Alt. fin (m)</th>
+                                            <th>Δ Alt (m)</th>
+                                            <th>Decliv.</th>
+                                            <th>Ângulo</th>
+                                            <th>Classe</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="perfilTabelaBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div><!-- /card-collapsible -->
+                </div><!-- /card-perfil-elevacao -->
+
             </div>
 
 
@@ -2238,6 +2393,8 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
         <!-- GeoTIFF.js: leitura de COG direto no browser (UMD, sem require) -->
         <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+        <!-- Chart.js: gráfico de perfil de elevação -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
         <script>
         // ========== SELETOR DE BASE CARTOGRÁFICA ==========
@@ -6718,6 +6875,446 @@
         map.addLayer(layer_LimiteMunicipal_29);
         map.addLayer(layer_LimitedeBairros_28);
         map.addLayer(layer_LimitedeLotesUrbanos_27);
+
+        // ========== PERFIL DE ELEVAÇÃO ==========
+        var _perfilAtivo       = false;      // modo de traçado ativo
+        var _perfilPontos      = [];         // array de L.LatLng
+        var _perfilPolyline    = null;       // linha no mapa
+        var _perfilMarkers     = [];         // marcadores nos vértices
+        var _perfilChartInst   = null;       // instância Chart.js
+        var _perfilPreviewLine = null;       // linha de preview (mouse hover)
+
+        // Cursor mapa no modo de traçado
+        function _perfilCursorOn()  { map.getContainer().style.cursor = 'crosshair'; }
+        function _perfilCursorOff() { map.getContainer().style.cursor = ''; }
+
+        // Verifica se o MDT está carregado
+        function _perfilMdtDisponivel() { return _mdtReady && _mdtImageObj && _mdtMeta; }
+
+        // Classifica ângulo de declividade
+        function _perfilClassifica(ang) {
+            if (ang < 3)  return { label: 'Plano',        cls: 'decl-plano',    range: '0–3°' };
+            if (ang < 8)  return { label: 'Suave',        cls: 'decl-suave',    range: '3–8°' };
+            if (ang < 15) return { label: 'Moderado',     cls: 'decl-moderado', range: '8–15°' };
+            if (ang < 25) return { label: 'Forte',        cls: 'decl-forte',    range: '15–25°' };
+            if (ang < 45) return { label: 'Muito forte',  cls: 'decl-mforte',   range: '25–45°' };
+            return              { label: 'Possível APP',  cls: 'decl-app',      range: '>45°' };
+        }
+
+        // Distância 2D entre dois L.LatLng em metros (Haversine simplificado)
+        function _perfilDistM(a, b) { return map.distance(a, b); }
+
+        // Converte L.LatLng → pixel do raster MDT (col, row)
+        function _perfilLatLngToPixel(latlng) {
+            var meta = _mdtMeta;
+            // bbox está em UTM 22S → converter para mercator internamente
+            // Usamos o mesmo pipeline que _buildMdtCanvasLayer
+            function utm22sToLatLng(E, N) {
+                var a=6378137, f=1/298.257223563, b=a*(1-f);
+                var e2=2*f-f*f, e=Math.sqrt(e2);
+                var k0=0.9996, lon0=-51*Math.PI/180;
+                var x=(E-500000)/k0, y=(N-10000000)/k0;
+                var M=y/k0; // meridional arc approx
+                var mu=M/(a*(1-e2/4-3*e2*e2/64));
+                var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+                var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)
+                    +(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)
+                    +(151*e1*e1*e1/96)*Math.sin(6*mu);
+                var N1=a/Math.sqrt(1-e2*Math.sin(phi1)*Math.sin(phi1));
+                var T1=Math.tan(phi1)*Math.tan(phi1);
+                var C1=e2/(1-e2)*Math.cos(phi1)*Math.cos(phi1);
+                var R1=a*(1-e2)/Math.pow(1-e2*Math.sin(phi1)*Math.sin(phi1),1.5);
+                var D=x/N1;
+                var lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2)*D*D*D*D/24
+                    +(61+90*T1+298*C1+45*T1*T1-252*e2-3*C1*C1)*D*D*D*D*D*D/720);
+                var lng=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2+24*T1*T1)*D*D*D*D*D/120)/Math.cos(phi1);
+                return { lat: lat*180/Math.PI, lng: lng*180/Math.PI };
+            }
+            function llToMerc(lat,lng){
+                return { x: lng*20037508.342/180, y: Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180 };
+            }
+            var sw = utm22sToLatLng(meta.bbox[0], meta.bbox[1]);
+            var ne = utm22sToLatLng(meta.bbox[2], meta.bbox[3]);
+            var mSW = llToMerc(sw.lat, sw.lng);
+            var mNE = llToMerc(ne.lat, ne.lng);
+            var pt  = llToMerc(latlng.lat, latlng.lng);
+            var col = Math.round((pt.x - mSW.x) / (mNE.x - mSW.x) * meta.width);
+            var row = Math.round((mNE.y - pt.y) / (mNE.y - mSW.y) * meta.height);
+            return { col: col, row: row };
+        }
+
+        // Amostra elevação de um ponto via readRasters (1×1 pixel)
+        function _perfilSampleElev(latlng) {
+            var px = _perfilLatLngToPixel(latlng);
+            var meta = _mdtMeta;
+            // Garante dentro dos bounds
+            var c = Math.max(0, Math.min(meta.width  - 1, px.col));
+            var r = Math.max(0, Math.min(meta.height - 1, px.row));
+            return _mdtImageObj.readRasters({
+                window: [c, r, c + 1, r + 1],
+                width: 1, height: 1, interleave: false
+            }).then(function(bands) {
+                var v = bands[0][0];
+                if (v === meta.nodata || v === -9999 || !isFinite(v)) return null;
+                return v;
+            });
+        }
+
+        // Interpolação de pontos ao longo de um segmento (n amostras)
+        function _perfilInterpolaSegmento(a, b, n) {
+            var pts = [];
+            for (var i = 0; i <= n; i++) {
+                var t = i / n;
+                pts.push(L.latLng(
+                    a.lat + (b.lat - a.lat) * t,
+                    a.lng + (b.lng - a.lng) * t
+                ));
+            }
+            return pts;
+        }
+
+        // Ativa / desativa modo de traçado
+        function perfilToggleTrace() {
+            // Checa MDT
+            if (!_perfilMdtDisponivel()) {
+                document.getElementById('perfilSemMdt').style.display = 'block';
+                document.getElementById('perfilControles').style.display = 'none';
+                return;
+            }
+            document.getElementById('perfilSemMdt').style.display = 'none';
+            document.getElementById('perfilControles').style.display = 'block';
+
+            _perfilAtivo = !_perfilAtivo;
+            var btn = document.getElementById('perfilBtnDraw');
+            if (_perfilAtivo) {
+                btn.classList.add('ativo');
+                btn.innerHTML = '<i class="fas fa-stop-circle"></i> Parar Traçado';
+                _perfilCursorOn();
+                document.getElementById('perfilHint').style.display = 'block';
+            } else {
+                btn.classList.remove('ativo');
+                btn.innerHTML = '<i class="fas fa-route"></i> Traçar Caminho';
+                _perfilCursorOff();
+                _perfilRemovePreview();
+            }
+        }
+
+        function _perfilRemovePreview() {
+            if (_perfilPreviewLine) { map.removeLayer(_perfilPreviewLine); _perfilPreviewLine = null; }
+        }
+
+        // Clique no mapa durante traçado
+        function _perfilMapClick(e) {
+            if (!_perfilAtivo) return;
+            _perfilPontos.push(e.latlng);
+            // Marcador pequeno no vértice
+            var mk = L.circleMarker(e.latlng, {
+                radius: 5, color: '#e67e22', fillColor: '#e67e22',
+                fillOpacity: 1, weight: 2, pane: 'overlayPane'
+            }).addTo(map);
+            _perfilMarkers.push(mk);
+            // Atualiza polyline
+            if (_perfilPolyline) map.removeLayer(_perfilPolyline);
+            if (_perfilPontos.length > 1) {
+                _perfilPolyline = L.polyline(_perfilPontos, {
+                    color: '#e67e22', weight: 3, dashArray: '8,4',
+                    pane: 'overlayPane'
+                }).addTo(map);
+            }
+            var n = _perfilPontos.length;
+            document.getElementById('perfilStatus').textContent =
+                n + ' ponto' + (n > 1 ? 's' : '') + ' adicionado' + (n > 1 ? 's' : '') +
+                (n >= 2 ? ' — clique em "Gerar Perfil" ou continue traçando.' : '.');
+            document.getElementById('perfilBtnGerar').disabled = (n < 2);
+        }
+
+        // Duplo clique: finaliza traçado e gera perfil automaticamente
+        function _perfilMapDblClick(e) {
+            if (!_perfilAtivo) return;
+            // Remove o ponto duplicado do dblclick (último = mesmo do click anterior)
+            // O leaflet dispara click antes do dblclick, então o último ponto foi adicionado
+            // Vamos apenas finalizar o trace e gerar
+            if (_perfilPontos.length >= 2) {
+                perfilToggleTrace(); // desativa traçado
+                perfilGerarGrafico();
+            }
+        }
+
+        // Mouse move: mostra linha de preview
+        function _perfilMapMouseMove(e) {
+            if (!_perfilAtivo || _perfilPontos.length === 0) return;
+            _perfilRemovePreview();
+            var ultimo = _perfilPontos[_perfilPontos.length - 1];
+            _perfilPreviewLine = L.polyline([ultimo, e.latlng], {
+                color: '#e67e22', weight: 2, opacity: 0.5, dashArray: '4,4',
+                pane: 'overlayPane', interactive: false
+            }).addTo(map);
+        }
+
+        // Limpa tudo
+        function perfilLimpar() {
+            if (_perfilAtivo) perfilToggleTrace();
+            _perfilPontos = [];
+            if (_perfilPolyline)  { map.removeLayer(_perfilPolyline);  _perfilPolyline = null; }
+            _perfilMarkers.forEach(function(m){ map.removeLayer(m); });
+            _perfilMarkers = [];
+            _perfilRemovePreview();
+            if (_perfilChartInst) { _perfilChartInst.destroy(); _perfilChartInst = null; }
+            document.getElementById('perfilBtnGerar').disabled = true;
+            document.getElementById('perfilStatus').textContent = '';
+            document.getElementById('perfilResultados').style.display = 'none';
+            document.getElementById('perfilTabelaBody').innerHTML = '';
+            document.getElementById('perfilStatsRow').innerHTML = '';
+        }
+
+        // Gera o perfil: amostra elevações e constrói gráfico + tabela
+        function perfilGerarGrafico() {
+            if (_perfilPontos.length < 2) return;
+            if (!_perfilMdtDisponivel()) return;
+
+            var status = document.getElementById('perfilStatus');
+            status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Amostrando elevações...';
+            document.getElementById('perfilBtnGerar').disabled = true;
+
+            // Determina amostras por segmento (aprox 1 amostra a cada 20m)
+            var amostrasTotal = [];
+            var promises = [];
+            var distAcumulada = 0;
+
+            // Coleta todos os pontos interpolados
+            var pontosDist = []; // [{latlng, distAc}]
+            for (var i = 0; i < _perfilPontos.length - 1; i++) {
+                var a = _perfilPontos[i];
+                var b = _perfilPontos[i + 1];
+                var segDist = _perfilDistM(a, b);
+                var nSamples = Math.max(2, Math.min(50, Math.ceil(segDist / 15)));
+                var pts = _perfilInterpolaSegmento(a, b, nSamples);
+                for (var j = (i === 0 ? 0 : 1); j < pts.length; j++) {
+                    var dAc = (j === 0 && i === 0) ? 0 :
+                        distAcumulada + _perfilDistM(a, pts[j]);
+                    pontosDist.push({ latlng: pts[j], distAc: dAc, segIdx: i });
+                }
+                distAcumulada += segDist;
+            }
+
+            // Amostra elevações em paralelo (lotes de 10 para não sobrecarregar)
+            function processLote(startIdx, results) {
+                var lote = [];
+                for (var k = startIdx; k < Math.min(startIdx + 10, pontosDist.length); k++) {
+                    lote.push(_perfilSampleElev(pontosDist[k].latlng));
+                }
+                return Promise.all(lote).then(function(vals) {
+                    for (var k = 0; k < vals.length; k++) {
+                        results.push({ distAc: pontosDist[startIdx + k].distAc, elev: vals[k], segIdx: pontosDist[startIdx + k].segIdx });
+                    }
+                    var next = startIdx + 10;
+                    if (next < pontosDist.length) {
+                        return processLote(next, results);
+                    }
+                    return results;
+                });
+            }
+
+            processLote(0, []).then(function(dados) {
+                // Filtra nulls (nodata) por interpolação linear
+                var elevs = dados.map(function(d) { return d.elev; });
+                // Preenche nulls com vizinhos
+                for (var i = 0; i < elevs.length; i++) {
+                    if (elevs[i] === null) {
+                        var prev = null, next = null;
+                        for (var p = i-1; p >= 0; p--) { if (elevs[p] !== null) { prev = elevs[p]; break; } }
+                        for (var n = i+1; n < elevs.length; n++) { if (elevs[n] !== null) { next = elevs[n]; break; } }
+                        elevs[i] = (prev !== null && next !== null) ? (prev + next) / 2 : (prev !== null ? prev : (next !== null ? next : 0));
+                    }
+                }
+
+                var dists  = dados.map(function(d) { return d.distAc; });
+                var labels = dists.map(function(d) { return d >= 1000 ? (d/1000).toFixed(2) + 'km' : d.toFixed(0) + 'm'; });
+
+                // Cores do gráfico por declividade (por ponto)
+                var pointColors = elevs.map(function(e, i) {
+                    if (i === 0) return 'rgba(230,126,34,0.8)';
+                    var dz = elevs[i] - elevs[i-1];
+                    var dx = dists[i] - dists[i-1];
+                    var ang = dx > 0 ? Math.abs(Math.atan(dz/dx) * 180 / Math.PI) : 0;
+                    var cls = _perfilClassifica(ang).cls;
+                    var colorMap = { 'decl-plano': 'rgba(39,174,96,0.7)', 'decl-suave': 'rgba(241,196,15,0.7)',
+                        'decl-moderado': 'rgba(230,126,34,0.7)', 'decl-forte': 'rgba(231,76,60,0.7)',
+                        'decl-mforte': 'rgba(155,89,182,0.7)', 'decl-app': 'rgba(189,195,199,0.7)' };
+                    return colorMap[cls] || 'rgba(52,152,219,0.7)';
+                });
+
+                // Estatísticas gerais
+                var vmin = Math.min.apply(null, elevs);
+                var vmax = Math.max.apply(null, elevs);
+                var distTotal = dists[dists.length - 1];
+                var ganhoPos = 0, ganhoNeg = 0;
+                for (var i = 1; i < elevs.length; i++) {
+                    var delta = elevs[i] - elevs[i-1];
+                    if (delta > 0) ganhoPos += delta; else ganhoNeg += delta;
+                }
+
+                // Dados de segmento (entre vértices originais)
+                var segDados = [];
+                for (var s = 0; s < _perfilPontos.length - 1; s++) {
+                    var ptsSeg = dados.filter(function(d) { return d.segIdx === s; });
+                    if (ptsSeg.length < 2) continue;
+                    var elevIni = elevs[dados.indexOf(ptsSeg[0])];
+                    var elevFim = elevs[dados.indexOf(ptsSeg[ptsSeg.length-1])];
+                    var dSeg = _perfilDistM(_perfilPontos[s], _perfilPontos[s+1]);
+                    var dz = elevFim - elevIni;
+                    var percDecl = dSeg > 0 ? (Math.abs(dz) / dSeg * 100) : 0;
+                    var angGrau  = dSeg > 0 ? Math.abs(Math.atan(dz / dSeg) * 180 / Math.PI) : 0;
+                    var cls = _perfilClassifica(angGrau);
+                    segDados.push({
+                        seg: s + 1,
+                        dist: dSeg,
+                        elevIni: elevIni,
+                        elevFim: elevFim,
+                        dz: dz,
+                        perc: percDecl,
+                        ang: angGrau,
+                        cls: cls
+                    });
+                }
+
+                // ── Renderiza gráfico ──────────────────────────────
+                document.getElementById('perfilResultados').style.display = 'block';
+                if (_perfilChartInst) { _perfilChartInst.destroy(); _perfilChartInst = null; }
+
+                var ctx = document.getElementById('perfilElevacaoChart').getContext('2d');
+                var grad = ctx.createLinearGradient(0, 0, 0, 130);
+                grad.addColorStop(0,   'rgba(230,126,34,0.55)');
+                grad.addColorStop(0.6, 'rgba(41,128,185,0.25)');
+                grad.addColorStop(1,   'rgba(10,20,42,0.0)');
+
+                _perfilChartInst = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Elevação (m)',
+                            data: elevs,
+                            borderColor: 'rgba(230,126,34,0.9)',
+                            backgroundColor: grad,
+                            borderWidth: 2,
+                            pointRadius: elevs.length > 80 ? 0 : 2,
+                            pointBackgroundColor: pointColors,
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        animation: { duration: 600 },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(10,20,45,0.95)',
+                                titleColor: '#7ab8d9',
+                                bodyColor: '#fff',
+                                borderColor: 'rgba(52,152,219,0.4)',
+                                borderWidth: 1,
+                                callbacks: {
+                                    title: function(items) { return 'Dist: ' + labels[items[0].dataIndex]; },
+                                    label: function(item) { return 'Elevação: ' + item.raw.toFixed(1) + ' m'; }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: { color: '#888', maxTicksLimit: 8, font: { size: 10 } },
+                                grid: { color: 'rgba(255,255,255,0.05)' }
+                            },
+                            y: {
+                                ticks: { color: '#888', font: { size: 10 },
+                                    callback: function(v) { return v.toFixed(0) + 'm'; }
+                                },
+                                grid: { color: 'rgba(255,255,255,0.08)' }
+                            }
+                        }
+                    }
+                });
+
+                // ── Stats ──────────────────────────────────────────
+                var statsHtml = [
+                    { label: 'Comprimento', val: distTotal >= 1000 ? (distTotal/1000).toFixed(2)+'km' : distTotal.toFixed(0)+'m' },
+                    { label: 'Alt. mín',    val: vmin.toFixed(1)+'m' },
+                    { label: 'Alt. máx',    val: vmax.toFixed(1)+'m' },
+                    { label: '▲ Subida',    val: '+'+ganhoPos.toFixed(0)+'m' },
+                    { label: '▼ Descida',   val: ganhoNeg.toFixed(0)+'m' }
+                ].map(function(s) {
+                    return '<div class="perfil-stat"><div class="pst-label">'+s.label+'</div><div class="pst-val">'+s.val+'</div></div>';
+                }).join('');
+                document.getElementById('perfilStatsRow').innerHTML = statsHtml;
+
+                // ── Legenda de classes ─────────────────────────────
+                var classes = [
+                    {cls:'decl-plano',   lbl:'0–3° Plano'},
+                    {cls:'decl-suave',   lbl:'3–8° Suave'},
+                    {cls:'decl-moderado',lbl:'8–15° Moderado'},
+                    {cls:'decl-forte',   lbl:'15–25° Forte'},
+                    {cls:'decl-mforte',  lbl:'25–45° Muito forte'},
+                    {cls:'decl-app',     lbl:'>45° Poss. APP'}
+                ];
+                // Mostra apenas classes presentes nos segmentos
+                var clsPresentes = segDados.map(function(s){ return s.cls.cls; });
+                var legHtml = '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;">'
+                    + classes.filter(function(c){ return clsPresentes.indexOf(c.cls) >= 0; })
+                        .map(function(c){ return '<span class="decl-badge '+c.cls+'">'+c.lbl+'</span>'; }).join('')
+                    + '</div>';
+                document.getElementById('perfilLegenda').innerHTML = legHtml;
+
+                // ── Tabela ─────────────────────────────────────────
+                var tbodyHtml = segDados.map(function(s) {
+                    var dzStr = (s.dz >= 0 ? '+' : '') + s.dz.toFixed(1);
+                    return '<tr>'
+                        + '<td>' + s.seg + '</td>'
+                        + '<td>' + s.dist.toFixed(0) + '</td>'
+                        + '<td>' + s.elevIni.toFixed(1) + '</td>'
+                        + '<td>' + s.elevFim.toFixed(1) + '</td>'
+                        + '<td>' + dzStr + '</td>'
+                        + '<td>' + s.perc.toFixed(1) + '%</td>'
+                        + '<td>' + s.ang.toFixed(1) + '°</td>'
+                        + '<td><span class="decl-badge ' + s.cls.cls + '">' + s.cls.label + '</span></td>'
+                        + '</tr>';
+                }).join('');
+                document.getElementById('perfilTabelaBody').innerHTML = tbodyHtml;
+
+                status.textContent = 'Perfil gerado com ' + elevs.length + ' amostras.';
+                document.getElementById('perfilBtnGerar').disabled = false;
+
+            }).catch(function(err) {
+                status.textContent = 'Erro ao amostrar elevações: ' + err.message;
+                document.getElementById('perfilBtnGerar').disabled = false;
+                console.error('[Perfil Elevação]', err);
+            });
+        }
+
+        // Registra eventos do mapa para o perfil
+        map.on('click', function(e) {
+            if (_perfilAtivo) _perfilMapClick(e);
+        });
+        map.on('dblclick', function(e) {
+            if (_perfilAtivo) { L.DomEvent.stop(e); _perfilMapDblClick(e); }
+        });
+        map.on('mousemove', function(e) {
+            if (_perfilAtivo) _perfilMapMouseMove(e);
+        });
+
+        // Verifica disponibilidade MDT quando o card é aberto
+        function perfilVerificaMdt() {
+            var semMdt = document.getElementById('perfilSemMdt');
+            var controles = document.getElementById('perfilControles');
+            if (!semMdt || !controles) return;
+            if (_perfilMdtDisponivel()) {
+                semMdt.style.display = 'none';
+                controles.style.display = 'block';
+            } else {
+                semMdt.style.display = 'block';
+                controles.style.display = 'none';
+            }
+        }
 
         // ========== EVENTOS DO MAPA ==========
         map.on('mousemove', function(e) {
