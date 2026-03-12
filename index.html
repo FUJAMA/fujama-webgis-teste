@@ -542,6 +542,15 @@
             background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3);
             border-radius: 6px; padding: 10px; color: #e74c3c; font-size: 0.85em; text-align: center;
         }
+        .perfil-tooltip {
+            background: rgba(10,20,42,0.97) !important;
+            border: 1px solid rgba(52,152,219,0.4) !important;
+            border-radius: 6px !important;
+            color: #fff !important;
+            padding: 6px 10px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+        }
+        .perfil-tooltip::before { display: none !important; }
         .upload-acoes {
             display: flex;
             gap: 10px;
@@ -6882,6 +6891,7 @@
         var _perfilPontos      = [];         // array de L.LatLng
         var _perfilPolyline    = null;       // linha no mapa
         var _perfilMarkers     = [];         // marcadores nos vértices
+        var _perfilSampleLayer = null;       // camada com pontos amostrais
         var _perfilChartInst   = null;       // instância Chart.js
         var _perfilPreviewLine = null;       // linha de preview (mouse hover)
 
@@ -7059,6 +7069,7 @@
             if (_perfilPolyline)  { map.removeLayer(_perfilPolyline);  _perfilPolyline = null; }
             _perfilMarkers.forEach(function(m){ map.removeLayer(m); });
             _perfilMarkers = [];
+            if (_perfilSampleLayer) { map.removeLayer(_perfilSampleLayer); _perfilSampleLayer = null; }
             _perfilRemovePreview();
             if (_perfilChartInst) { _perfilChartInst.destroy(); _perfilChartInst = null; }
             document.getElementById('perfilBtnGerar').disabled = true;
@@ -7298,6 +7309,8 @@
                             yElev: {
                                 position: 'left',
                                 ticks: { color: '#e67e22', font: { size: 10 },
+                                    count: 5,
+                                    stepSize: Math.ceil((vmax - vmin) / 4 / 5) * 5 || 1,
                                     callback: function(v) { return v.toFixed(1) + 'm'; }
                                 },
                                 grid: { color: 'rgba(255,255,255,0.07)' }
@@ -7305,6 +7318,7 @@
                             ySlope: {
                                 position: 'right',
                                 ticks: { color: '#3498db', font: { size: 10 },
+                                    count: 5,
                                     callback: function(v) { return v.toFixed(1) + '%'; }
                                 },
                                 grid: { drawOnChartArea: false }
@@ -7312,6 +7326,45 @@
                         }
                     }
                 });
+
+                // ── Pontos amostrais no mapa ───────────────────────
+                var colorMapSample = {
+                    'decl-plano':    '#2ecc71',
+                    'decl-suave':    '#f1c40f',
+                    'decl-moderado': '#e67e22',
+                    'decl-forte':    '#e74c3c',
+                    'decl-mforte':   '#9b59b6',
+                    'decl-app':      '#bdc3c7'
+                };
+                if (_perfilSampleLayer) { map.removeLayer(_perfilSampleLayer); }
+                _perfilSampleLayer = L.layerGroup();
+                pontosDist.forEach(function(pd, i) {
+                    var dz = i > 0 ? Math.abs(elevs[i] - elevs[i-1]) : 0;
+                    var dx = i > 0 ? (dists[i] - dists[i-1]) : 1;
+                    var ang = i > 0 && dx > 0 ? Math.abs(Math.atan(dz/dx) * 180/Math.PI) : 0;
+                    var cls = _perfilClassifica(ang).cls;
+                    var cor = colorMapSample[cls] || '#7ab8d9';
+                    var elv = elevs[i] !== undefined ? elevs[i].toFixed(1) : '—';
+                    var dist = pd.distAc >= 1000 ? (pd.distAc/1000).toFixed(2)+'km' : pd.distAc.toFixed(0)+'m';
+                    L.circleMarker(pd.latlng, {
+                        radius: 3,
+                        color: cor,
+                        fillColor: cor,
+                        fillOpacity: 0.85,
+                        weight: 1,
+                        pane: 'overlayPane',
+                        interactive: true
+                    }).bindTooltip(
+                        '<div style="font-size:0.82em;line-height:1.5;">'
+                        + '<b style="color:' + cor + '">Amostra #' + (i+1) + '</b><br>'
+                        + 'Elevação: <b>' + elv + ' m</b><br>'
+                        + 'Dist. acum.: ' + dist + '<br>'
+                        + (i > 0 ? 'Declividade: ' + (dz/dx*100).toFixed(1) + '% (' + ang.toFixed(1) + '°)' : '')
+                        + '</div>',
+                        { sticky: true, opacity: 0.97, className: 'perfil-tooltip' }
+                    ).addTo(_perfilSampleLayer);
+                });
+                _perfilSampleLayer.addTo(map);
 
                 // ── Stats ──────────────────────────────────────────
                 var statsHtml = [
