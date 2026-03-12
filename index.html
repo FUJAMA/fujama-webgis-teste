@@ -4762,11 +4762,8 @@
                         var lat2=Math.atan(Math.exp(c.my/20037508.342*Math.PI))*360/Math.PI-90;
                         var utm=latLngToUtm(lat2,lng2);
                         var mdt=ortoToMdtUtm(utm.E,utm.N);
-                        // mdt is in UTM_mdt space; convert to EPSG:3857 to match meta.bbox
-                        var mdtLL=utm22sToLatLng(mdt.E,mdt.N);
-                        var mdtM=llToMerc(mdtLL.lat,mdtLL.lng);
-                        cCols.push((mdtM.x-bboxW)/bboxDW*W);
-                        cRows.push((bboxN-mdtM.y)/bboxDH*H);
+                        cCols.push((mdt.E-bboxW)/bboxDW*W);
+                        cRows.push((bboxN-mdt.N)/bboxDH*H);
                     });
                     var pxW2=Math.max(0,           Math.floor(Math.min.apply(null,cCols))-2);
                     var pxE2=Math.min(W,            Math.ceil( Math.max.apply(null,cCols))+2);
@@ -4792,11 +4789,8 @@
                                     var lat2=Math.atan(Math.exp(my/20037508.342*Math.PI))*360/Math.PI-90;
                                     var utm=latLngToUtm(lat2,lng2);
                                     var mdt=ortoToMdtUtm(utm.E,utm.N);
-                                    // mdt is in UTM_mdt space; convert to EPSG:3857 to match meta.bbox
-                                    var mdtLL=utm22sToLatLng(mdt.E,mdt.N);
-                                    var mdtM=llToMerc(mdtLL.lat,mdtLL.lng);
-                                    var col=Math.round((mdtM.x-bboxW)/bboxDW*W);
-                                    var row=Math.round((bboxN-mdtM.y)/bboxDH*H);
+                                    var col=Math.round((mdt.E-bboxW)/bboxDW*W);
+                                    var row=Math.round((bboxN-mdt.N)/bboxDH*H);
                                     if(col<pxW2||col>=pxE2||row<pxNr2||row>=pxSr2) continue;
                                     var sc=col-pxW2, sr=row-pxNr2;
                                     if(sc<0||sc>=rW2||sr<0||sr>=rH2) continue;
@@ -7148,83 +7142,27 @@
         function _perfilDistM(a, b) { return map.distance(a, b); }
 
         // Converte L.LatLng → pixel do raster MDT (col, row)
+        // Pipeline: LatLng → UTM_orto → UTM_mdt (afim inversa) → pixel
+        // Simétrico ao createTile em _buildMdtCanvasLayer
         function _perfilLatLngToPixel(latlng) {
             var meta = _mdtMeta;
-            // Usa EXATAMENTE o mesmo pipeline de _buildMdtCanvasLayer
-            function utm22sToLatLng(E, N) {
-                var a=6378137.0, f=1/298.257223563, b=a*(1-f), e2=(a*a-b*b)/(a*a), k0=0.9996;
-                var E0=500000, N0=10000000, lon0=-51*Math.PI/180;
-                var x=E-E0, y=N-N0, M=y/k0;
-                var mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
-                var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
-                var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
-                var sp=Math.sin(phi1),cp=Math.cos(phi1),tp=Math.tan(phi1);
-                var N1=a/Math.sqrt(1-e2*sp*sp),T1=tp*tp,C1=e2/(1-e2)*cp*cp,R1=a*(1-e2)/Math.pow(1-e2*sp*sp,1.5),D=x/(N1*k0);
-                var lat=phi1-(N1*tp/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24+(61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
-                var lon=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120)/cp;
-                return {lat:lat*180/Math.PI, lng:lon*180/Math.PI};
-            }
-            // LatLng → UTM 22S (projeção direta)
-            function latLngToUtm22s(lat, lng) {
-                var a=6378137.0, f=1/298.257223563, e2=(2*f-f*f), k0=0.9996;
-                var lon0=-51*Math.PI/180;
-                var lat_r=lat*Math.PI/180, lon_r=lng*Math.PI/180;
-                var N=a/Math.sqrt(1-e2*Math.sin(lat_r)*Math.sin(lat_r));
-                var T=Math.tan(lat_r)*Math.tan(lat_r);
-                var C=e2/(1-e2)*Math.cos(lat_r)*Math.cos(lat_r);
-                var A2=Math.cos(lat_r)*(lon_r-lon0);
-                var M=a*((1-e2/4-3*e2*e2/64-5*e2*e2*e2/256)*lat_r
-                    -(3*e2/8+3*e2*e2/32+45*e2*e2*e2/1024)*Math.sin(2*lat_r)
-                    +(15*e2*e2/256+45*e2*e2*e2/1024)*Math.sin(4*lat_r)
-                    -(35*e2*e2*e2/3072)*Math.sin(6*lat_r));
-                var E=k0*N*(A2+(1-T+C)*A2*A2*A2/6+(5-18*T+T*T+72*C-58*e2/(1-e2))*A2*A2*A2*A2*A2/120)+500000;
-                var Nc=k0*(M+N*Math.tan(lat_r)*(A2*A2/2+(5-T+9*C+4*C*C)*A2*A2*A2*A2/24+(61-58*T+T*T+600*C-330*e2/(1-e2))*A2*A2*A2*A2*A2*A2/720))+10000000;
-                return {E:E, N:Nc};
-            }
-            function llToMerc(lat,lng){
-                return {
-                    x: lng*20037508.342/180,
-                    y: Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180
-                };
-            }
-
-            // 1. Converte LatLng → UTM 22S (sistema do ortomosaico / mundo real)
-            var utm = latLngToUtm22s(latlng.lat, latlng.lng);
-
-            // 2. Aplica correção afim INVERSA (Orto→MDT) para compensar o
-            //    deslocamento sistemático do raster MDT em relação ao ortomosaico.
-            //    Parâmetros estimados por GCPs coletados em campo:
-            //    E_mdt = 0.97719190*E + 0.01644023*N - 100738.3087
-            //    N_mdt = -0.01459376*E + 1.01022017*N -  62335.8723
-            var E_mdt = 0.97719190*utm.E + 0.01644023*utm.N - 100738.3087;
-            var N_mdt = -0.01459376*utm.E + 1.01022017*utm.N - 62335.8723;
-
-            // 3. Converte o UTM corrigido para Mercator usando o mesmo pipeline
-            //    que _buildMdtCanvasLayer usa para posicionar o raster no mapa
-            var sw = utm22sToLatLng(meta.bbox[0], meta.bbox[1]);
-            var ne = utm22sToLatLng(meta.bbox[2], meta.bbox[3]);
-            var mSW = llToMerc(sw.lat, sw.lng);
-            var mNE = llToMerc(ne.lat, ne.lng);
-
-            // Converte UTM_mdt → LatLng → Mercator
-            function utmToLL(E, N) {
-                var a=6378137.0, f=1/298.257223563, b=a*(1-f), e2=(a*a-b*b)/(a*a), k0=0.9996;
-                var E0=500000, N0=10000000, lon0=-51*Math.PI/180;
-                var x=E-E0, y=N-N0, M=y/k0;
-                var mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
-                var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
-                var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
-                var sp=Math.sin(phi1),cp=Math.cos(phi1),tp=Math.tan(phi1);
-                var N1=a/Math.sqrt(1-e2*sp*sp),T1=tp*tp,C1=e2/(1-e2)*cp*cp,R1=a*(1-e2)/Math.pow(1-e2*sp*sp,1.5),D=x/(N1*k0);
-                var lat=phi1-(N1*tp/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24+(61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
-                var lon=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120)/cp;
-                return {lat:lat*180/Math.PI, lng:lon*180/Math.PI};
-            }
-            var ll_mdt = utmToLL(E_mdt, N_mdt);
-            var pt = llToMerc(ll_mdt.lat, ll_mdt.lng);
-
-            var col = (pt.x - mSW.x) / (mNE.x - mSW.x) * meta.width;
-            var row = (mNE.y - pt.y) / (mNE.y - mSW.y) * meta.height;
+            var a=6378137.0, f=1/298.257223563, e2=(2*f-f*f), k0=0.9996, lon0=-51*Math.PI/180;
+            var lat_r=latlng.lat*Math.PI/180, lon_r=latlng.lng*Math.PI/180;
+            var N2=a/Math.sqrt(1-e2*Math.sin(lat_r)*Math.sin(lat_r));
+            var T2=Math.tan(lat_r)*Math.tan(lat_r), C2=e2/(1-e2)*Math.cos(lat_r)*Math.cos(lat_r);
+            var A2=Math.cos(lat_r)*(lon_r-lon0);
+            var M=a*((1-e2/4-3*e2*e2/64-5*e2*e2*e2/256)*lat_r
+                -(3*e2/8+3*e2*e2/32+45*e2*e2*e2/1024)*Math.sin(2*lat_r)
+                +(15*e2*e2/256+45*e2*e2*e2/1024)*Math.sin(4*lat_r)
+                -(35*e2*e2*e2/3072)*Math.sin(6*lat_r));
+            var E_orto=k0*N2*(A2+(1-T2+C2)*A2*A2*A2/6+(5-18*T2+T2*T2+72*C2-58*e2/(1-e2))*A2*A2*A2*A2*A2/120)+500000;
+            var N_orto=k0*(M+N2*Math.tan(lat_r)*(A2*A2/2+(5-T2+9*C2+4*C2*C2)*A2*A2*A2*A2/24+(61-58*T2+T2*T2+600*C2-330*e2/(1-e2))*A2*A2*A2*A2*A2*A2/720))+10000000;
+            // Afim inversa Orto→MDT
+            var E_mdt = 0.97719190*E_orto + 0.01644023*N_orto - 100738.3087;
+            var N_mdt = -0.01459376*E_orto + 1.01022017*N_orto - 62335.8723;
+            // UTM_mdt → col/row usando bbox original do raster
+            var col = (E_mdt - meta.bbox[0]) / (meta.bbox[2]-meta.bbox[0]) * meta.width;
+            var row = (meta.bbox[3] - N_mdt) / (meta.bbox[3]-meta.bbox[1]) * meta.height;
             return { col: Math.round(col), row: Math.round(row) };
         }
 
