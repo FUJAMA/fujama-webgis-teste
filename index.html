@@ -2578,8 +2578,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
         <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-        <!-- GeoTIFF.js: leitura de COG direto no browser (UMD, sem require) -->
-        <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+        <!-- GeoTIFF.js removido — rasters agora servidos via Google Earth Engine -->
         <!-- Chart.js: gráfico de perfil de elevação -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
@@ -4344,21 +4343,9 @@
             maxNativeZoom: 18
         });
 
-        // ── Ortomosaico 1979 — COG via geotiff.js + proxy CORS ───────────────
+        // ── Ortomosaico 1979 — GEE tile via Netlify Function ────────────────
         var layer_Orto1979_COG  = null;
-        var _orto1979TiffObj    = null;
-        var _orto1979ImageObj   = null;
-        var _orto1979Meta       = null;
-        var _orto1979Url     = 'https://superlative-kitten-a7196f.netlify.app/ORTO1979-COG1.tif';
-        // Proxies CORS em ordem de preferência — usados apenas se o servidor não tiver CORS configurado
-        var _orto1979Proxies = [
-            '',
-            'https://api.allorigins.win/raw?url=',
-            'https://thingproxy.freeboard.io/fetch/',
-            'https://api.codetabs.com/v1/proxy?quest=',
-        ];
         var _orto1979Loading    = false;
-        var _orto1979Ready      = false;
         var _orto1979Callbacks  = [];
 
         function _orto1979Toast(msg, isError) {
@@ -4377,181 +4364,25 @@
             if (isError) setTimeout(function(){ var x=document.getElementById('orto1979-toast'); if(x) x.remove(); }, 6000);
         }
 
-        // GridLayer que renderiza o COG tile a tile via geotiff.js
-        // COG está em UTM zona 22S (EPSG:32722) — bbox convertida para Web Mercator internamente
-        function _buildOrto1979CanvasLayer(image, meta, pane) {
-
-            // ── Conversões de coordenadas ────────────────────────────────────
-            // UTM zona 22S (WGS84) → LatLng
-            function utm22sToLatLng(E, N) {
-                var a  = 6378137.0, f = 1/298.257223563;
-                var b  = a*(1-f), e2 = (a*a - b*b)/(a*a), k0 = 0.9996;
-                var E0 = 500000, N0 = 10000000, lon0 = -51 * Math.PI / 180;
-                var x  = E - E0, y = N - N0;
-                var M  = y / k0;
-                var mu = M / (a*(1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
-                var e1 = (1 - Math.sqrt(1-e2))/(1 + Math.sqrt(1-e2));
-                var phi1 = mu
-                    + (3*e1/2 - 27*e1*e1*e1/32)*Math.sin(2*mu)
-                    + (21*e1*e1/16 - 55*e1*e1*e1*e1/32)*Math.sin(4*mu)
-                    + (151*e1*e1*e1/96)*Math.sin(6*mu);
-                var sp = Math.sin(phi1), cp = Math.cos(phi1), tp = Math.tan(phi1);
-                var N1 = a/Math.sqrt(1-e2*sp*sp);
-                var T1 = tp*tp, C1 = e2/(1-e2)*cp*cp;
-                var R1 = a*(1-e2)/Math.pow(1-e2*sp*sp, 1.5);
-                var D  = x/(N1*k0);
-                var lat = phi1 - (N1*tp/R1)*(D*D/2
-                    - (5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24
-                    + (61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
-                var lon = lon0 + (D
-                    - (1+2*T1+C1)*D*D*D/6
-                    + (5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120) / cp;
-                return { lat: lat * 180/Math.PI, lng: lon * 180/Math.PI };
-            }
-
-            // LatLng → Web Mercator (EPSG:3857)
-            function llToMerc(lat, lng) {
-                return {
-                    x: lng * 20037508.342 / 180,
-                    y: Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180) * 20037508.342 / 180
-                };
-            }
-
-            // LatLng → Web Mercator (direto, no tile bound do Leaflet)
-            function latLngToMerc(lat, lng) { return llToMerc(lat, lng); }
-
-            // Converte bbox UTM → Web Mercator uma única vez
-            var utmSW = utm22sToLatLng(meta.bbox[0], meta.bbox[1]);
-            var utmNE = utm22sToLatLng(meta.bbox[2], meta.bbox[3]);
-            var mSW_r = llToMerc(utmSW.lat, utmSW.lng);
-            var mNE_r = llToMerc(utmNE.lat, utmNE.lng);
-            var rW = mSW_r.x, rS = mSW_r.y, rE = mNE_r.x, rN = mNE_r.y;
-
-            console.log('[Orto1979] bbox Web Mercator:', { rW:rW, rS:rS, rE:rE, rN:rN });
-            console.log('[Orto1979] bbox LatLng SW:', utmSW, 'NE:', utmNE);
-
-            var Orto1979GridLayer = L.GridLayer.extend({
-                createTile: function(coords, done) {
-                    var canvas = document.createElement('canvas');
-                    var sz = this.getTileSize();
-                    canvas.width  = sz.x;
-                    canvas.height = sz.y;
-
-                    var tb  = this._tileCoordsToBounds(coords);
-                    var tSW = latLngToMerc(tb.getSouth(), tb.getWest());
-                    var tNE = latLngToMerc(tb.getNorth(), tb.getEast());
-
-                    // Interseção tile ∩ raster em Web Mercator
-                    var iW = Math.max(tSW.x, rW), iE = Math.min(tNE.x, rE);
-                    var iS = Math.max(tSW.y, rS), iN = Math.min(tNE.y, rN);
-                    if (iW >= iE || iS >= iN) { done(null, canvas); return canvas; }
-
-                    // Pixel window no raster (Y invertido: origem topo-esquerdo)
-                    var rx = rE - rW, ry = rN - rS;
-                    var pxW  = Math.max(0,           Math.floor(((iW - rW) / rx) * meta.width));
-                    var pxE  = Math.min(meta.width,  Math.ceil( ((iE - rW) / rx) * meta.width));
-                    var pxNr = Math.max(0,            Math.floor(((rN - iN) / ry) * meta.height));
-                    var pxSr = Math.min(meta.height,  Math.ceil( ((rN - iS) / ry) * meta.height));
-                    if (pxE <= pxW || pxSr <= pxNr) { done(null, canvas); return canvas; }
-
-                    // Posição e tamanho no canvas do tile
-                    var tw = tNE.x - tSW.x, th = tNE.y - tSW.y;
-                    var dstX = Math.round(((iW - tSW.x) / tw) * sz.x);
-                    var dstY = Math.round(((tNE.y - iN) / th) * sz.y);
-                    var dstW = Math.max(1, Math.round(((iE - iW) / tw) * sz.x));
-                    var dstH = Math.max(1, Math.round(((iN - iS) / th) * sz.y));
-
-                    // Lê os dados — 1 banda grayscale via image.readRasters
-                    image.readRasters({
-                        window:     [pxW, pxNr, pxE, pxSr],
-                        width:      dstW,
-                        height:     dstH,
-                        interleave: false
-                    }).then(function(rasters) {
-                        var band = rasters[0];   // TypedArray com valores uint8
-                        var ctx  = canvas.getContext('2d');
-                        var imgd = ctx.createImageData(dstW, dstH);
-                        var n    = dstW * dstH;
-                        for (var i = 0; i < n; i++) {
-                            var v = band[i];
-                            imgd.data[i*4]   = v;
-                            imgd.data[i*4+1] = v;
-                            imgd.data[i*4+2] = v;
-                            imgd.data[i*4+3] = 255;
-                        }
-                        var tmp = document.createElement('canvas');
-                        tmp.width = dstW; tmp.height = dstH;
-                        tmp.getContext('2d').putImageData(imgd, 0, 0);
-                        ctx.drawImage(tmp, dstX, dstY, dstW, dstH);
-                        done(null, canvas);
-                    }).catch(function(e) { done(e, canvas); });
-
-                    return canvas;
-                }
-            });
-
-            return new Orto1979GridLayer({
-                tileSize: 256, minZoom: 1, maxZoom: 22,
-                opacity: 1, attribution: 'Ortomosaico 1979',
-                pane: pane || 'pane_Orto1979_COG'
-            });
-        }
-
         function _carregarOrto1979(onReady, forComp) {
-            if (_orto1979Ready && _orto1979ImageObj) {
-                var lyr = _buildOrto1979CanvasLayer(_orto1979ImageObj, _orto1979Meta, forComp ? null : 'pane_Orto1979_COG');
-                if (!forComp) layer_Orto1979_COG = lyr;
-                onReady && onReady(lyr);
-                return;
-            }
             _orto1979Callbacks.push({ fn: onReady, forComp: !!forComp });
             if (_orto1979Loading) return;
             _orto1979Loading = true;
-
             _orto1979Toast('<i class="fas fa-spinner fa-spin"></i> Carregando Ortomosaico 1979…', false);
 
-            if (typeof GeoTIFF === 'undefined') {
-                _orto1979Loading = false;
-                _orto1979Toast('<i class="fas fa-exclamation-circle"></i> GeoTIFF.js não carregado', true);
-                return;
-            }
-
-            // Tenta cada proxy em sequência até um funcionar
-            function _tryProxy(proxies, idx) {
-                if (idx >= proxies.length) throw new Error('Todos os proxies CORS falharam');
-                var proxyUrl = proxies[idx]
-                    ? proxies[idx] + encodeURIComponent(_orto1979Url)
-                    : _orto1979Url;  // string vazia = URL direta sem proxy
-                return fetch(proxyUrl)
-                    .then(function(r) {
-                        if (!r.ok) throw new Error('HTTP ' + r.status);
-                        return r.arrayBuffer();
-                    })
-                    .catch(function(e) {
-                        console.warn('[Orto1979] ' + (proxies[idx] || 'URL direta') + ' falhou:', e.message, '— tentando próximo…');
-                        return _tryProxy(proxies, idx + 1);
-                    });
-            }
-
-            _tryProxy(_orto1979Proxies, 0)
-                .then(function(ab) { return GeoTIFF.fromArrayBuffer(ab); })
-                .then(function(tiff) { _orto1979TiffObj = tiff; return tiff.getImage(); })
-                .then(function(img) {
-                    _orto1979ImageObj = img;
-                    _orto1979Meta = {
-                        width:  img.getWidth(),
-                        height: img.getHeight(),
-                        bbox:   img.getBoundingBox(),   // [w,s,e,n] em EPSG:3857
-                        nbands: (img.getFileDirectory().SamplesPerPixel || 3)
-                    };
-                    _orto1979Ready  = true;
+            fetch('/.netlify/functions/gee-tiles?layer=orto1979')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    var tileUrl = data.tileUrl;
                     _orto1979Loading = false;
-                    console.log('[Orto1979 COG] OK', _orto1979Meta);
                     var t = document.getElementById('orto1979-toast');
                     if (t) t.remove();
                     var cbs = _orto1979Callbacks.splice(0);
                     cbs.forEach(function(cb) {
-                        var lyr = _buildOrto1979CanvasLayer(_orto1979ImageObj, _orto1979Meta, cb.forComp ? null : 'pane_Orto1979_COG');
+                        var lyr = L.tileLayer(tileUrl, {
+                            maxZoom: 22, opacity: 1, attribution: 'Ortomosaico 1979 · GEE',
+                            pane: cb.forComp ? undefined : 'pane_Orto1979_COG'
+                        });
                         if (!cb.forComp) layer_Orto1979_COG = lyr;
                         cb.fn && cb.fn(lyr);
                     });
@@ -4559,24 +4390,14 @@
                 .catch(function(err) {
                     _orto1979Loading = false;
                     _orto1979Callbacks = [];
-                    _orto1979Toast('<i class="fas fa-exclamation-circle"></i> Erro 1979: ' + err.message, true);
-                    console.error('[Orto1979 COG]', err);
+                    _orto1979Toast('<i class="fas fa-exclamation-circle"></i> Erro Orto 1979: ' + err.message, true);
+                    console.error('[Orto1979 GEE]', err);
                 });
         }
 
-        // ── MDT — COG em EPSG:3857 via geotiff.js ────────────────────────────
+        // ── MDT — GEE tile via Netlify Function ──────────────────────────────
         var layer_MDT_COG   = null;
-        var _mdtImageObj    = null;
-        var _mdtMeta        = null;
-        var _mdtUrl         = 'https://stirring-profiterole-935ac4.netlify.app/Mosaico_geral_cog.tif';
-        var _mdtProxies     = [
-            '',
-            'https://api.allorigins.win/raw?url=',
-            'https://thingproxy.freeboard.io/fetch/',
-            'https://api.codetabs.com/v1/proxy?quest=',
-        ];
         var _mdtLoading     = false;
-        var _mdtReady       = false;
         var _mdtCallbacks   = [];
 
         function _mdtToast(msg, isError) {
@@ -4595,253 +4416,34 @@
             if (isError) setTimeout(function(){ var x=document.getElementById('mdt-cog-toast'); if(x) x.remove(); }, 6000);
         }
 
-        // ── MDT: hillshade (sombreado de relevo) ─────────────────────────────
-        // Calcula sombreado por diferenças finitas + blend com paleta hipsométrica
-        function _mdtHillshade(band, w, h, cellSize, nodata) {
-            // Parâmetros de iluminação (azimute 315°, altitude 45° — padrão ESRI)
-            var azRad  = (315 - 90) * Math.PI / 180;   // convertido para eixo matemático
-            var altRad = 45 * Math.PI / 180;
-            var sunX   = Math.cos(altRad) * Math.cos(azRad);
-            var sunY   = Math.cos(altRad) * Math.sin(azRad);
-            var sunZ   = Math.sin(altRad);
-
-            var hs = new Float32Array(w * h);
-            for (var r = 0; r < h; r++) {
-                for (var c = 0; c < w; c++) {
-                    var idx = r * w + c;
-                    var v = band[idx];
-                    if (v === nodata || !isFinite(v)) { hs[idx] = -1; continue; }
-
-                    // Vizinhos com clamp às bordas
-                    var cL = Math.max(0, c-1), cR = Math.min(w-1, c+1);
-                    var rU = Math.max(0, r-1), rD = Math.min(h-1, r+1);
-                    var vW = band[r*w+cL], vE = band[r*w+cR];
-                    var vN = band[rU*w+c], vS = band[rD*w+c];
-                    // Substituir nodata pelo valor central
-                    if (!isFinite(vW)||vW===nodata) vW=v;
-                    if (!isFinite(vE)||vE===nodata) vE=v;
-                    if (!isFinite(vN)||vN===nodata) vN=v;
-                    if (!isFinite(vS)||vS===nodata) vS=v;
-
-                    // Gradiente (dz/dx, dz/dy) via diferenças centrais
-                    var dzdx = (vE - vW) / (2 * cellSize);
-                    var dzdy = (vN - vS) / (2 * cellSize);   // N=y maior → sinal positivo
-
-                    // Normal do terreno (não normalizada aqui — normaliza no dot product)
-                    var nLen = Math.sqrt(dzdx*dzdx + dzdy*dzdy + 1);
-                    var dot  = (-dzdx*sunX + -dzdy*sunY + sunZ) / nLen;
-                    hs[idx]  = Math.max(0, dot);   // 0..1
-                }
-            }
-            return hs;
-        }
-
-        function _mdtColorHyps(v, vmin, vmax) {
-            var t = Math.max(0, Math.min(1, (v - vmin) / (vmax - vmin)));
-            var stops = [
-                [0.00,  34,  85, 170],
-                [0.12,  60, 160, 100],
-                [0.30, 140, 200,  70],
-                [0.50, 230, 210,  60],
-                [0.68, 210, 120,  30],
-                [0.85, 160,  60,  20],
-                [1.00, 240, 230, 220],
-            ];
-            var i = 0;
-            while (i < stops.length-2 && t > stops[i+1][0]) i++;
-            var a=stops[i], b=stops[i+1], f=(t-a[0])/(b[0]-a[0]);
-            return [Math.round(a[1]+f*(b[1]-a[1])), Math.round(a[2]+f*(b[2]-a[2])), Math.round(a[3]+f*(b[3]-a[3]))];
-        }
-
-        function _buildMdtCanvasLayer(image, meta, pane) {
-            // UTM zona 22S (WGS84) → LatLng
-            function utm22sToLatLng(E, N) {
-                var a=6378137.0, f=1/298.257223563, b=a*(1-f), e2=(a*a-b*b)/(a*a), k0=0.9996;
-                var E0=500000, N0=10000000, lon0=-51*Math.PI/180;
-                var x=E-E0, y=N-N0, M=y/k0;
-                var mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
-                var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
-                var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
-                var sp=Math.sin(phi1),cp=Math.cos(phi1),tp=Math.tan(phi1);
-                var N1=a/Math.sqrt(1-e2*sp*sp),T1=tp*tp,C1=e2/(1-e2)*cp*cp,R1=a*(1-e2)/Math.pow(1-e2*sp*sp,1.5),D=x/(N1*k0);
-                var lat=phi1-(N1*tp/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24+(61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
-                var lon=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120)/cp;
-                return {lat:lat*180/Math.PI, lng:lon*180/Math.PI};
-            }
-            function llToMerc(lat,lng){
-                return {
-                    x:lng*20037508.342/180,
-                    y:Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180
-                };
-            }
-
-            // Converte bbox UTM → Web Mercator
-            var utmSW=utm22sToLatLng(meta.bbox[0],meta.bbox[1]);
-            var utmNE=utm22sToLatLng(meta.bbox[2],meta.bbox[3]);
-            var mSW=llToMerc(utmSW.lat,utmSW.lng);
-            var mNE=llToMerc(utmNE.lat,utmNE.lng);
-            var rW=mSW.x, rS=mSW.y, rE=mNE.x, rN=mNE.y;
-            console.log('[MDT COG] bbox WebMercator:', {rW:rW,rS:rS,rE:rE,rN:rN});
-
-            var vmin=meta.vmin, vmax=meta.vmax, nodata=meta.nodata;
-
-            var MdtGridLayer = L.GridLayer.extend({
-                createTile: function(coords, done) {
-                    var canvas=document.createElement('canvas');
-                    var sz=this.getTileSize();
-                    canvas.width=sz.x; canvas.height=sz.y;
-
-                    var tb=this._tileCoordsToBounds(coords);
-                    var tSW=llToMerc(tb.getSouth(),tb.getWest());
-                    var tNE=llToMerc(tb.getNorth(),tb.getEast());
-
-                    var iW=Math.max(tSW.x,rW), iE=Math.min(tNE.x,rE);
-                    var iS=Math.max(tSW.y,rS), iN=Math.min(tNE.y,rN);
-                    if(iW>=iE||iS>=iN){done(null,canvas);return canvas;}
-
-                    var rx=rE-rW, ry=rN-rS;
-                    var pxW=Math.max(0,           Math.floor(((iW-rW)/rx)*meta.width));
-                    var pxE=Math.min(meta.width,  Math.ceil( ((iE-rW)/rx)*meta.width));
-                    var pxNr=Math.max(0,           Math.floor(((rN-iN)/ry)*meta.height));
-                    var pxSr=Math.min(meta.height, Math.ceil( ((rN-iS)/ry)*meta.height));
-                    if(pxE<=pxW||pxSr<=pxNr){done(null,canvas);return canvas;}
-
-                    var tw=tNE.x-tSW.x, th=tNE.y-tSW.y;
-                    var dstX=Math.round(((iW-tSW.x)/tw)*sz.x);
-                    var dstY=Math.round(((tNE.y-iN)/th)*sz.y);
-                    var dstW=Math.max(1,Math.round(((iE-iW)/tw)*sz.x));
-                    var dstH=Math.max(1,Math.round(((iN-iS)/th)*sz.y));
-
-                    // Lê janela +1px em cada borda para gradientes nas bordas do tile
-                    var pad=1;
-                    var rpxW=Math.max(0,pxW-pad), rpxE=Math.min(meta.width,pxE+pad);
-                    var rpxNr=Math.max(0,pxNr-pad), rpxSr=Math.min(meta.height,pxSr+pad);
-                    var rW2=rpxE-rpxW, rH2=rpxSr-rpxNr;
-
-                    // cellSize em metros no terreno por pixel lido
-                    var cellSize = Math.max((rE-rW)/meta.width, (rN-rS)/meta.height);
-
-                    image.readRasters({window:[rpxW,rpxNr,rpxE,rpxSr],width:rW2,height:rH2,interleave:false})
-                        .then(function(rasters){
-                            var band=rasters[0];
-                            var hs=_mdtHillshade(band,rW2,rH2,cellSize,nodata);
-
-                            var ctx=canvas.getContext('2d');
-                            var imgd=ctx.createImageData(dstW,dstH);
-
-                            // Offsets do padding dentro dos dados lidos
-                            var offC=pxW-rpxW, offR=pxNr-rpxNr;
-
-                            for(var dr=0;dr<dstH;dr++){
-                                for(var dc=0;dc<dstW;dc++){
-                                    // Posição no raster lido (mapeia dstW×dstH → rW2×rH2 com offset)
-                                    var sc=offC+Math.round(dc*(pxE-pxW)/dstW);
-                                    var sr=offR+Math.round(dr*(pxSr-pxNr)/dstH);
-                                    sc=Math.min(rW2-1,sc); sr=Math.min(rH2-1,sr);
-                                    var si=sr*rW2+sc;
-                                    var di=(dr*dstW+dc)*4;
-                                    var v=band[si];
-                                    if(v===nodata||!isFinite(v)){imgd.data[di+3]=0;continue;}
-
-                                    var h=hs[si]; // 0..1 hillshade
-                                    var rgb=_mdtColorHyps(v,vmin,vmax);
-
-                                    // Blend: hillshade escurece/clareia a cor hipsométrica
-                                    // h=0.5 → cor original; h<0.5 → escurece; h>0.5 → clareia
-                                    var blend = h * 1.8; // amplia contraste
-                                    imgd.data[di]  =Math.min(255,Math.round(rgb[0]*blend));
-                                    imgd.data[di+1]=Math.min(255,Math.round(rgb[1]*blend));
-                                    imgd.data[di+2]=Math.min(255,Math.round(rgb[2]*blend));
-                                    imgd.data[di+3]=255;
-                                }
-                            }
-                            var tmp=document.createElement('canvas');
-                            tmp.width=dstW; tmp.height=dstH;
-                            tmp.getContext('2d').putImageData(imgd,0,0);
-                            canvas.getContext('2d').drawImage(tmp,dstX,dstY,dstW,dstH);
-                            done(null,canvas);
-                        }).catch(function(e){done(e,canvas);});
-                    return canvas;
-                }
-            });
-
-            return new MdtGridLayer({
-                tileSize:256, minZoom:1, maxZoom:22,
-                opacity:1, attribution:'MDT COG',
-                pane: pane||'pane_MDT_COG'
-            });
-        }
-
         function _carregarMDT(onReady, forComp) {
-            if (_mdtReady && _mdtImageObj) {
-                var lyr = _buildMdtCanvasLayer(_mdtImageObj, _mdtMeta, forComp ? null : 'pane_MDT_COG');
-                if (!forComp) layer_MDT_COG = lyr;
-                onReady && onReady(lyr);
-                return;
-            }
             _mdtCallbacks.push({ fn: onReady, forComp: !!forComp });
             if (_mdtLoading) return;
             _mdtLoading = true;
-
             _mdtToast('<i class="fas fa-spinner fa-spin"></i> Carregando MDT…', false);
 
-            function _tryMdtProxy(proxies, idx) {
-                if (idx >= proxies.length) throw new Error('Todos os proxies MDT falharam');
-                var url = proxies[idx] ? proxies[idx] + encodeURIComponent(_mdtUrl) : _mdtUrl;
-                return fetch(url)
-                    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-                    .catch(function(e) {
-                        console.warn('[MDT COG] ' + (proxies[idx]||'URL direta') + ' falhou:', e.message);
-                        return _tryMdtProxy(proxies, idx + 1);
-                    });
-            }
-
-            _tryMdtProxy(_mdtProxies, 0)
-                .then(function(ab) { return GeoTIFF.fromArrayBuffer(ab); })
-                .then(function(tiff) { return tiff.getImage(); })
-                .then(function(img) {
-                    var fd = img.getFileDirectory();
-                    var nodata = fd.GDAL_NODATA ? parseFloat(fd.GDAL_NODATA) : -9999;
-                    // Lê amostra para calcular min/max real (usa overview menor se disponível)
-                    return img.readRasters({ width: 256, height: 256, interleave: false })
-                        .then(function(sample) {
-                            var band = sample[0];
-                            var vmin = Infinity, vmax = -Infinity;
-                            for (var i = 0; i < band.length; i++) {
-                                var v = band[i];
-                                if (v === nodata || v === -9999 || isNaN(v) || !isFinite(v)) continue;
-                                if (v < vmin) vmin = v;
-                                if (v > vmax) vmax = v;
-                            }
-                            // Fallback se amostra não tiver dados válidos
-                            if (!isFinite(vmin)) { vmin = 0; vmax = 1800; }
-                            _mdtImageObj = img;
-                            _mdtMeta = {
-                                width:  img.getWidth(),
-                                height: img.getHeight(),
-                                bbox:   img.getBoundingBox(),   // EPSG:3857
-                                nbands: fd.SamplesPerPixel || 1,
-                                nodata: nodata,
-                                vmin: vmin, vmax: vmax
-                            };
-                            _mdtReady   = true;
-                            _mdtLoading = false;
-                            console.log('[MDT COG] OK', _mdtMeta);
-                            var t = document.getElementById('mdt-cog-toast');
-                            if (t) t.remove();
-                            var cbs = _mdtCallbacks.splice(0);
-                            cbs.forEach(function(cb) {
-                                var lyr = _buildMdtCanvasLayer(_mdtImageObj, _mdtMeta, cb.forComp ? null : 'pane_MDT_COG');
-                                if (!cb.forComp) layer_MDT_COG = lyr;
-                                cb.fn && cb.fn(lyr);
-                            });
+            fetch('/.netlify/functions/gee-tiles?layer=mdt')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    var tileUrl = data.tileUrl;
+                    _mdtLoading = false;
+                    var t = document.getElementById('mdt-cog-toast');
+                    if (t) t.remove();
+                    var cbs = _mdtCallbacks.splice(0);
+                    cbs.forEach(function(cb) {
+                        var lyr = L.tileLayer(tileUrl, {
+                            maxZoom: 22, opacity: 1, attribution: 'MDT · GEE',
+                            pane: cb.forComp ? undefined : 'pane_MDT_COG'
                         });
+                        if (!cb.forComp) layer_MDT_COG = lyr;
+                        cb.fn && cb.fn(lyr);
+                    });
                 })
                 .catch(function(err) {
                     _mdtLoading = false;
                     _mdtCallbacks = [];
                     _mdtToast('<i class="fas fa-exclamation-circle"></i> Erro MDT: ' + err.message, true);
-                    console.error('[MDT COG]', err);
+                    console.error('[MDT GEE]', err);
                 });
         }
 
