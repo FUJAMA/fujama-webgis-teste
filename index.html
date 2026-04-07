@@ -2578,7 +2578,8 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
         <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-        <!-- GeoTIFF.js removido — rasters agora servidos via Google Earth Engine -->
+        <!-- GeoTIFF.js: necessário para Perfil de Elevação e Volumetria (COG direto) -->
+        <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
         <!-- Chart.js: gráfico de perfil de elevação -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
@@ -4370,7 +4371,7 @@
             _orto1979Loading = true;
             _orto1979Toast('<i class="fas fa-spinner fa-spin"></i> Carregando Ortomosaico 1979…', false);
 
-            fetch('/.netlify/functions/gee-tiles?layer=orto1979')
+            fetch('https://fujama-gis.netlify.app/.netlify/functions/gee-tiles?layer=orto1979')
                 .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(function(data) {
                     var tileUrl = data.tileUrl;
@@ -4395,10 +4396,15 @@
                 });
         }
 
-        // ── MDT — GEE tile via Netlify Function ──────────────────────────────
+        // ── MDT — GEE tile via Netlify Function + COG para análises ──────────
         var layer_MDT_COG   = null;
         var _mdtLoading     = false;
         var _mdtCallbacks   = [];
+        // Variáveis de análise (perfil de elevação + volumetria)
+        // Preenchidas pelo carregamento do COG via geotiff.js
+        var _mdtImageObj    = null;
+        var _mdtMeta        = null;
+        var _mdtReady       = false;
 
         function _mdtToast(msg, isError) {
             var t = document.getElementById('mdt-cog-toast');
@@ -4416,19 +4422,95 @@
             if (isError) setTimeout(function(){ var x=document.getElementById('mdt-cog-toast'); if(x) x.remove(); }, 6000);
         }
 
+        // URL do COG original (hospedado publicamente) — usado APENAS para análises
+        // de elevação nos cards Perfil e Volumetria. Os tiles visuais vêm do GEE.
+        var _mdtCogUrl = 'https://stirring-profiterole-935ac4.netlify.app/Mosaico_geral_cog.tif';
+        var _mdtCogProxies = [
+            '',
+            'https://api.allorigins.win/raw?url=',
+            'https://thingproxy.freeboard.io/fetch/',
+        ];
+
         function _carregarMDT(onReady, forComp) {
             _mdtCallbacks.push({ fn: onReady, forComp: !!forComp });
             if (_mdtLoading) return;
             _mdtLoading = true;
             _mdtToast('<i class="fas fa-spinner fa-spin"></i> Carregando MDT…', false);
 
-            fetch('/.netlify/functions/gee-tiles?layer=mdt')
-                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function(data) {
-                    var tileUrl = data.tileUrl;
+            // ── Parte 1: busca URL de tile do GEE para exibição visual ──────
+            var geePromise = fetch('https://fujama-gis.netlify.app/.netlify/functions/gee-tiles?layer=mdt')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+
+            // ── Parte 2: carrega COG via geotiff.js para análises ────────────
+            function _tryCogProxy(proxies, idx) {
+                if (idx >= proxies.length) throw new Error('Todos os proxies COG falharam');
+                var url = proxies[idx] ? proxies[idx] + encodeURIComponent(_mdtCogUrl) : _mdtCogUrl;
+                return fetch(url)
+                    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+                    .catch(function(e) {
+                        console.warn('[MDT COG] proxy ' + idx + ' falhou:', e.message);
+                        return _tryCogProxy(proxies, idx + 1);
+                    });
+            }
+
+            var cogPromise;
+            if (typeof GeoTIFF !== 'undefined') {
+                cogPromise = _tryCogProxy(_mdtCogProxies, 0)
+                    .then(function(ab) { return GeoTIFF.fromArrayBuffer(ab); })
+                    .then(function(tiff) { return tiff.getImage(); })
+                    .then(function(img) {
+                        var fd = img.getFileDirectory();
+                        var nodata = fd.GDAL_NODATA ? parseFloat(fd.GDAL_NODATA) : -9999;
+                        return img.readRasters({ width: 256, height: 256, interleave: false })
+                            .then(function(sample) {
+                                var band = sample[0];
+                                var vmin = Infinity, vmax = -Infinity;
+                                for (var i = 0; i < band.length; i++) {
+                                    var v = band[i];
+                                    if (v === nodata || v === -9999 || isNaN(v) || !isFinite(v)) continue;
+                                    if (v < vmin) vmin = v; if (v > vmax) vmax = v;
+                                }
+                                if (!isFinite(vmin)) { vmin = 0; vmax = 1800; }
+                                return {
+                                    imageObj: img,
+                                    meta: {
+                                        width: img.getWidth(), height: img.getHeight(),
+                                        bbox: img.getBoundingBox(), nbands: fd.SamplesPerPixel || 1,
+                                        nodata: nodata, vmin: vmin, vmax: vmax
+                                    }
+                                };
+                            });
+                    })
+                    .catch(function(e) {
+                        console.warn('[MDT COG] Falhou — análises desabilitadas:', e.message);
+                        return null; // não quebra o carregamento visual
+                    });
+            } else {
+                cogPromise = Promise.resolve(null);
+            }
+
+            // ── Aguarda ambos (tiles GEE + COG análise) ──────────────────────
+            Promise.all([geePromise, cogPromise])
+                .then(function(results) {
+                    var geeData = results[0];
+                    var cogData = results[1];
+
+                    // Inicializa variáveis de análise (perfil/volumetria) se COG carregou
+                    if (cogData) {
+                        _mdtImageObj = cogData.imageObj;
+                        _mdtMeta     = cogData.meta;
+                        _mdtReady    = true;
+                        console.log('[MDT COG análise] OK', _mdtMeta);
+                    } else {
+                        _mdtReady = false;
+                        console.warn('[MDT] COG não carregado — perfil/volumetria indisponíveis');
+                    }
+
                     _mdtLoading = false;
                     var t = document.getElementById('mdt-cog-toast');
                     if (t) t.remove();
+
+                    var tileUrl = geeData.tileUrl;
                     var cbs = _mdtCallbacks.splice(0);
                     cbs.forEach(function(cb) {
                         var lyr = L.tileLayer(tileUrl, {
@@ -4443,7 +4525,7 @@
                     _mdtLoading = false;
                     _mdtCallbacks = [];
                     _mdtToast('<i class="fas fa-exclamation-circle"></i> Erro MDT: ' + err.message, true);
-                    console.error('[MDT GEE]', err);
+                    console.error('[MDT]', err);
                 });
         }
 
