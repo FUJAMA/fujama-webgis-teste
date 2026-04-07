@@ -10,6 +10,23 @@ var ASSETS = {
     id: 'projects/webgis-492011/assets/MDT_GERAL',
     vis: { min: 0, max: 1150.0446, palette: ['#313695','#74add1','#ffffbf','#f46d43','#a50026'] }
   }
+  // netlify/functions/gee-tiles.js  (trecho da lógica MDT)
+if (layer === 'mdt') {
+  var image = ee.Image('projects/webgis-492011/assets/MDT_GERAL');
+  
+  if (event.queryStringParameters.hillshade === 'true') {
+    // Paleta de cores original
+    var colored = image.visualize({
+      min: 500, max: 1200,
+      palette: ['#313695','#74add1','#ffffbf','#f46d43','#a50026']
+    });
+    // Hillshade sobreposto
+    var hillshade = ee.Terrain.hillshade(image, 315, 45);
+    var hillshadeRGB = hillshade.visualize({min: 0, max: 255});
+    // Blend: cores * 0.7 + hillshade * 0.3
+    image = ee.ImageCollection([colored, hillshadeRGB]).mosaic();
+    // ou use: colored.blend(hillshadeRGB.updateMask(hillshade.divide(255).multiply(0.4)))
+  }
 };
 
 exports.handler = function(event, context, callback) {
