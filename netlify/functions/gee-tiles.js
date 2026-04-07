@@ -3,12 +3,12 @@ var ee = require('@google/earthengine');
 // Configurações dos seus rasters
 var ASSETS = {
   orto1979: {
-    id: 'users/SEU_USUARIO/fujama/ORTO1979',
-    vis: { bands: ['b1', 'b2', 'b3'], min: 0, max: 255 }
+    id: 'projects/webgis-492011/assets/ORTO1979',
+    vis: { bands: ['b1'], min: 0, max: 255 }
   },
   mdt: {
-    id: 'users/SEU_USUARIO/fujama/MDT_GERAL',
-    vis: { min: 0, max: 1200, palette: ['#313695','#74add1','#ffffbf','#f46d43','#a50026'] }
+    id: 'projects/webgis-492011/assets/MDT_GERAL',
+    vis: { min: 0, max: 1150.0446, palette: ['#313695','#74add1','#ffffbf','#f46d43','#a50026'] }
   }
 };
 
