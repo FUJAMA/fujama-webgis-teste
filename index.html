@@ -2578,8 +2578,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
         <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-        <!-- GeoTIFF.js: necessário para Perfil de Elevação e Volumetria (COG direto) -->
-        <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+        <!-- GeoTIFF.js removido — elevações servidas server-side via gee-elevation -->
         <!-- Chart.js: gráfico de perfil de elevação -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
@@ -4401,7 +4400,7 @@
         var _mdtLoading     = false;
         var _mdtCallbacks   = [];
         // Variáveis de análise (perfil de elevação + volumetria)
-        // Preenchidas pelo carregamento do COG via geotiff.js
+        // Preenchidas após carregamento do MDT via GEE
         var _mdtImageObj    = null;
         var _mdtMeta        = null;
         var _mdtReady       = false;
@@ -4422,14 +4421,12 @@
             if (isError) setTimeout(function(){ var x=document.getElementById('mdt-cog-toast'); if(x) x.remove(); }, 6000);
         }
 
-        // URL do COG original (hospedado publicamente) — usado APENAS para análises
-        // de elevação nos cards Perfil e Volumetria. Os tiles visuais vêm do GEE.
-        var _mdtCogUrl = 'https://stirring-profiterole-935ac4.netlify.app/Mosaico_geral_cog.tif';
-        var _mdtCogProxies = [
-            '',
-            'https://api.allorigins.win/raw?url=',
-            'https://thingproxy.freeboard.io/fetch/',
-        ];
+        // ── URL absoluta da Netlify Function de elevação ─────────────────
+        var _GEE_ELEV_URL = 'https://fujama-gis.netlify.app/.netlify/functions/gee-elevation';
+
+        // Cache de metadados do MDT (vmin/vmax) obtidos do GEE
+        var _mdtGeeVmin = 0;
+        var _mdtGeeVmax = 1800;
 
         function _carregarMDT(onReady, forComp) {
             _mdtCallbacks.push({ fn: onReady, forComp: !!forComp });
@@ -4437,74 +4434,38 @@
             _mdtLoading = true;
             _mdtToast('<i class="fas fa-spinner fa-spin"></i> Carregando MDT…', false);
 
-            // ── Parte 1: busca URL de tile do GEE para exibição visual ──────
+            // Busca tile visual (GEE) e metadados de elevação em paralelo
             var geePromise = fetch('https://fujama-gis.netlify.app/.netlify/functions/gee-tiles?layer=mdt')
                 .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
 
-            // ── Parte 2: carrega COG via geotiff.js para análises ────────────
-            function _tryCogProxy(proxies, idx) {
-                if (idx >= proxies.length) throw new Error('Todos os proxies COG falharam');
-                var url = proxies[idx] ? proxies[idx] + encodeURIComponent(_mdtCogUrl) : _mdtCogUrl;
-                return fetch(url)
-                    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-                    .catch(function(e) {
-                        console.warn('[MDT COG] proxy ' + idx + ' falhou:', e.message);
-                        return _tryCogProxy(proxies, idx + 1);
-                    });
-            }
+            var metaPromise = fetch(_GEE_ELEV_URL + '?mode=meta')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .catch(function() { return { vmin: 0, vmax: 1800 }; }); // fallback silencioso
 
-            var cogPromise;
-            if (typeof GeoTIFF !== 'undefined') {
-                cogPromise = _tryCogProxy(_mdtCogProxies, 0)
-                    .then(function(ab) { return GeoTIFF.fromArrayBuffer(ab); })
-                    .then(function(tiff) { return tiff.getImage(); })
-                    .then(function(img) {
-                        var fd = img.getFileDirectory();
-                        var nodata = fd.GDAL_NODATA ? parseFloat(fd.GDAL_NODATA) : -9999;
-                        return img.readRasters({ width: 256, height: 256, interleave: false })
-                            .then(function(sample) {
-                                var band = sample[0];
-                                var vmin = Infinity, vmax = -Infinity;
-                                for (var i = 0; i < band.length; i++) {
-                                    var v = band[i];
-                                    if (v === nodata || v === -9999 || isNaN(v) || !isFinite(v)) continue;
-                                    if (v < vmin) vmin = v; if (v > vmax) vmax = v;
-                                }
-                                if (!isFinite(vmin)) { vmin = 0; vmax = 1800; }
-                                return {
-                                    imageObj: img,
-                                    meta: {
-                                        width: img.getWidth(), height: img.getHeight(),
-                                        bbox: img.getBoundingBox(), nbands: fd.SamplesPerPixel || 1,
-                                        nodata: nodata, vmin: vmin, vmax: vmax
-                                    }
-                                };
-                            });
-                    })
-                    .catch(function(e) {
-                        console.warn('[MDT COG] Falhou — análises desabilitadas:', e.message);
-                        return null; // não quebra o carregamento visual
-                    });
-            } else {
-                cogPromise = Promise.resolve(null);
-            }
-
-            // ── Aguarda ambos (tiles GEE + COG análise) ──────────────────────
-            Promise.all([geePromise, cogPromise])
+            Promise.all([geePromise, metaPromise])
                 .then(function(results) {
-                    var geeData = results[0];
-                    var cogData = results[1];
+                    var geeData  = results[0];
+                    var metaData = results[1];
 
-                    // Inicializa variáveis de análise (perfil/volumetria) se COG carregou
-                    if (cogData) {
-                        _mdtImageObj = cogData.imageObj;
-                        _mdtMeta     = cogData.meta;
-                        _mdtReady    = true;
-                        console.log('[MDT COG análise] OK', _mdtMeta);
-                    } else {
-                        _mdtReady = false;
-                        console.warn('[MDT] COG não carregado — perfil/volumetria indisponíveis');
-                    }
+                    // Guarda metadados para os cards de análise
+                    if (metaData && isFinite(metaData.vmin)) _mdtGeeVmin = metaData.vmin;
+                    if (metaData && isFinite(metaData.vmax)) _mdtGeeVmax = metaData.vmax;
+
+                    // Marca MDT como "disponível" para os cards de análise
+                    // (sem COG local — elevação virá via gee-elevation)
+                    _mdtReady = true;
+                    _mdtMeta  = {
+                        vmin: _mdtGeeVmin, vmax: _mdtGeeVmax,
+                        // Campos fictícios para compatibilidade com _perfilMdtDisponivel()
+                        width: 10000, height: 10000, nodata: -9999,
+                        bbox: null, nbands: 1
+                    };
+                    // _mdtImageObj permanece null — as funções de análise usam GEE
+                    console.log('[MDT GEE] Pronto. vmin=' + _mdtGeeVmin + ' vmax=' + _mdtGeeVmax);
+
+                    // Notifica os cards automaticamente
+                    if (typeof perfilVerificaMdt === 'function') perfilVerificaMdt();
+                    if (typeof volVerificaMdt    === 'function') volVerificaMdt();
 
                     _mdtLoading = false;
                     var t = document.getElementById('mdt-cog-toast');
@@ -6761,7 +6722,7 @@
         function _perfilCursorOff() { map.getContainer().style.cursor = ''; }
 
         // Verifica se o MDT está carregado
-        function _perfilMdtDisponivel() { return _mdtReady && _mdtImageObj && _mdtMeta; }
+        function _perfilMdtDisponivel() { return _mdtReady && _mdtMeta; }  // GEE: sem COG local
 
         // Classifica ângulo de declividade
         function _perfilClassifica(ang) {
@@ -6857,21 +6818,13 @@
             return { col: Math.round(col), row: Math.round(row) };
         }
 
-        // Amostra elevação de um ponto via readRasters (1×1 pixel)
+        // Amostra elevação de um ponto via gee-elevation (server-side, sem CORS)
         function _perfilSampleElev(latlng) {
-            var px = _perfilLatLngToPixel(latlng);
-            var meta = _mdtMeta;
-            // Garante dentro dos bounds
-            var c = Math.max(0, Math.min(meta.width  - 1, px.col));
-            var r = Math.max(0, Math.min(meta.height - 1, px.row));
-            return _mdtImageObj.readRasters({
-                window: [c, r, c + 1, r + 1],
-                width: 1, height: 1, interleave: false
-            }).then(function(bands) {
-                var v = bands[0][0];
-                if (v === meta.nodata || v === -9999 || !isFinite(v)) return null;
-                return v;
-            });
+            var url = _GEE_ELEV_URL + '?mode=point&lat=' + latlng.lat + '&lng=' + latlng.lng;
+            return fetch(url)
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(d) { return (d.elevation !== null && isFinite(d.elevation)) ? d.elevation : null; })
+                .catch(function() { return null; });
         }
 
         // Interpolação de pontos ao longo de um segmento (n amostras)
@@ -7012,25 +6965,21 @@
                 distAcumulada += segDist;
             }
 
-            // Amostra elevações em paralelo (lotes de 10 para não sobrecarregar)
-            function processLote(startIdx, results) {
-                var lote = [];
-                for (var k = startIdx; k < Math.min(startIdx + 10, pontosDist.length); k++) {
-                    lote.push(_perfilSampleElev(pontosDist[k].latlng));
-                }
-                return Promise.all(lote).then(function(vals) {
-                    for (var k = 0; k < vals.length; k++) {
-                        results.push({ distAc: pontosDist[startIdx + k].distAc, elev: vals[k], segIdx: pontosDist[startIdx + k].segIdx });
-                    }
-                    var next = startIdx + 10;
-                    if (next < pontosDist.length) {
-                        return processLote(next, results);
-                    }
-                    return results;
+            // Amostra todas as elevações de uma vez via gee-elevation (mode=profile)
+            var allPts = pontosDist.map(function(p) { return [p.latlng.lat, p.latlng.lng]; });
+            fetch(_GEE_ELEV_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'profile', points: allPts })
+            })
+            .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function(resp) {
+                var elevs_raw = resp.elevations || [];
+                var dados = pontosDist.map(function(p, i) {
+                    return { distAc: p.distAc, elev: elevs_raw[i] !== undefined ? elevs_raw[i] : null, segIdx: p.segIdx };
                 });
-            }
-
-            processLote(0, []).then(function(dados) {
+                return dados;
+            }).then(function(dados) {
                 // Filtra nulls (nodata) por interpolação linear
                 var elevs = dados.map(function(d) { return d.elev; });
                 // Preenche nulls com vizinhos
@@ -7362,7 +7311,7 @@
         var _volPreviewLine  = null;
         var _volHeatLayer    = null;   // camada heatmap no mapa
 
-        function _volMdtDisponivel() { return _mdtReady && _mdtImageObj && _mdtMeta; }
+        function _volMdtDisponivel() { return _mdtReady && _mdtMeta; }  // GEE: sem COG local
 
         function volVerificaMdt() {
             var el = document.getElementById('volSemMdt');
@@ -7490,213 +7439,133 @@
             var cotaAlvo = parseFloat(cotaStr);
 
             var status = document.getElementById('volStatus');
-            status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculando... aguarde.';
+            status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando elevações via GEE...';
             document.getElementById('volBtnCalc').disabled = true;
 
-            // Bounding box do polígono em LatLng
+            // Bounding box do polígono
             var lats = _volPontos.map(function(p){ return p.lat; });
             var lngs = _volPontos.map(function(p){ return p.lng; });
             var bbN = Math.max.apply(null, lats), bbS = Math.min.apply(null, lats);
             var bbE = Math.max.apply(null, lngs), bbW = Math.min.apply(null, lngs);
 
-            // Bounding box em pixels do raster
-            var meta  = _mdtMeta;
-            var pxSW  = _volLatLngToPixel(L.latLng(bbS, bbW));
-            var pxNE  = _volLatLngToPixel(L.latLng(bbN, bbE));
-            var cMin  = Math.max(0, Math.min(pxSW.col, pxNE.col));
-            var cMax  = Math.min(meta.width  - 1, Math.max(pxSW.col, pxNE.col));
-            var rMin  = Math.max(0, Math.min(pxSW.row, pxNE.row));
-            var rMax  = Math.min(meta.height - 1, Math.max(pxSW.row, pxNE.row));
+            // Resolução da grade: ~60×60 pontos, máx 100m entre pontos
+            var latSpan = bbN - bbS, lngSpan = bbE - bbW;
+            var cols = Math.max(10, Math.min(100, Math.ceil(lngSpan * 111320 / 50)));
+            var rows = Math.max(10, Math.min(100, Math.ceil(latSpan * 111320 / 50)));
 
-            // Lê bloco do raster de uma vez (mais eficiente que pixel a pixel)
-            var bW = cMax - cMin + 1;
-            var bH = rMax - rMin + 1;
+            // Área estimada de cada célula em m²
+            var cellLat = (bbN - bbS) / rows;
+            var cellLng = (bbE - bbW) / cols;
+            var cellAreaM2 = (cellLat * 111320) * (cellLng * 111320 * Math.cos((bbN+bbS)/2 * Math.PI/180));
 
-            _mdtImageObj.readRasters({
-                window: [cMin, rMin, cMax + 1, rMax + 1],
-                width: bW, height: bH, interleave: false
-            }).then(function(bands) {
-                var band = bands[0];
-                var nodata = meta.nodata;
+            status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando GEE (' + rows + '×' + cols + ' pontos)...';
 
-                // Tamanho de pixel real em metros (UTM 22S, bbox em metros UTM)
-                var utmW = meta.bbox[2] - meta.bbox[0];  // largura em metros UTM
-                var utmH = meta.bbox[3] - meta.bbox[1];  // altura  em metros UTM
-                var pixW = utmW / meta.width;
-                var pixH = utmH / meta.height;
-                var pixArea = pixW * pixH;  // m² por pixel
+            // Solicita grade de elevação ao gee-elevation (server-side, sem CORS)
+            var url = _GEE_ELEV_URL + '?mode=area'
+                + '&minLat=' + bbS + '&maxLat=' + bbN
+                + '&minLng=' + bbW + '&maxLng=' + bbE
+                + '&cols=' + cols + '&rows=' + rows;
 
-                // Pré-computa pixel→latLng para a grade (necessário para point-in-polygon)
-                // Para eficiência, usamos interpolação bilinear nos cantos do bbox
-                // Converte pixel (col,row) → LatLng via inversa do _perfilLatLngToPixel
-                function pixToLatLng(col, row) {
-                    // inversa: col = (mx - mSW.x)/(mNE.x-mSW.x)*W → mx = mSW.x + col/W*(mNE.x-mSW.x)
-                    // Pré-calculamos os extremos uma vez
-                    return _pixToLL(col, row);
-                }
+            fetch(url)
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(resp) {
+                    var grid = resp.grid;   // array 2D [row][col] de elevações
+                    var meta = resp.meta;
 
-                // Pré-calcula transformação: pixel MDT → LatLng real (sistema do ortomosaico)
-                // Pipeline: pixel → Mercator → LatLng_mdt → UTM_mdt → UTM_orto (afim direta) → LatLng_real
-                var _utm22sToLL_inner = (function() {
-                    var a=6378137.0, f=1/298.257223563, b=a*(1-f), e2=(a*a-b*b)/(a*a), k0=0.9996;
-                    var E0=500000, N0=10000000, lon0=-51*Math.PI/180;
-                    function utm22sToLatLng(E, N) {
-                        var x=E-E0, y=N-N0, M=y/k0;
-                        var mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
-                        var e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
-                        var phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)+(151*e1*e1*e1/96)*Math.sin(6*mu);
-                        var sp=Math.sin(phi1),cp=Math.cos(phi1),tp=Math.tan(phi1);
-                        var N1=a/Math.sqrt(1-e2*sp*sp),T1=tp*tp,C1=e2/(1-e2)*cp*cp,R1=a*(1-e2)/Math.pow(1-e2*sp*sp,1.5),D=x/(N1*k0);
-                        var lat=phi1-(N1*tp/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*e2/(1-e2))*D*D*D*D/24+(61+90*T1+298*C1+45*T1*T1-252*e2/(1-e2)-3*C1*C1)*D*D*D*D*D*D/720);
-                        var lon=lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e2/(1-e2)+24*T1*T1)*D*D*D*D*D/120)/cp;
-                        return {lat:lat*180/Math.PI, lng:lon*180/Math.PI};
+                    // Itera a grade, testa point-in-polygon, acumula volumes
+                    var volCorte = 0, volAterro = 0;
+                    var pixValid = 0, sumElev = 0;
+                    var vmin = Infinity, vmax = -Infinity;
+                    var heatPts = [];
+
+                    for (var r = 0; r < rows; r++) {
+                        for (var c = 0; c < cols; c++) {
+                            var v = grid[r] ? grid[r][c] : null;
+                            if (v === null || !isFinite(v)) continue;
+
+                            // Centro geográfico desta célula
+                            var cellLat2 = bbS + (r + 0.5) * (bbN - bbS) / rows;
+                            var cellLng2 = bbW + (c + 0.5) * (bbE - bbW) / cols;
+                            var ll = L.latLng(cellLat2, cellLng2);
+
+                            if (!_volPtInPoly(ll, _volPontos)) continue;
+
+                            pixValid++;
+                            var dz = cotaAlvo - v;
+                            sumElev += v;
+                            if (v < vmin) vmin = v;
+                            if (v > vmax) vmax = v;
+
+                            if (dz > 0) volAterro += dz * cellAreaM2;
+                            else        volCorte  += (-dz) * cellAreaM2;
+
+                            if (pixValid % 3 === 0) heatPts.push({ ll: ll, dz: dz });
+                        }
                     }
-                    function llToMerc(lat,lng) {
-                        return { x: lng*20037508.342/180, y: Math.log(Math.tan((90+lat)*Math.PI/360))/(Math.PI/180)*20037508.342/180 };
+
+                    if (pixValid === 0) {
+                        status.textContent = 'Nenhum ponto MDT válido na área selecionada.';
+                        document.getElementById('volBtnCalc').disabled = false;
+                        return;
                     }
-                    function latLngToUtm(lat, lng) {
-                        var lat_r=lat*Math.PI/180, lon_r=lng*Math.PI/180;
-                        var N2=a/Math.sqrt(1-e2*Math.sin(lat_r)*Math.sin(lat_r));
-                        var T2=Math.tan(lat_r)*Math.tan(lat_r), C2=e2/(1-e2)*Math.cos(lat_r)*Math.cos(lat_r);
-                        var A2=Math.cos(lat_r)*(lon_r-lon0);
-                        var M=a*((1-e2/4-3*e2*e2/64-5*e2*e2*e2/256)*lat_r-(3*e2/8+3*e2*e2/32+45*e2*e2*e2/1024)*Math.sin(2*lat_r)+(15*e2*e2/256+45*e2*e2*e2/1024)*Math.sin(4*lat_r)-(35*e2*e2*e2/3072)*Math.sin(6*lat_r));
-                        var E2=k0*N2*(A2+(1-T2+C2)*A2*A2*A2/6+(5-18*T2+T2*T2+72*C2-58*e2/(1-e2))*A2*A2*A2*A2*A2/120)+500000;
-                        var Nc=k0*(M+N2*Math.tan(lat_r)*(A2*A2/2+(5-T2+9*C2+4*C2*C2)*A2*A2*A2*A2/24+(61-58*T2+T2*T2+600*C2-330*e2/(1-e2))*A2*A2*A2*A2*A2*A2/720))+10000000;
-                        return {E:E2, N:Nc};
-                    }
-                    var sw=utm22sToLatLng(meta.bbox[0],meta.bbox[1]);
-                    var ne=utm22sToLatLng(meta.bbox[2],meta.bbox[3]);
-                    var mSW=llToMerc(sw.lat,sw.lng);
-                    var mNE=llToMerc(ne.lat,ne.lng);
-                    function mercToLL(mx, my) {
-                        var lng2 = mx / 20037508.342 * 180;
-                        var lat2 = Math.atan(Math.exp(my / 20037508.342 * Math.PI)) * 360 / Math.PI - 90;
-                        return { lat: lat2, lng: lng2 };
-                    }
-                    return function(col, row) {
-                        // pixel → Mercator → LatLng_mdt → UTM_mdt
-                        var mx = mSW.x + col / meta.width  * (mNE.x - mSW.x);
-                        var my = mNE.y - row / meta.height * (mNE.y - mSW.y);
-                        var ll_mdt = mercToLL(mx, my);
-                        var utm_mdt = latLngToUtm(ll_mdt.lat, ll_mdt.lng);
-                        // UTM_mdt → UTM_orto (transformação afim direta MDT→Orto)
-                        var E_orto = 1.0230918*utm_mdt.E - 0.0166497*utm_mdt.N + 102026.664;
-                        var N_orto = 0.0147797*utm_mdt.E + 0.9896427*utm_mdt.N +  63179.123;
-                        // UTM_orto → LatLng real
-                        return utm22sToLatLng(E_orto, N_orto);
-                    };
-                })();
-                var _pixToLL = _utm22sToLL_inner;
 
-                // Itera pixels do bloco, verifica se está no polígono
-                var volCorte  = 0, volAterro = 0;
-                var pixCount  = 0, pixValid  = 0;
-                var sumElev   = 0, vmin = Infinity, vmax = -Infinity;
+                    var areaTotal = pixValid * cellAreaM2;
+                    var elevMedia = sumElev / pixValid;
+                    var saldo     = volCorte - volAterro;
 
-                // Para o heatmap: guarda pontos com dz
-                var heatPts = [];
+                    // ── Atualiza UI ──────────────────────────────────
+                    document.getElementById('volResultados').style.display = 'block';
+                    document.getElementById('volCotaLabel').textContent = cotaAlvo.toFixed(1);
 
-                for (var r = 0; r < bH; r++) {
-                    for (var c = 0; c < bW; c++) {
-                        var idx = r * bW + c;
-                        var v = band[idx];
-                        if (v === nodata || v === -9999 || !isFinite(v)) continue;
+                    var total = volCorte + volAterro || 1;
+                    document.getElementById('volBarCorte').style.width  = (volCorte  / total * 100).toFixed(1) + '%';
+                    document.getElementById('volBarAterro').style.width = (volAterro / total * 100).toFixed(1) + '%';
 
-                        var absCol = cMin + c;
-                        var absRow = rMin + r;
-                        var ll = _pixToLL(absCol + 0.5, absRow + 0.5);
+                    document.getElementById('volCorteVal').textContent  = _volFmtVol(volCorte);
+                    document.getElementById('volAterroVal').textContent = _volFmtVol(volAterro);
+                    document.getElementById('volAreaVal').textContent   = _volFmtArea(areaTotal);
+                    document.getElementById('volSaldoVal').textContent  = (saldo >= 0 ? '+' : '') + _volFmtVol(Math.abs(saldo)) + (saldo > 0 ? ' (excesso corte)' : saldo < 0 ? ' (déficit)' : '');
+                    document.getElementById('volMinVal').textContent    = isFinite(vmin) ? vmin.toFixed(1) + ' m' : '-';
+                    document.getElementById('volMaxVal').textContent    = isFinite(vmax) ? vmax.toFixed(1) + ' m' : '-';
+                    document.getElementById('volMedVal').textContent    = elevMedia.toFixed(1) + ' m';
+                    document.getElementById('volPixelsVal').textContent = pixValid.toLocaleString('pt-BR');
 
-                        if (!_volPtInPoly(ll, _volPontos)) continue;
+                    // ── Heatmap no mapa ──────────────────────────────
+                    if (_volHeatLayer) { map.removeLayer(_volHeatLayer); _volHeatLayer = null; }
+                    var maxAbsDz = 0;
+                    heatPts.forEach(function(p){ if (Math.abs(p.dz) > maxAbsDz) maxAbsDz = Math.abs(p.dz); });
+                    if (maxAbsDz === 0) maxAbsDz = 1;
 
-                        pixValid++;
-                        var dz = cotaAlvo - v;
-                        sumElev += v;
-                        if (v < vmin) vmin = v;
-                        if (v > vmax) vmax = v;
-
-                        if (dz > 0) {
-                            volAterro += dz * pixArea;  // abaixo da cota → precisa aterro
+                    _volHeatLayer = L.layerGroup();
+                    heatPts.forEach(function(p) {
+                        var t = Math.max(-1, Math.min(1, p.dz / maxAbsDz));
+                        var color;
+                        if (t >= 0) {
+                            var r2 = Math.round(142*(1-t)+39*t), g2 = Math.round(68*(1-t)+174*t), b2 = Math.round(173*(1-t)+96*t);
+                            color = 'rgb('+r2+','+g2+','+b2+')';
                         } else {
-                            volCorte  += (-dz) * pixArea; // acima da cota → precisa corte
+                            var s = -t;
+                            var r2 = Math.round(241*(1-s)+192*s), g2 = Math.round(196*(1-s)+57*s), b2 = Math.round(15*(1-s)+43*s);
+                            color = 'rgb('+r2+','+g2+','+b2+')';
                         }
-                        // Coleta para heatmap (subamostra para não sobrecarregar)
-                        if (pixValid % 4 === 0) {
-                            heatPts.push({ ll: ll, dz: dz });
-                        }
-                    }
-                }
+                        L.circleMarker(p.ll, {
+                            radius: 4, color: 'transparent',
+                            fillColor: color, fillOpacity: 0.72, weight: 0,
+                            pane: 'overlayPane', interactive: false
+                        }).addTo(_volHeatLayer);
+                    });
+                    _volHeatLayer.addTo(map);
 
-                if (pixValid === 0) {
-                    status.textContent = 'Nenhum pixel MDT válido na área selecionada.';
+                    document.getElementById('volCotaInfo').innerHTML =
+                        'Cota média da área: <b style="color:#9b59b6">' + elevMedia.toFixed(1) + ' m</b>';
+                    status.textContent = 'Cálculo concluído. ' + pixValid.toLocaleString('pt-BR') + ' pontos analisados.';
                     document.getElementById('volBtnCalc').disabled = false;
-                    return;
-                }
-
-                var areaTotal = pixValid * pixArea;
-                var elevMedia = sumElev / pixValid;
-                var saldo     = volCorte - volAterro;
-
-                // ── Atualiza UI ──────────────────────────────────────
-                document.getElementById('volResultados').style.display = 'block';
-                document.getElementById('volCotaLabel').textContent = cotaAlvo.toFixed(1);
-
-                // Barras proporcionais
-                var total = volCorte + volAterro || 1;
-                document.getElementById('volBarCorte').style.width  = (volCorte  / total * 100).toFixed(1) + '%';
-                document.getElementById('volBarAterro').style.width = (volAterro / total * 100).toFixed(1) + '%';
-
-                document.getElementById('volCorteVal').textContent  = _volFmtVol(volCorte);
-                document.getElementById('volAterroVal').textContent = _volFmtVol(volAterro);
-                document.getElementById('volAreaVal').textContent   = _volFmtArea(areaTotal);
-                document.getElementById('volSaldoVal').textContent  = (saldo >= 0 ? '+' : '') + _volFmtVol(Math.abs(saldo)) + (saldo > 0 ? ' (excesso corte)' : saldo < 0 ? ' (déficit)' : '');
-                document.getElementById('volMinVal').textContent   = vmin.toFixed(1) + ' m';
-                document.getElementById('volMaxVal').textContent   = vmax.toFixed(1) + ' m';
-                document.getElementById('volMedVal').textContent   = elevMedia.toFixed(1) + ' m';
-                document.getElementById('volPixelsVal').textContent = pixValid.toLocaleString('pt-BR');
-
-                // ── Heatmap no mapa ──────────────────────────────────
-                if (_volHeatLayer) { map.removeLayer(_volHeatLayer); _volHeatLayer = null; }
-                var maxAbsDz = 0;
-                heatPts.forEach(function(p){ if (Math.abs(p.dz) > maxAbsDz) maxAbsDz = Math.abs(p.dz); });
-                if (maxAbsDz === 0) maxAbsDz = 1;
-
-                _volHeatLayer = L.layerGroup();
-                heatPts.forEach(function(p) {
-                    var t = Math.max(-1, Math.min(1, p.dz / maxAbsDz)); // -1=corte, +1=aterro
-                    var color;
-                    if (t >= 0) {
-                        // aterro: roxo→azul→verde
-                        var r2 = Math.round(142 * (1-t) + 39 * t);
-                        var g2 = Math.round(68  * (1-t) + 174 * t);
-                        var b2 = Math.round(173 * (1-t) + 96  * t);
-                        color = 'rgb('+r2+','+g2+','+b2+')';
-                    } else {
-                        // corte: amarelo→laranja→vermelho
-                        var s = -t;
-                        var r2 = Math.round(241 * (1-s) + 192 * s);
-                        var g2 = Math.round(196 * (1-s) + 57  * s);
-                        var b2 = Math.round(15  * (1-s) + 43  * s);
-                        color = 'rgb('+r2+','+g2+','+b2+')';
-                    }
-                    L.circleMarker(p.ll, {
-                        radius: 3, color: 'transparent',
-                        fillColor: color, fillOpacity: 0.72, weight: 0,
-                        pane: 'overlayPane', interactive: false
-                    }).addTo(_volHeatLayer);
+                })
+                .catch(function(err) {
+                    status.textContent = 'Erro: ' + err.message;
+                    document.getElementById('volBtnCalc').disabled = false;
+                    console.error('[Volumetria GEE]', err);
                 });
-                _volHeatLayer.addTo(map);
-
-                // Info cota média
-                document.getElementById('volCotaInfo').innerHTML =
-                    'Cota média da área: <b style="color:#9b59b6">' + elevMedia.toFixed(1) + ' m</b>';
-
-                status.textContent = 'Cálculo concluído. ' + pixValid.toLocaleString('pt-BR') + ' pixels analisados.';
-                document.getElementById('volBtnCalc').disabled = false;
-            }).catch(function(err) {
-                status.textContent = 'Erro: ' + err.message;
-                document.getElementById('volBtnCalc').disabled = false;
-                console.error('[Volumetria]', err);
-            });
         }
 
         // Eventos mapa para volumetria
