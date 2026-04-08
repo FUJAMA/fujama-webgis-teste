@@ -14,7 +14,7 @@ var ASSETS = {
       // Orto 1979: RGB (ou escala de cinzas se 1 banda)
       var info = image.getInfo();
       var nbands = info && info.bands ? info.bands.length : 1;
-      if (nbands >= 3) {
+      if (nbands >= 1) {
         return { bands: ['b1'], min: 0, max: 255 };
       }
       return { bands: ['b1'], min: 0, max: 255, palette: ['000000', 'ffffff'] };
