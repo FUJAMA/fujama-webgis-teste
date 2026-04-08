@@ -2534,8 +2534,133 @@
                  ═══════════════════════════════════════════════════════════ -->
             <div class="dashboard-painel" id="painel-geeambiental">
 
+                <!-- CARD: Detecção de Supressão Vegetal -->
+                <div class="dashboard-card" id="card-desmatamento" style="border-color:rgba(231,76,60,0.35);">
+                    <div class="card-header" onclick="toggleCard(this)" style="color:#e74c3c;">
+                        <i class="fas fa-tree"></i> Detecção de Supressão Vegetal
+                        <i class="fas fa-chevron-right card-chev"></i>
+                    </div>
+                    <div class="card-collapsible">
+
+                        <!-- Instrução -->
+                        <div id="dsm-instrucao" style="font-size:0.72em;color:#7ab;background:rgba(52,152,219,0.07);border:1px solid rgba(52,152,219,0.2);border-radius:6px;padding:8px 10px;margin-bottom:10px;line-height:1.5;">
+                            <i class="fas fa-info-circle" style="color:#3498db;"></i>
+                            Usa Sentinel-2 (10m) para comparar dois períodos e detectar perda de vegetação via NDVI.
+                        </div>
+
+                        <!-- Seleção de área -->
+                        <div style="margin-bottom:10px;">
+                            <label class="gee-label"><i class="fas fa-draw-polygon"></i> Área de análise</label>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                <button class="ferramenta-btn" id="dsm-btn-desenhar" onclick="dsmIniciarDesenho()" style="flex:1;min-width:90px;">
+                                    <i class="fas fa-pencil-alt"></i> Desenhar
+                                </button>
+                                <button class="ferramenta-btn" onclick="dsmUsarDesenhoExistente()" style="flex:1;min-width:90px;" title="Usar área já desenhada na ferramenta de Desenho">
+                                    <i class="fas fa-vector-square"></i> Usar área atual
+                                </button>
+                                <button class="ferramenta-btn" onclick="dsmLimparArea()" style="background:rgba(231,76,60,0.1);border-color:rgba(231,76,60,0.3);color:#e74c3c;flex:1;min-width:90px;">
+                                    <i class="fas fa-trash"></i> Limpar
+                                </button>
+                            </div>
+                            <div id="dsm-area-status" style="margin-top:5px;font-size:0.72em;color:#888;font-style:italic;">
+                                Nenhuma área definida
+                            </div>
+                            <!-- Mini-mapa de pré-visualização da área -->
+                            <div id="dsm-area-preview" style="display:none;margin-top:6px;height:6px;background:rgba(231,76,60,0.3);border-radius:3px;border:1px solid rgba(231,76,60,0.5);"></div>
+                        </div>
+
+                        <!-- Período ANTES -->
+                        <div style="background:rgba(52,152,219,0.06);border-radius:6px;padding:8px;margin-bottom:8px;border:1px solid rgba(52,152,219,0.15);">
+                            <div class="gee-label" style="color:#3498db;margin-bottom:6px;"><i class="fas fa-history"></i> Período de referência (ANTES)</div>
+                            <div style="display:flex;gap:6px;">
+                                <div style="flex:1;">
+                                    <label class="gee-label">Início</label>
+                                    <input type="date" id="dsm-antes-ini" class="gee-select" value="2017-01-01">
+                                </div>
+                                <div style="flex:1;">
+                                    <label class="gee-label">Fim</label>
+                                    <input type="date" id="dsm-antes-fim" class="gee-select" value="2019-12-31">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Período DEPOIS -->
+                        <div style="background:rgba(231,76,60,0.06);border-radius:6px;padding:8px;margin-bottom:8px;border:1px solid rgba(231,76,60,0.15);">
+                            <div class="gee-label" style="color:#e74c3c;margin-bottom:6px;"><i class="fas fa-calendar-check"></i> Período de comparação (DEPOIS)</div>
+                            <div style="display:flex;gap:6px;">
+                                <div style="flex:1;">
+                                    <label class="gee-label">Início</label>
+                                    <input type="date" id="dsm-depois-ini" class="gee-select" value="2022-01-01">
+                                </div>
+                                <div style="flex:1;">
+                                    <label class="gee-label">Fim</label>
+                                    <input type="date" id="dsm-depois-fim" class="gee-select" value="2024-12-31">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Parâmetros avançados -->
+                        <div style="margin-bottom:8px;">
+                            <label class="gee-label">
+                                <i class="fas fa-cloud"></i> Máx. cobertura de nuvens
+                                <span id="dsm-cloud-label" style="color:#f39c12;font-weight:600;">40%</span>
+                            </label>
+                            <input type="range" id="dsm-cloud" min="10" max="80" value="40" class="gee-range"
+                                oninput="document.getElementById('dsm-cloud-label').textContent=this.value+'%'">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label class="gee-label">
+                                <i class="fas fa-sliders-h"></i> Limiar de detecção (Δ NDVI)
+                                <span id="dsm-thr-label" style="color:#e74c3c;font-weight:600;">−0.30</span>
+                            </label>
+                            <input type="range" id="dsm-threshold" min="-60" max="-10" value="-30" class="gee-range"
+                                oninput="document.getElementById('dsm-thr-label').textContent=(this.value/100).toFixed(2)">
+                            <div style="display:flex;justify-content:space-between;font-size:0.65em;color:#666;margin-top:2px;">
+                                <span>−0.60 (sensível)</span><span>−0.10 (restrito)</span>
+                            </div>
+                        </div>
+
+                        <!-- Botão principal -->
+                        <button class="sat-btn-buscar" id="dsm-btn-calcular" onclick="dsmCalcular()" style="background:rgba(231,76,60,0.18);border-color:rgba(231,76,60,0.5);color:#e74c3c;">
+                            <i class="fas fa-satellite-dish"></i> Analisar via GEE
+                        </button>
+                        <button class="sat-btn-limpar" onclick="dsmRemoverResultado()" style="margin-top:5px;">
+                            <i class="fas fa-times"></i> Remover resultado
+                        </button>
+
+                        <!-- Status / progresso -->
+                        <div id="dsm-status" style="display:none;margin-top:10px;font-size:0.78em;text-align:center;padding:8px;border-radius:6px;background:rgba(255,255,255,0.04);"></div>
+
+                        <!-- Resultado -->
+                        <div id="dsm-resultado" style="display:none;margin-top:10px;background:rgba(10,20,40,0.6);border-radius:8px;padding:10px;border:1px solid rgba(231,76,60,0.3);">
+                            <div style="font-size:0.72em;color:#e74c3c;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">
+                                <i class="fas fa-chart-area"></i> Resultado da Análise
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                                <div style="text-align:center;background:rgba(231,76,60,0.1);border-radius:6px;padding:8px;">
+                                    <div style="font-size:1.3em;font-weight:700;color:#e74c3c;" id="dsm-res-area">—</div>
+                                    <div style="font-size:0.65em;color:#888;">Área suprimida (ha)</div>
+                                </div>
+                                <div style="text-align:center;background:rgba(231,76,60,0.1);border-radius:6px;padding:8px;">
+                                    <div style="font-size:1.3em;font-weight:700;color:#f39c12;" id="dsm-res-pct">—</div>
+                                    <div style="font-size:0.65em;color:#888;">% da área analisada</div>
+                                </div>
+                            </div>
+                            <div id="dsm-res-info" style="margin-top:8px;font-size:0.68em;color:#666;line-height:1.4;"></div>
+                            <!-- Barra de proporção -->
+                            <div style="margin-top:8px;">
+                                <div style="font-size:0.65em;color:#777;margin-bottom:3px;">Proporção suprimida / total</div>
+                                <div style="height:8px;background:rgba(46,204,113,0.3);border-radius:4px;overflow:hidden;">
+                                    <div id="dsm-res-barra" style="height:100%;background:#e74c3c;border-radius:4px;width:0%;transition:width 0.8s ease;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- /card-collapsible -->
+                </div>
+
                 <!-- CARD: Índices Espectrais -->
-                <div class="dashboard-card" style="border-color:rgba(46,204,113,0.3);">
+                <div class="dashboard-card" style="border-color:rgba(46,204,113,0.3);margin-top:6px;">
                     <div class="card-header" onclick="toggleCard(this)" style="color:#2ecc71;">
                         <i class="fas fa-seedling"></i> Índices Espectrais (NDVI / EVI / NBR / NDWI)
                         <i class="fas fa-chevron-right card-chev"></i>
@@ -2710,251 +2835,6 @@
 
                     </div>
                 </div>
-
-
-                <!-- ══════════════════════════════════════════════════════
-                     CARD: Detector de Desmatamento (Temporal)
-                ══════════════════════════════════════════════════════ -->
-                <div class="dashboard-card" style="border-color:rgba(231,76,60,0.4);margin-top:6px;" id="card-desmat">
-                    <div class="card-header" onclick="toggleCard(this)" style="color:#e74c3c;">
-                        <i class="fas fa-tree"></i> Detector de Desmatamento (Temporal)
-                        <i class="fas fa-chevron-right card-chev"></i>
-                    </div>
-                    <div class="card-collapsible">
-                        <div style="font-size:0.72em;color:#7ab;margin-bottom:8px;line-height:1.5;background:rgba(231,76,60,0.07);padding:7px 9px;border-radius:5px;border-left:3px solid rgba(231,76,60,0.4);">
-                            <b style="color:#e74c3c;">🔍 Perícia ambiental:</b> Compare dois anos e detecte áreas de supressão vegetal.
-                            Útil para <b>autos de infração</b>, <b>defesa técnica</b> e elaboração de <b>PRAD</b>.
-                        </div>
-                        <div style="margin-bottom:7px;font-size:0.78em;color:#aaa;display:flex;align-items:center;gap:6px;">
-                            <i class="fas fa-draw-polygon" style="color:#e74c3c;"></i>
-                            <span id="desmat-geom-status">Desenhe um polígono no mapa (barra de ferramentas) ou use a extensão atual.</span>
-                        </div>
-                        <div style="display:flex;gap:8px;margin-bottom:8px;">
-                            <div style="flex:1;">
-                                <label class="gee-label"><i class="fas fa-history"></i> Ano base</label>
-                                <select id="desmat-ano-base" class="gee-select"></select>
-                            </div>
-                            <div style="flex:1;">
-                                <label class="gee-label"><i class="fas fa-calendar-check"></i> Ano comparar</label>
-                                <select id="desmat-ano-comp" class="gee-select"></select>
-                            </div>
-                        </div>
-                        <div style="margin-bottom:10px;">
-                            <label class="gee-label">
-                                <i class="fas fa-cloud"></i> Máx. nuvens
-                                <span id="desmat-cloud-label" style="color:#f39c12;font-weight:600;">20%</span>
-                            </label>
-                            <input type="range" id="desmat-cloud" min="5" max="70" value="20" class="gee-range"
-                                oninput="document.getElementById('desmat-cloud-label').textContent=this.value+'%'">
-                        </div>
-                        <button class="sat-btn-buscar" onclick="desmatCarregar()" style="background:rgba(231,76,60,0.15);border-color:rgba(231,76,60,0.4);color:#e74c3c;">
-                            <i class="fas fa-search-location"></i> Detectar Desmatamento
-                        </button>
-                        <button class="sat-btn-limpar" onclick="desmatRemover()" style="margin-top:5px;">
-                            <i class="fas fa-times"></i> Remover camada
-                        </button>
-                        <div id="desmat-status" style="display:none;margin-top:8px;font-size:0.78em;color:#7ab;text-align:center;"></div>
-
-                        <!-- Resultado -->
-                        <div id="desmat-resultado" style="display:none;margin-top:12px;background:rgba(0,0,0,0.25);border-radius:8px;padding:10px;">
-                            <div style="font-size:0.72em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">📊 Resultado</div>
-                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                                <div style="flex:1;min-width:90px;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);border-radius:6px;padding:8px;text-align:center;">
-                                    <div style="font-size:0.68em;color:#aaa;margin-bottom:3px;">Área suprimida</div>
-                                    <div id="desmat-area" style="font-size:1.1em;font-weight:700;color:#e74c3c;">—</div>
-                                    <div style="font-size:0.65em;color:#888;">hectares</div>
-                                </div>
-                                <div style="flex:1;min-width:90px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:8px;text-align:center;">
-                                    <div style="font-size:0.68em;color:#aaa;margin-bottom:3px;">NDVI base (<span id="desmat-label-base">—</span>)</div>
-                                    <div id="desmat-ndvi-base" style="font-size:1.1em;font-weight:700;color:#2ecc71;">—</div>
-                                </div>
-                                <div style="flex:1;min-width:90px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:8px;text-align:center;">
-                                    <div style="font-size:0.68em;color:#aaa;margin-bottom:3px;">NDVI atual (<span id="desmat-label-comp">—</span>)</div>
-                                    <div id="desmat-ndvi-comp" style="font-size:1.1em;font-weight:700;color:#e74c3c;">—</div>
-                                </div>
-                            </div>
-                            <div style="margin-top:8px;font-size:0.68em;color:#888;line-height:1.5;" id="desmat-interpretacao"></div>
-                        </div>
-
-                        <!-- Legenda -->
-                        <div id="desmat-legenda" style="display:none;margin-top:10px;">
-                            <div style="font-size:0.7em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;">Δ NDVI — Detecção</div>
-                            <div style="height:14px;border-radius:4px;background:linear-gradient(to right,#7f0000,#d73027,#f46d43,#fee08b,#ffffbf,#d9ef8b,#66bd63,#1a9850,#004529);margin-bottom:3px;"></div>
-                            <div style="display:flex;justify-content:space-between;font-size:0.68em;color:#aaa;">
-                                <span>Supressão</span><span>Sem mudança</span><span>Ganho</span>
-                            </div>
-                        </div>
-                    </div>
-                </div><!-- /card-desmat -->
-
-                <!-- ══════════════════════════════════════════════════════
-                     CARD: Análise de Regeneração (PRAD)
-                ══════════════════════════════════════════════════════ -->
-                <div class="dashboard-card" style="border-color:rgba(46,204,113,0.4);margin-top:6px;" id="card-regeneracao">
-                    <div class="card-header" onclick="toggleCard(this)" style="color:#2ecc71;">
-                        <i class="fas fa-leaf"></i> Análise de Regeneração (PRAD)
-                        <i class="fas fa-chevron-right card-chev"></i>
-                    </div>
-                    <div class="card-collapsible">
-                        <div style="font-size:0.72em;color:#7ab;margin-bottom:8px;line-height:1.5;background:rgba(46,204,113,0.07);padding:7px 9px;border-radius:5px;border-left:3px solid rgba(46,204,113,0.4);">
-                            <b style="color:#2ecc71;">🌱 Laudo automatizado:</b> Monitore ganho/perda de vegetação ao longo do tempo via NDVI.
-                            Gere evidências de <b>recuperação ambiental</b> para PRAD.
-                        </div>
-                        <div style="margin-bottom:7px;font-size:0.78em;color:#aaa;display:flex;align-items:center;gap:6px;">
-                            <i class="fas fa-draw-polygon" style="color:#2ecc71;"></i>
-                            <span>Desenhe um polígono no mapa ou use a extensão atual.</span>
-                        </div>
-                        <div style="display:flex;gap:8px;margin-bottom:8px;">
-                            <div style="flex:1;">
-                                <label class="gee-label"><i class="fas fa-calendar-alt"></i> Ano início</label>
-                                <select id="reg-ano-inicio" class="gee-select"></select>
-                            </div>
-                            <div style="flex:1;">
-                                <label class="gee-label"><i class="fas fa-calendar-check"></i> Ano fim</label>
-                                <select id="reg-ano-fim" class="gee-select"></select>
-                            </div>
-                        </div>
-                        <div style="margin-bottom:10px;">
-                            <label class="gee-label">
-                                <i class="fas fa-cloud"></i> Máx. nuvens
-                                <span id="reg-cloud-label" style="color:#f39c12;font-weight:600;">20%</span>
-                            </label>
-                            <input type="range" id="reg-cloud" min="5" max="70" value="20" class="gee-range"
-                                oninput="document.getElementById('reg-cloud-label').textContent=this.value+'%'">
-                        </div>
-                        <button class="sat-btn-buscar" onclick="regCarregar()" style="background:rgba(46,204,113,0.15);border-color:rgba(46,204,113,0.4);color:#2ecc71;">
-                            <i class="fas fa-chart-area"></i> Analisar Regeneração
-                        </button>
-                        <button class="sat-btn-limpar" onclick="regRemover()" style="margin-top:5px;">
-                            <i class="fas fa-times"></i> Remover camada
-                        </button>
-                        <div id="reg-status" style="display:none;margin-top:8px;font-size:0.78em;color:#7ab;text-align:center;"></div>
-
-                        <!-- Resultado -->
-                        <div id="reg-resultado" style="display:none;margin-top:12px;background:rgba(0,0,0,0.25);border-radius:8px;padding:10px;">
-                            <div style="font-size:0.72em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">📈 Evolução do NDVI</div>
-                            <div id="reg-ganho-box" style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);border-radius:6px;padding:8px;text-align:center;margin-bottom:10px;">
-                                <div style="font-size:0.7em;color:#aaa;margin-bottom:3px;">Ganho/perda de vegetação</div>
-                                <div id="reg-ganho" style="font-size:1.4em;font-weight:700;color:#2ecc71;">—</div>
-                                <div style="font-size:0.65em;color:#888;">em relação ao ano base</div>
-                            </div>
-                            <!-- Mini gráfico de barras temporal -->
-                            <div style="font-size:0.68em;color:#888;margin-bottom:5px;">Série temporal de NDVI médio:</div>
-                            <div id="reg-grafico" style="display:flex;align-items:flex-end;gap:3px;height:60px;background:rgba(0,0,0,0.2);border-radius:5px;padding:5px 3px;overflow-x:auto;"></div>
-                            <div id="reg-laudobox" style="margin-top:8px;font-size:0.72em;color:#2ecc71;line-height:1.6;background:rgba(46,204,113,0.06);border-radius:5px;padding:8px;border-left:3px solid rgba(46,204,113,0.4);"></div>
-                        </div>
-
-                        <!-- Legenda -->
-                        <div id="reg-legenda" style="display:none;margin-top:10px;">
-                            <div style="font-size:0.7em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;">Ganho NDVI</div>
-                            <div style="height:14px;border-radius:4px;background:linear-gradient(to right,#d73027,#f46d43,#fee08b,#ffffbf,#a6d96a,#1a9850,#004529);margin-bottom:3px;"></div>
-                            <div style="display:flex;justify-content:space-between;font-size:0.68em;color:#aaa;">
-                                <span>Perda</span><span>Estável</span><span>Ganho</span>
-                            </div>
-                        </div>
-                    </div>
-                </div><!-- /card-regeneracao -->
-
-                <!-- ══════════════════════════════════════════════════════
-                     CARD: APP Topo de Morro
-                ══════════════════════════════════════════════════════ -->
-                <div class="dashboard-card" style="border-color:rgba(155,89,182,0.4);margin-top:6px;" id="card-topomorro">
-                    <div class="card-header" onclick="toggleCard(this)" style="color:#9b59b6;">
-                        <i class="fas fa-mountain"></i> APP Topo de Morro (cloud)
-                        <i class="fas fa-chevron-right card-chev"></i>
-                    </div>
-                    <div class="card-collapsible">
-                        <div style="font-size:0.72em;color:#7ab;margin-bottom:8px;line-height:1.5;background:rgba(155,89,182,0.07);padding:7px 9px;border-radius:5px;border-left:3px solid rgba(155,89,182,0.4);">
-                            <b style="color:#9b59b6;">🏔️ Produto vendável:</b> Identifique automaticamente <b>cumes, base</b> e a faixa dos <b>2/3 superiores (APP)</b>
-                            usando MDT SRTM global — sem precisar do QGIS.
-                        </div>
-                        <div style="margin-bottom:7px;font-size:0.78em;color:#aaa;display:flex;align-items:center;gap:6px;">
-                            <i class="fas fa-draw-polygon" style="color:#9b59b6;"></i>
-                            <span>Desenhe um polígono no mapa delimitando o morro/elevação.</span>
-                        </div>
-                        <div style="margin-bottom:10px;">
-                            <label class="gee-label"><i class="fas fa-percentage"></i> Fração APP (padrão 2/3 ≈ 67%):
-                                <span id="topo-perc-label" style="color:#9b59b6;font-weight:600;">67%</span>
-                            </label>
-                            <input type="range" id="topo-perc" min="50" max="90" value="67" class="gee-range"
-                                oninput="document.getElementById('topo-perc-label').textContent=this.value+'%'">
-                        </div>
-                        <button class="sat-btn-buscar" onclick="topoCarregar()" style="background:rgba(155,89,182,0.15);border-color:rgba(155,89,182,0.4);color:#9b59b6;">
-                            <i class="fas fa-drafting-compass"></i> Delimitar APP Topo de Morro
-                        </button>
-                        <button class="sat-btn-limpar" onclick="topoRemover()" style="margin-top:5px;">
-                            <i class="fas fa-times"></i> Remover camada
-                        </button>
-                        <div id="topo-status" style="display:none;margin-top:8px;font-size:0.78em;color:#7ab;text-align:center;"></div>
-
-                        <!-- Resultado -->
-                        <div id="topo-resultado" style="display:none;margin-top:12px;background:rgba(0,0,0,0.25);border-radius:8px;padding:10px;">
-                            <div style="font-size:0.72em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">⛰️ Parâmetros do Morro</div>
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                                <div style="background:rgba(155,89,182,0.1);border:1px solid rgba(155,89,182,0.25);border-radius:6px;padding:7px;text-align:center;">
-                                    <div style="font-size:0.65em;color:#aaa;margin-bottom:2px;">Altitude mínima</div>
-                                    <div id="topo-alt-min" style="font-size:1.05em;font-weight:700;color:#ddd;">—</div>
-                                    <div style="font-size:0.6em;color:#888;">m</div>
-                                </div>
-                                <div style="background:rgba(155,89,182,0.1);border:1px solid rgba(155,89,182,0.25);border-radius:6px;padding:7px;text-align:center;">
-                                    <div style="font-size:0.65em;color:#aaa;margin-bottom:2px;">Altitude máxima (cume)</div>
-                                    <div id="topo-alt-max" style="font-size:1.05em;font-weight:700;color:#9b59b6;">—</div>
-                                    <div style="font-size:0.6em;color:#888;">m</div>
-                                </div>
-                                <div style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);border-radius:6px;padding:7px;text-align:center;">
-                                    <div style="font-size:0.65em;color:#aaa;margin-bottom:2px;">Cota APP (corte)</div>
-                                    <div id="topo-alt-corte" style="font-size:1.05em;font-weight:700;color:#e74c3c;">—</div>
-                                    <div style="font-size:0.6em;color:#888;">m</div>
-                                </div>
-                                <div style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);border-radius:6px;padding:7px;text-align:center;">
-                                    <div style="font-size:0.65em;color:#aaa;margin-bottom:2px;">Área APP estimada</div>
-                                    <div id="topo-area-app" style="font-size:1.05em;font-weight:700;color:#e74c3c;">—</div>
-                                    <div style="font-size:0.6em;color:#888;">ha</div>
-                                </div>
-                            </div>
-                            <div style="margin-top:8px;font-size:0.68em;color:#888;line-height:1.6;" id="topo-nota">
-                                <i class="fas fa-info-circle"></i> Base legal: Art. 4°, IV do Código Florestal (Lei 12.651/2012) — APP nos topos de morros.
-                            </div>
-                        </div>
-                    </div>
-                </div><!-- /card-topomorro -->
-
-                <!-- ══════════════════════════════════════════════════════
-                     CARD: Declividade Dinâmica
-                ══════════════════════════════════════════════════════ -->
-                <div class="dashboard-card" style="border-color:rgba(243,156,18,0.4);margin-top:6px;" id="card-declividade">
-                    <div class="card-header" onclick="toggleCard(this)" style="color:#f39c12;">
-                        <i class="fas fa-sliders-h"></i> Declividade Dinâmica
-                        <i class="fas fa-chevron-right card-chev"></i>
-                    </div>
-                    <div class="card-collapsible">
-                        <div style="font-size:0.72em;color:#7ab;margin-bottom:8px;line-height:1.5;background:rgba(243,156,18,0.07);padding:7px 9px;border-radius:5px;border-left:3px solid rgba(243,156,18,0.4);">
-                            <b style="color:#f39c12;">📊 Uso direto:</b> Calcule e classifique declividade em qualquer área.
-                            Útil para <b>loteamentos</b>, <b>viabilidade ambiental</b> e delimitação de APPs de declividade.
-                        </div>
-                        <div style="margin-bottom:7px;font-size:0.78em;color:#aaa;display:flex;align-items:center;gap:6px;">
-                            <i class="fas fa-draw-polygon" style="color:#f39c12;"></i>
-                            <span>Desenhe um polígono ou use a extensão atual do mapa.</span>
-                        </div>
-                        <button class="sat-btn-buscar" onclick="declCarregar()" style="background:rgba(243,156,18,0.15);border-color:rgba(243,156,18,0.4);color:#f39c12;">
-                            <i class="fas fa-layer-group"></i> Calcular Declividade
-                        </button>
-                        <button class="sat-btn-limpar" onclick="declRemover()" style="margin-top:5px;">
-                            <i class="fas fa-times"></i> Remover camada
-                        </button>
-                        <div id="decl-status" style="display:none;margin-top:8px;font-size:0.78em;color:#7ab;text-align:center;"></div>
-
-                        <!-- Resultado / legenda por classes -->
-                        <div id="decl-resultado" style="display:none;margin-top:12px;background:rgba(0,0,0,0.25);border-radius:8px;padding:10px;">
-                            <div style="font-size:0.72em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">📐 Distribuição por Classe</div>
-                            <div id="decl-classes" style="display:flex;flex-direction:column;gap:5px;"></div>
-                            <div style="margin-top:8px;font-size:0.68em;color:#888;line-height:1.6;">
-                                <i class="fas fa-info-circle"></i> Declividade ≥ 45% = APP (Art. 4°, V — Lei 12.651/2012).
-                                Declividade ≥ 100% = uso vedado.
-                            </div>
-                        </div>
-                    </div>
-                </div><!-- /card-declividade -->
 
             </div><!-- /painel-geeambiental -->
             <!-- Painel: Estatísticas -->
@@ -3503,384 +3383,241 @@
             if (ci) ci.style.display = 'none';
         }
         // ══════════════════════════════════════════════════════════════════════
-        // GEE AVANÇADO — Desmatamento / Regeneração / Topo de Morro / Declividade
-        // ══════════════════════════════════════════════════════════════════════
-        var _GEE_AVANCADO_URL = 'https://fujama-gis.netlify.app/.netlify/functions/gee-avancado';
-        var _avancadoInit     = false;
-        var _desmatLayer      = null;
-        var _regLayer         = null;
-        var _topoLayer        = null;
-        var _declLayer        = null;
 
-        // ── Inicializa selects dos novos cards ─────────────────────────────
-        function _avancadoInicializar() {
-            if (_avancadoInit) return;
-            _avancadoInit = true;
+        // ═══════════════════════════════════════════════════════════════════════
+        // DETECÇÃO DE SUPRESSÃO VEGETAL — Sentinel-2 / GEE
+        // ═══════════════════════════════════════════════════════════════════════
+        var _dsmPontos     = [];        // [[lng,lat], ...] em construção
+        var _dsmLayer      = null;      // polígono de área no mapa
+        var _dsmResultado  = null;      // tileLayer com resultado
+        var _dsmPolyline   = null;      // linha de construção
+        var _dsmAtivo      = false;     // modo desenho ativo
 
-            var anoAtual = new Date().getFullYear() - 1;
-
-            // Desmatamento: base = 10 anos atrás, comp = ano atual-1
-            ['desmat-ano-base', 'desmat-ano-comp',
-             'reg-ano-inicio',  'reg-ano-fim'].forEach(function(id) {
-                var el = document.getElementById(id);
-                if (!el) return;
-                for (var a = anoAtual; a >= 1985; a--) {
-                    var opt = document.createElement('option');
-                    opt.value = a; opt.textContent = a;
-                    var isBase = (id === 'desmat-ano-base' || id === 'reg-ano-inicio');
-                    if (isBase  && a === anoAtual - 10) opt.selected = true;
-                    if (!isBase && a === anoAtual)      opt.selected = true;
-                    el.appendChild(opt);
-                }
-            });
-        }
-
-        // Garante que os selects sejam populados quando o painel abre
-        var _origGeeInicializar = geeInicializar;
-        geeInicializar = function() {
-            _origGeeInicializar();
-            _avancadoInicializar();
-        };
-
-        // ── Utilitário: pega geometria desenhada no mapa ou bbox da view ───
-        function _getGeometryCoords() {
-            // Tenta usar camada desenhada (Leaflet.draw) se existir
-            if (typeof drawnItems !== 'undefined' && drawnItems) {
-                var layers = drawnItems.getLayers();
-                if (layers.length > 0) {
-                    var lyr = layers[layers.length - 1]; // última camada desenhada
-                    if (lyr.getLatLngs) {
-                        var ring = lyr.getLatLngs();
-                        // Pode ser array aninhado (polygon)
-                        var pts = (ring[0] && ring[0][0] && typeof ring[0][0].lat !== 'undefined') ? ring[0] : ring;
-                        var coords = pts.map(function(p) {
-                            var ll = (p.lat !== undefined) ? p : p;
-                            return [ll.lng !== undefined ? ll.lng : p.lng, ll.lat !== undefined ? ll.lat : p.lat];
-                        });
-                        // Fecha o anel
-                        if (coords.length > 0) coords.push(coords[0]);
-                        return JSON.stringify(coords);
-                    }
-                }
-            }
-            // Fallback: bbox da view atual
-            if (typeof map !== 'undefined') {
-                var b = map.getBounds();
-                var sw = b.getSouthWest(), ne = b.getNorthEast();
-                return JSON.stringify([
-                    [sw.lng, sw.lat], [ne.lng, sw.lat],
-                    [ne.lng, ne.lat], [sw.lng, ne.lat],
-                    [sw.lng, sw.lat]
-                ]);
-            }
-            return null;
-        }
-
-        function _avancadoToast(id, msg, isError) {
-            var el = document.getElementById(id);
+        // Atualiza status da área
+        function _dsmAtualizarStatus() {
+            var el = document.getElementById('dsm-area-status');
             if (!el) return;
+            if (_dsmPontos.length === 0) {
+                el.textContent = 'Nenhuma área definida';
+                el.style.color = '#888';
+            } else if (_dsmPontos.length < 3) {
+                el.textContent = _dsmPontos.length + ' ponto(s) — mínimo 3 para fechar o polígono';
+                el.style.color = '#f39c12';
+            } else {
+                el.textContent = 'Área definida com ' + _dsmPontos.length + ' vértices ✓';
+                el.style.color = '#2ecc71';
+            }
+        }
+
+        // Inicia modo de desenho livre no mapa
+        function dsmIniciarDesenho() {
+            // Para qualquer outro modo de desenho ativo
+            if (typeof finalizarDesenhoArea === 'function') {
+                try { limparDesenhoArea(); } catch(e) {}
+            }
+
+            _dsmPontos = [];
+            _dsmAtivo  = true;
+            dsmLimparArea(true); // limpa visual mas mantém modo ativo
+
+            var btn = document.getElementById('dsm-btn-desenhar');
+            if (btn) { btn.style.background='rgba(231,76,60,0.25)'; btn.style.borderColor='rgba(231,76,60,0.6)'; btn.style.color='#e74c3c'; btn.innerHTML='<i class="fas fa-stop-circle"></i> Parar'; }
+
+            document.getElementById('dsm-area-status').textContent = 'Clique no mapa para adicionar vértices — duplo-clique para fechar';
+            document.getElementById('dsm-area-status').style.color = '#3498db';
+
+            map.getContainer().style.cursor = 'crosshair';
+
+            _dsmClickHandler = function(e) {
+                if (!_dsmAtivo) return;
+                _dsmPontos.push([e.latlng.lng, e.latlng.lat]);
+                _dsmDesenharPolyline();
+                _dsmAtualizarStatus();
+            };
+            _dsmDblClickHandler = function(e) {
+                L.DomEvent.stop(e);
+                dsmFecharPoligono();
+            };
+
+            map.on('click',    _dsmClickHandler);
+            map.on('dblclick', _dsmDblClickHandler);
+        }
+
+        var _dsmClickHandler    = null;
+        var _dsmDblClickHandler = null;
+
+        function _dsmDesenharPolyline() {
+            if (_dsmPolyline) { map.removeLayer(_dsmPolyline); _dsmPolyline = null; }
+            if (_dsmPontos.length < 2) return;
+            var latlngs = _dsmPontos.map(function(p){ return [p[1], p[0]]; });
+            _dsmPolyline = L.polyline(latlngs, {
+                color: '#e74c3c', weight: 2, dashArray: '6 4', opacity: 0.9
+            }).addTo(map);
+        }
+
+        function dsmFecharPoligono() {
+            _dsmAtivo = false;
+            map.getContainer().style.cursor = '';
+            if (_dsmClickHandler)    { map.off('click',    _dsmClickHandler);    _dsmClickHandler    = null; }
+            if (_dsmDblClickHandler) { map.off('dblclick', _dsmDblClickHandler); _dsmDblClickHandler = null; }
+
+            if (_dsmPolyline) { map.removeLayer(_dsmPolyline); _dsmPolyline = null; }
+
+            var btn = document.getElementById('dsm-btn-desenhar');
+            if (btn) { btn.style.background=''; btn.style.borderColor=''; btn.style.color=''; btn.innerHTML='<i class="fas fa-pencil-alt"></i> Desenhar'; }
+
+            if (_dsmPontos.length < 3) {
+                document.getElementById('dsm-area-status').textContent = 'Mínimo 3 pontos necessário.';
+                document.getElementById('dsm-area-status').style.color = '#e74c3c';
+                return;
+            }
+
+            // Fecha o polígono e desenha
+            var fechado = _dsmPontos.concat([_dsmPontos[0]]);
+            var latlngs = fechado.map(function(p){ return [p[1], p[0]]; });
+            if (_dsmLayer) { map.removeLayer(_dsmLayer); }
+            _dsmLayer = L.polygon(latlngs, {
+                color: '#e74c3c', weight: 2, fillColor: '#e74c3c', fillOpacity: 0.12
+            }).addTo(map);
+            map.fitBounds(_dsmLayer.getBounds(), { padding: [40, 40] });
+            _dsmAtualizarStatus();
+        }
+
+        // Usa área já desenhada pela ferramenta de Desenho de Área do dashboard
+        function dsmUsarDesenhoExistente() {
+            // Tenta capturar do drawnItems (camada de desenho existente no projeto)
+            if (typeof drawnItems !== 'undefined' && drawnItems) {
+                var layers = [];
+                drawnItems.eachLayer(function(l) { layers.push(l); });
+                if (layers.length > 0) {
+                    var poly = layers[layers.length - 1];
+                    var latlngs = poly.getLatLngs()[0];
+                    _dsmPontos = latlngs.map(function(ll) { return [ll.lng, ll.lat]; });
+                    if (_dsmLayer) map.removeLayer(_dsmLayer);
+                    _dsmLayer = L.polygon(latlngs, {
+                        color:'#e74c3c', weight:2, fillColor:'#e74c3c', fillOpacity:0.12
+                    }).addTo(map);
+                    _dsmAtualizarStatus();
+                    return;
+                }
+            }
+            // Fallback: tenta usar a área desenhada armazenada no projeto
+            if (typeof _areaDesenhadaCoords !== 'undefined' && _areaDesenhadaCoords && _areaDesenhadaCoords.length >= 3) {
+                _dsmPontos = _areaDesenhadaCoords.map(function(ll){ return [ll.lng || ll[1], ll.lat || ll[0]]; });
+                _dsmAtualizarStatus();
+                return;
+            }
+            document.getElementById('dsm-area-status').textContent = 'Nenhuma área encontrada. Use "Desenhar" para criar uma nova.';
+            document.getElementById('dsm-area-status').style.color = '#f39c12';
+        }
+
+        function dsmLimparArea(manterModo) {
+            _dsmPontos = [];
+            if (!manterModo) { _dsmAtivo = false; }
+            if (_dsmLayer)   { map.removeLayer(_dsmLayer);   _dsmLayer   = null; }
+            if (_dsmPolyline){ map.removeLayer(_dsmPolyline);_dsmPolyline= null; }
+            if (_dsmClickHandler)    { map.off('click',    _dsmClickHandler);    _dsmClickHandler    = null; }
+            if (_dsmDblClickHandler) { map.off('dblclick', _dsmDblClickHandler); _dsmDblClickHandler = null; }
+            map.getContainer().style.cursor = '';
+            var btn = document.getElementById('dsm-btn-desenhar');
+            if (btn) { btn.style.background=''; btn.style.borderColor=''; btn.style.color=''; btn.innerHTML='<i class="fas fa-pencil-alt"></i> Desenhar'; }
+            _dsmAtualizarStatus();
+        }
+
+        function dsmRemoverResultado() {
+            if (_dsmResultado) { map.removeLayer(_dsmResultado); _dsmResultado = null; }
+            document.getElementById('dsm-resultado').style.display = 'none';
+            document.getElementById('dsm-status').style.display    = 'none';
+        }
+
+        function _dsmStatus(msg, cor) {
+            var el = document.getElementById('dsm-status');
             el.style.display = 'block';
-            el.style.color   = isError ? '#e74c3c' : '#7ab8d9';
+            el.style.color   = cor || '#7ab8d9';
             el.innerHTML     = msg;
         }
-        function _avancadoHide(id) {
-            var el = document.getElementById(id);
-            if (el) el.style.display = 'none';
-        }
 
-        // ════════════════════════════════════════════════════════════════════
-        // 1. DESMATAMENTO
-        // ════════════════════════════════════════════════════════════════════
-        function desmatCarregar() {
-            var anoBase = document.getElementById('desmat-ano-base').value;
-            var anoComp = document.getElementById('desmat-ano-comp').value;
-            var cloud   = document.getElementById('desmat-cloud').value;
-            var geom    = _getGeometryCoords();
-
-            if (parseInt(anoBase) >= parseInt(anoComp)) {
-                _avancadoToast('desmat-status',
-                    '<i class="fas fa-exclamation-circle"></i> Ano base deve ser menor que ano de comparação.', true);
+        // Dispara a análise no backend
+        function dsmCalcular() {
+            if (_dsmPontos.length < 3) {
+                _dsmStatus('<i class="fas fa-exclamation-circle"></i> Defina uma área com pelo menos 3 pontos antes de analisar.', '#f39c12');
                 return;
             }
 
-            _avancadoToast('desmat-status',
-                '<i class="fas fa-spinner fa-spin"></i> Calculando detecção de supressão ' + anoBase + ' → ' + anoComp + '…', false);
-            _avancadoHide('desmat-resultado');
+            var antesIni  = document.getElementById('dsm-antes-ini').value;
+            var antesFim  = document.getElementById('dsm-antes-fim').value;
+            var depoisIni = document.getElementById('dsm-depois-ini').value;
+            var depoisFim = document.getElementById('dsm-depois-fim').value;
+            var cloud     = document.getElementById('dsm-cloud').value;
+            var threshold = (parseInt(document.getElementById('dsm-threshold').value) / 100).toFixed(2);
 
-            var url = _GEE_AVANCADO_URL + '?mode=desmatamento&anoBase=' + anoBase +
-                      '&anoComp=' + anoComp + '&cloud=' + cloud +
-                      (geom ? '&geometry=' + encodeURIComponent(geom) : '');
-
-            fetch(url)
-                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function(data) {
-                    _avancadoHide('desmat-status');
-                    if (_desmatLayer) { map.removeLayer(_desmatLayer); _desmatLayer = null; }
-
-                    _desmatLayer = L.tileLayer(data.tileUrl, {
-                        maxZoom: 22, opacity: 0.85,
-                        attribution: 'Desmatamento ' + data.anoBase + '→' + data.anoComp + ' · Landsat/GEE'
-                    }).addTo(map);
-
-                    // Preenche resultado
-                    document.getElementById('desmat-label-base').textContent = data.anoBase;
-                    document.getElementById('desmat-label-comp').textContent = data.anoComp;
-                    document.getElementById('desmat-area').textContent =
-                        data.areaHa !== null ? data.areaHa + ' ha' : '—';
-                    document.getElementById('desmat-ndvi-base').textContent =
-                        (data.ndviBase && data.ndviBase.mean !== null) ? data.ndviBase.mean.toFixed(3) : '—';
-                    document.getElementById('desmat-ndvi-comp').textContent =
-                        (data.ndviComp && data.ndviComp.mean !== null) ? data.ndviComp.mean.toFixed(3) : '—';
-
-                    // Interpretação
-                    var interp = '';
-                    if (data.areaHa !== null) {
-                        if (data.areaHa > 0) {
-                            interp = '⚠️ Foram detectadas <b>' + data.areaHa + ' ha</b> com redução significativa de cobertura vegetal ' +
-                                     '(Δ NDVI < ' + data.threshold + ') entre ' + data.anoBase + ' e ' + data.anoComp + '.';
-                        } else {
-                            interp = '✅ Não foram detectadas áreas com supressão significativa de vegetação no período analisado.';
-                        }
-                    }
-                    document.getElementById('desmat-interpretacao').innerHTML = interp;
-                    document.getElementById('desmat-resultado').style.display = 'block';
-                    document.getElementById('desmat-legenda').style.display = 'block';
-                })
-                .catch(function(err) {
-                    _avancadoToast('desmat-status',
-                        '<i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message, true);
-                });
-        }
-
-        function desmatRemover() {
-            if (_desmatLayer) { map.removeLayer(_desmatLayer); _desmatLayer = null; }
-            _avancadoHide('desmat-status');
-            _avancadoHide('desmat-resultado');
-            _avancadoHide('desmat-legenda');
-        }
-
-        // ════════════════════════════════════════════════════════════════════
-        // 2. REGENERAÇÃO (PRAD)
-        // ════════════════════════════════════════════════════════════════════
-        function regCarregar() {
-            var anoInicio = document.getElementById('reg-ano-inicio').value;
-            var anoFim    = document.getElementById('reg-ano-fim').value;
-            var cloud     = document.getElementById('reg-cloud').value;
-            var geom      = _getGeometryCoords();
-
-            if (parseInt(anoInicio) >= parseInt(anoFim)) {
-                _avancadoToast('reg-status',
-                    '<i class="fas fa-exclamation-circle"></i> Ano início deve ser menor que ano fim.', true);
+            if (!antesIni || !antesFim || !depoisIni || !depoisFim) {
+                _dsmStatus('<i class="fas fa-exclamation-circle"></i> Preencha todos os períodos.', '#f39c12');
+                return;
+            }
+            if (antesIni >= depoisFim) {
+                _dsmStatus('<i class="fas fa-exclamation-circle"></i> O período "Antes" deve ser anterior ao período "Depois".', '#f39c12');
                 return;
             }
 
-            _avancadoToast('reg-status',
-                '<i class="fas fa-spinner fa-spin"></i> Calculando série NDVI ' + anoInicio + '–' + anoFim + '…', false);
-            _avancadoHide('reg-resultado');
+            dsmRemoverResultado();
+            _dsmStatus('<i class="fas fa-spinner fa-spin"></i> Enviando para o Google Earth Engine… pode levar 20–60s.', '#7ab8d9');
 
-            var url = _GEE_AVANCADO_URL + '?mode=regeneracao&anoInicio=' + anoInicio +
-                      '&anoFim=' + anoFim + '&cloud=' + cloud +
-                      (geom ? '&geometry=' + encodeURIComponent(geom) : '');
+            var payload = {
+                mode:       'desmatamento',
+                coords:     _dsmPontos,
+                antes_ini:  antesIni,
+                antes_fim:  antesFim,
+                depois_ini: depoisIni,
+                depois_fim: depoisFim,
+                cloud:      parseInt(cloud),
+                threshold:  parseFloat(threshold)
+            };
 
-            fetch(url)
-                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function(data) {
-                    _avancadoHide('reg-status');
-                    if (_regLayer) { map.removeLayer(_regLayer); _regLayer = null; }
+            fetch('https://fujama-gis.netlify.app/.netlify/functions/gee-analise', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(payload)
+            })
+            .then(function(r) {
+                if (!r.ok) return r.json().then(function(e){ throw new Error(e.error || 'HTTP ' + r.status); });
+                return r.json();
+            })
+            .then(function(data) {
+                document.getElementById('dsm-status').style.display = 'none';
 
-                    _regLayer = L.tileLayer(data.tileUrl, {
-                        maxZoom: 22, opacity: 0.82,
-                        attribution: 'Regeneração ' + data.anoInicio + '–' + data.anoFim + ' · Landsat/GEE'
-                    }).addTo(map);
+                // Aplica tile no mapa
+                if (_dsmResultado) map.removeLayer(_dsmResultado);
+                _dsmResultado = L.tileLayer(data.tileUrl, {
+                    maxZoom: 22, opacity: 0.85,
+                    attribution: 'Supressão Vegetal · Sentinel-2/GEE'
+                }).addTo(map);
 
-                    // Ganho
-                    var ganho = data.ganhoPercent;
-                    var ganhoEl = document.getElementById('reg-ganho');
-                    if (ganho !== null) {
-                        var sinal  = ganho >= 0 ? '+' : '';
-                        ganhoEl.textContent = sinal + ganho + '%';
-                        ganhoEl.style.color = ganho >= 0 ? '#2ecc71' : '#e74c3c';
-                    } else {
-                        ganhoEl.textContent = '—';
-                    }
+                // Exibe resultado
+                var s = data.stats;
+                document.getElementById('dsm-res-area').textContent = s.areaHa ? s.areaHa.toLocaleString('pt-BR') + ' ha' : '< 0.01 ha';
+                document.getElementById('dsm-res-pct').textContent  = s.percentual !== null ? s.percentual + '%' : '—';
 
-                    // Mini gráfico de barras
-                    var grafico = document.getElementById('reg-grafico');
-                    grafico.innerHTML = '';
-                    var serie = data.serieNDVI || [];
-                    if (serie.length > 0) {
-                        var vals = serie.map(function(s) { return s.ndvi || 0; });
-                        var maxV = Math.max.apply(null, vals) || 1;
-                        serie.forEach(function(s) {
-                            var pct   = s.ndvi ? Math.round((s.ndvi / maxV) * 100) : 5;
-                            var color = s.ndvi >= 0.3 ? '#2ecc71' : s.ndvi >= 0.1 ? '#f39c12' : '#e74c3c';
-                            var bar   = document.createElement('div');
-                            bar.title = s.ano + ': NDVI=' + (s.ndvi || '—');
-                            bar.style.cssText = 'flex:1;min-width:14px;height:' + pct + '%;background:' + color +
-                                ';border-radius:2px 2px 0 0;position:relative;';
-                            var lbl = document.createElement('div');
-                            lbl.style.cssText = 'position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);' +
-                                'font-size:0.55em;color:#888;white-space:nowrap;';
-                            lbl.textContent = s.ano;
-                            bar.appendChild(lbl);
-                            grafico.appendChild(bar);
-                        });
-                    }
+                var pct = s.percentual || 0;
+                document.getElementById('dsm-res-barra').style.width = Math.min(pct, 100) + '%';
 
-                    // Texto de laudo
-                    var laudoEl = document.getElementById('reg-laudobox');
-                    if (ganho !== null) {
-                        var txt = ganho >= 5
-                            ? '✅ A área recuperou aproximadamente <b>' + Math.abs(ganho) + '%</b> de cobertura vegetal entre ' + anoInicio + ' e ' + anoFim + '.'
-                            : ganho <= -5
-                                ? '⚠️ A área perdeu aproximadamente <b>' + Math.abs(ganho) + '%</b> de cobertura vegetal no período.'
-                                : '📊 A cobertura vegetal manteve-se relativamente estável no período analisado.';
-                        laudoEl.innerHTML = txt;
-                    } else {
-                        laudoEl.innerHTML = '';
-                    }
+                document.getElementById('dsm-res-info').innerHTML =
+                    '<b>Antes:</b> ' + s.antesIni + ' → ' + s.antesFim + '<br>' +
+                    '<b>Depois:</b> ' + s.depoisIni + ' → ' + s.depoisFim + '<br>' +
+                    '<b>Limiar Δ NDVI:</b> ' + s.threshold + ' · ' +
+                    '<b>Área total:</b> ' + (s.totalHa ? s.totalHa.toLocaleString('pt-BR') + ' ha' : '—');
 
-                    document.getElementById('reg-resultado').style.display = 'block';
-                    document.getElementById('reg-legenda').style.display   = 'block';
-                })
-                .catch(function(err) {
-                    _avancadoToast('reg-status',
-                        '<i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message, true);
-                });
+                document.getElementById('dsm-resultado').style.display = 'block';
+
+                // Zoom na área
+                if (_dsmLayer) map.fitBounds(_dsmLayer.getBounds(), { padding:[40,40] });
+            })
+            .catch(function(err) {
+                _dsmStatus('<i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message, '#e74c3c');
+                console.error('[DSM GEE]', err);
+            });
         }
-
-        function regRemover() {
-            if (_regLayer) { map.removeLayer(_regLayer); _regLayer = null; }
-            _avancadoHide('reg-status');
-            _avancadoHide('reg-resultado');
-            _avancadoHide('reg-legenda');
-        }
-
-        // ════════════════════════════════════════════════════════════════════
-        // 3. TOPO DE MORRO (APP)
-        // ════════════════════════════════════════════════════════════════════
-        function topoCarregar() {
-            var geom = _getGeometryCoords();
-            var perc = parseFloat(document.getElementById('topo-perc').value) / 100;
-
-            if (!geom) {
-                _avancadoToast('topo-status',
-                    '<i class="fas fa-exclamation-circle"></i> Desenhe um polígono no mapa primeiro.', true);
-                return;
-            }
-
-            _avancadoToast('topo-status',
-                '<i class="fas fa-spinner fa-spin"></i> Calculando APP topo de morro…', false);
-            _avancadoHide('topo-resultado');
-
-            var url = _GEE_AVANCADO_URL + '?mode=topo_morro&percentual=' + perc +
-                      '&geometry=' + encodeURIComponent(geom);
-
-            fetch(url)
-                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function(data) {
-                    _avancadoHide('topo-status');
-                    if (_topoLayer) { map.removeLayer(_topoLayer); _topoLayer = null; }
-
-                    _topoLayer = L.tileLayer(data.tileUrl, {
-                        maxZoom: 22, opacity: 0.82,
-                        attribution: 'APP Topo Morro · SRTM/GEE'
-                    }).addTo(map);
-
-                    document.getElementById('topo-alt-min').textContent    = data.altMin + ' m';
-                    document.getElementById('topo-alt-max').textContent    = data.altMax + ' m';
-                    document.getElementById('topo-alt-corte').textContent  = data.altCorte + ' m';
-                    document.getElementById('topo-area-app').textContent   =
-                        data.areaAppHa !== null ? data.areaAppHa + ' ha' : '—';
-                    document.getElementById('topo-resultado').style.display = 'block';
-                })
-                .catch(function(err) {
-                    _avancadoToast('topo-status',
-                        '<i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message, true);
-                });
-        }
-
-        function topoRemover() {
-            if (_topoLayer) { map.removeLayer(_topoLayer); _topoLayer = null; }
-            _avancadoHide('topo-status');
-            _avancadoHide('topo-resultado');
-        }
-
-        // ════════════════════════════════════════════════════════════════════
-        // 4. DECLIVIDADE
-        // ════════════════════════════════════════════════════════════════════
-        function declCarregar() {
-            var geom = _getGeometryCoords();
-
-            var url = _GEE_AVANCADO_URL + '?mode=declividade';
-
-            if (geom) {
-                url += '&geometry=' + encodeURIComponent(geom);
-            } else if (typeof map !== 'undefined') {
-                var b = map.getBounds();
-                url += '&minLat=' + b.getSouthWest().lat +
-                       '&maxLat=' + b.getNorthEast().lat +
-                       '&minLng=' + b.getSouthWest().lng +
-                       '&maxLng=' + b.getNorthEast().lng;
-            } else {
-                _avancadoToast('decl-status',
-                    '<i class="fas fa-exclamation-circle"></i> Não foi possível determinar a área.', true);
-                return;
-            }
-
-            _avancadoToast('decl-status',
-                '<i class="fas fa-spinner fa-spin"></i> Calculando declividade…', false);
-            _avancadoHide('decl-resultado');
-
-            fetch(url)
-                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function(data) {
-                    _avancadoHide('decl-status');
-                    if (_declLayer) { map.removeLayer(_declLayer); _declLayer = null; }
-
-                    _declLayer = L.tileLayer(data.tileUrl, {
-                        maxZoom: 22, opacity: 0.75,
-                        attribution: 'Declividade · SRTM/GEE'
-                    }).addTo(map);
-
-                    // Preenche legenda com classes e hectares
-                    var container = document.getElementById('decl-classes');
-                    container.innerHTML = '';
-                    var classes = data.classes || [];
-                    var totalHa = classes.reduce(function(s, c) { return s + (c.ha || 0); }, 0);
-
-                    classes.forEach(function(cls) {
-                        var pct = totalHa > 0 ? Math.round((cls.ha / totalHa) * 100) : 0;
-                        var row = document.createElement('div');
-                        row.style.cssText = 'display:flex;align-items:center;gap:7px;';
-                        row.innerHTML =
-                            '<div style="width:14px;height:14px;border-radius:3px;flex-shrink:0;background:' + cls.cor + ';"></div>' +
-                            '<div style="flex:1;font-size:0.72em;color:#ccc;">' + cls.label + '</div>' +
-                            '<div style="font-size:0.7em;color:#aaa;text-align:right;min-width:60px;">' +
-                                (cls.ha ? cls.ha + ' ha' : '—') + ' <span style="color:#666;">(' + pct + '%)</span>' +
-                            '</div>';
-                        container.appendChild(row);
-                        // Barra de progresso
-                        var bar = document.createElement('div');
-                        bar.style.cssText = 'height:3px;border-radius:2px;background:' + cls.cor +
-                            ';width:' + pct + '%;margin-bottom:3px;';
-                        container.appendChild(bar);
-                    });
-
-                    document.getElementById('decl-resultado').style.display = 'block';
-                })
-                .catch(function(err) {
-                    _avancadoToast('decl-status',
-                        '<i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message, true);
-                });
-        }
-
-        function declRemover() {
-            if (_declLayer) { map.removeLayer(_declLayer); _declLayer = null; }
-            _avancadoHide('decl-status');
-            _avancadoHide('decl-resultado');
-        }
-        // ══════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
 
         // ========== FERRAMENTA DE PONTO (ALFINETES) ==========
         var ferramentaPontoAtiva = false;
