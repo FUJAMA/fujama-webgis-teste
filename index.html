@@ -1262,6 +1262,40 @@
         }
 
         /* ===== ABA IMAGENS DE SATÉLITE ===== */
+        /* ═══════ GEE AMBIENTAL ═══════ */
+        #painel-geeambiental {
+            flex-direction: column;
+            gap: 0;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .gee-label {
+            display: block;
+            font-size: 0.72em;
+            color: #7ab;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
+        .gee-select {
+            width: 100%;
+            background: rgba(10,25,45,0.9);
+            border: 1px solid rgba(52,152,219,0.3);
+            color: #cde;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 0.8em;
+            cursor: pointer;
+            outline: none;
+        }
+        .gee-select:focus { border-color: rgba(52,152,219,0.7); }
+        .gee-range {
+            width: 100%;
+            accent-color: #3498db;
+            cursor: pointer;
+        }
+        /* ═══════════════════════════════ */
         #painel-satelite {
             gap: 12px;
         }
@@ -2000,6 +2034,9 @@
                 <button class="dashboard-aba-btn" onclick="trocarAba('satelite')" id="aba-btn-satelite">
                     <i class="fas fa-satellite"></i> Imagens de Satélite
                 </button>
+                <button class="dashboard-aba-btn" onclick="trocarAba('geeambiental')" id="aba-btn-geeambiental">
+                    <i class="fas fa-leaf"></i> GEE Ambiental
+                </button>
             </div>
             <!-- Painel: Controle (conteúdo original) -->
             <div class="dashboard-painel ativo" id="painel-controle">
@@ -2492,6 +2529,189 @@
                 </div>
 
             </div>
+            <!-- ═══════════════════════════════════════════════════════════
+                 PAINEL: GEE AMBIENTAL — NDVI / EVI / NBR / NDWI / TIMELAPSE
+                 ═══════════════════════════════════════════════════════════ -->
+            <div class="dashboard-painel" id="painel-geeambiental">
+
+                <!-- CARD: Índices Espectrais -->
+                <div class="dashboard-card" style="border-color:rgba(46,204,113,0.3);">
+                    <div class="card-header" onclick="toggleCard(this)" style="color:#2ecc71;">
+                        <i class="fas fa-seedling"></i> Índices Espectrais (NDVI / EVI / NBR / NDWI)
+                        <i class="fas fa-chevron-right card-chev"></i>
+                    </div>
+                    <div class="card-collapsible">
+
+                        <div style="font-size:0.72em;color:#7ab;margin-bottom:8px;line-height:1.4;">
+                            Dados: Landsat (USGS / Google Earth Engine) · composição anual mediana.
+                        </div>
+
+                        <!-- Seletor de índice -->
+                        <div style="margin-bottom:8px;">
+                            <label class="gee-label"><i class="fas fa-layer-group"></i> Índice</label>
+                            <select id="gee-indice" class="gee-select" onchange="geeAtualizarDescricao()">
+                                <option value="ndvi">NDVI — Cobertura Vegetal</option>
+                                <option value="evi">EVI — Vigor da Vegetação</option>
+                                <option value="nbr">NBR — Cicatriz/Risco Incêndio</option>
+                                <option value="ndwi">NDWI — Água / Umidade</option>
+                            </select>
+                        </div>
+
+                        <!-- Ano -->
+                        <div style="margin-bottom:8px;">
+                            <label class="gee-label"><i class="fas fa-calendar-alt"></i> Ano de referência</label>
+                            <select id="gee-ano" class="gee-select"></select>
+                        </div>
+
+                        <!-- Cobertura de nuvens -->
+                        <div style="margin-bottom:10px;">
+                            <label class="gee-label">
+                                <i class="fas fa-cloud"></i> Máx. nuvens
+                                <span id="gee-cloud-label" style="color:#f39c12;font-weight:600;">20%</span>
+                            </label>
+                            <input type="range" id="gee-cloud" min="5" max="70" value="20" class="gee-range"
+                                oninput="document.getElementById('gee-cloud-label').textContent=this.value+'%'">
+                        </div>
+
+                        <!-- Descrição dinâmica -->
+                        <div id="gee-descricao" style="font-size:0.72em;color:#aaa;background:rgba(255,255,255,0.04);border-radius:6px;padding:7px 10px;margin-bottom:10px;line-height:1.5;border-left:3px solid rgba(46,204,113,0.4);">
+                            NDVI: valores altos (verde) = densa cobertura vegetal; baixos (vermelho) = solo exposto ou água.
+                        </div>
+
+                        <button class="sat-btn-buscar" onclick="geeCarregarIndice()" style="background:rgba(46,204,113,0.18);border-color:rgba(46,204,113,0.45);color:#2ecc71;">
+                            <i class="fas fa-magic"></i> Calcular e Visualizar
+                        </button>
+                        <button class="sat-btn-limpar" onclick="geeRemoverCamada()" style="margin-top:5px;">
+                            <i class="fas fa-times"></i> Remover camada
+                        </button>
+
+                        <div id="gee-indice-status" style="display:none;margin-top:8px;font-size:0.78em;color:#7ab;text-align:center;"></div>
+
+                        <!-- Legenda dinâmica -->
+                        <div id="gee-legenda" style="display:none;margin-top:10px;">
+                            <div style="font-size:0.7em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;">Legenda</div>
+                            <div id="gee-legenda-bar" style="height:14px;border-radius:4px;margin-bottom:3px;"></div>
+                            <div style="display:flex;justify-content:space-between;font-size:0.68em;color:#aaa;">
+                                <span id="gee-leg-min"></span>
+                                <span id="gee-leg-mid"></span>
+                                <span id="gee-leg-max"></span>
+                            </div>
+                        </div>
+
+                    </div><!-- /card-collapsible -->
+                </div>
+
+                <!-- CARD: Detecção de Mudança NDVI -->
+                <div class="dashboard-card" style="border-color:rgba(231,76,60,0.3);margin-top:6px;">
+                    <div class="card-header" onclick="toggleCard(this)" style="color:#e74c3c;">
+                        <i class="fas fa-chart-line"></i> Detecção de Mudança (Δ NDVI)
+                        <i class="fas fa-chevron-right card-chev"></i>
+                    </div>
+                    <div class="card-collapsible">
+
+                        <div style="font-size:0.72em;color:#7ab;margin-bottom:8px;line-height:1.4;">
+                            Compara o NDVI entre dois anos. <b style="color:#e74c3c;">Vermelho</b> = perda de vegetação · <b style="color:#2ecc71;">Verde</b> = ganho.
+                        </div>
+
+                        <div style="display:flex;gap:8px;margin-bottom:8px;">
+                            <div style="flex:1;">
+                                <label class="gee-label"><i class="fas fa-history"></i> Ano base</label>
+                                <select id="gee-diff-ano1" class="gee-select"></select>
+                            </div>
+                            <div style="flex:1;">
+                                <label class="gee-label"><i class="fas fa-calendar-check"></i> Ano comparar</label>
+                                <select id="gee-diff-ano2" class="gee-select"></select>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:10px;">
+                            <label class="gee-label">
+                                <i class="fas fa-cloud"></i> Máx. nuvens
+                                <span id="gee-diff-cloud-label" style="color:#f39c12;font-weight:600;">20%</span>
+                            </label>
+                            <input type="range" id="gee-diff-cloud" min="5" max="70" value="20" class="gee-range"
+                                oninput="document.getElementById('gee-diff-cloud-label').textContent=this.value+'%'">
+                        </div>
+
+                        <button class="sat-btn-buscar" onclick="geeCarregarDiffNDVI()" style="background:rgba(231,76,60,0.15);border-color:rgba(231,76,60,0.4);color:#e74c3c;">
+                            <i class="fas fa-not-equal"></i> Calcular Mudança
+                        </button>
+                        <button class="sat-btn-limpar" onclick="geeRemoverDiff()" style="margin-top:5px;">
+                            <i class="fas fa-times"></i> Remover
+                        </button>
+
+                        <div id="gee-diff-status" style="display:none;margin-top:8px;font-size:0.78em;color:#7ab;text-align:center;"></div>
+
+                        <!-- Legenda diff -->
+                        <div id="gee-diff-legenda" style="display:none;margin-top:10px;">
+                            <div style="font-size:0.7em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;">Δ NDVI</div>
+                            <div id="gee-diff-legenda-bar" style="height:14px;border-radius:4px;background:linear-gradient(to right,#7f0000,#d73027,#f46d43,#fee08b,#ffffbf,#d9ef8b,#66bd63,#1a9850,#004529);margin-bottom:3px;"></div>
+                            <div style="display:flex;justify-content:space-between;font-size:0.68em;color:#aaa;">
+                                <span>−0.5 (perda)</span><span>0</span><span>+0.5 (ganho)</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- CARD: Timelapse Landsat -->
+                <div class="dashboard-card" style="border-color:rgba(52,152,219,0.3);margin-top:6px;">
+                    <div class="card-header" onclick="toggleCard(this)" style="color:#3498db;">
+                        <i class="fas fa-film"></i> Timelapse Landsat (mapa-base)
+                        <i class="fas fa-chevron-right card-chev"></i>
+                    </div>
+                    <div class="card-collapsible">
+
+                        <div style="font-size:0.72em;color:#7ab;margin-bottom:8px;line-height:1.4;">
+                            Exibe como mapa-base a composição Landsat true-color do ano selecionado. Use as setas para navegar no tempo.
+                        </div>
+
+                        <!-- Slider de ano -->
+                        <div style="margin-bottom:6px;">
+                            <label class="gee-label">
+                                <i class="fas fa-calendar-alt"></i> Ano:
+                                <span id="tl-ano-label" style="color:#3498db;font-weight:700;font-size:1.1em;">2020</span>
+                            </label>
+                            <input type="range" id="tl-ano-slider" min="1985" max="2024" value="2020" class="gee-range"
+                                oninput="document.getElementById('tl-ano-label').textContent=this.value">
+                        </div>
+
+                        <!-- Botões de navegação -->
+                        <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;justify-content:center;">
+                            <button class="ferramenta-btn" onclick="tlNavegar(-5)" title="−5 anos"><i class="fas fa-fast-backward"></i></button>
+                            <button class="ferramenta-btn" onclick="tlNavegar(-1)" title="−1 ano"><i class="fas fa-step-backward"></i></button>
+                            <button class="ferramenta-btn" id="tl-play-btn" onclick="tlTogglePlay()" title="Play/Pause" style="background:rgba(52,152,219,0.2);border-color:rgba(52,152,219,0.5);color:#3498db;min-width:60px;">
+                                <i class="fas fa-play"></i> Play
+                            </button>
+                            <button class="ferramenta-btn" onclick="tlNavegar(1)" title="+1 ano"><i class="fas fa-step-forward"></i></button>
+                            <button class="ferramenta-btn" onclick="tlNavegar(5)" title="+5 anos"><i class="fas fa-fast-forward"></i></button>
+                        </div>
+
+                        <div style="margin-bottom:10px;">
+                            <label class="gee-label">
+                                <i class="fas fa-cloud"></i> Máx. nuvens
+                                <span id="tl-cloud-label" style="color:#f39c12;font-weight:600;">20%</span>
+                            </label>
+                            <input type="range" id="tl-cloud" min="5" max="70" value="20" class="gee-range"
+                                oninput="document.getElementById('tl-cloud-label').textContent=this.value+'%'">
+                        </div>
+
+                        <button class="sat-btn-buscar" onclick="tlCarregarAno()" style="background:rgba(52,152,219,0.15);border-color:rgba(52,152,219,0.4);color:#3498db;">
+                            <i class="fas fa-globe"></i> Usar como Mapa-Base
+                        </button>
+                        <button class="sat-btn-limpar" onclick="tlRemover()" style="margin-top:5px;">
+                            <i class="fas fa-times"></i> Remover / Restaurar
+                        </button>
+
+                        <div id="tl-status" style="display:none;margin-top:8px;font-size:0.78em;color:#7ab;text-align:center;"></div>
+
+                        <!-- Cache info -->
+                        <div id="tl-cache-info" style="display:none;margin-top:6px;font-size:0.7em;color:#555;text-align:center;"></div>
+
+                    </div>
+                </div>
+
+            </div><!-- /painel-geeambiental -->
             <!-- Painel: Estatísticas -->
             <div class="dashboard-painel" id="painel-estatisticas">
                 <!-- Seletor de Ano -->
@@ -2752,7 +2972,292 @@
                     info.textContent = 'Usando extensão atual do mapa';
                 }
             }
+            if (aba === 'geeambiental') {
+                geeInicializar();
+            }
         };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // GEE AMBIENTAL — NDVI / EVI / NBR / NDWI / DIFF NDVI / TIMELAPSE
+        // ═══════════════════════════════════════════════════════════════════
+        var _GEE_ANALISE_URL = 'https://fujama-gis.netlify.app/.netlify/functions/gee-analise';
+        var _geeIniciado     = false;
+        var _geeLayer        = null;   // camada de índice atual
+        var _geeDiffLayer    = null;   // camada diff NDVI
+        var _tlLayer         = null;   // camada timelapse
+        var _tlCache         = {};     // cache: ano → tileUrl
+        var _tlPlayTimer     = null;   // timer do play automático
+        var _tlPlaying       = false;
+
+        // Configurações de cada índice
+        var _geeIndiceInfo = {
+            ndvi: {
+                label: 'NDVI',
+                desc: 'NDVI: valores altos (verde) = densa cobertura vegetal; baixos (vermelho) = solo exposto ou água.',
+                gradient: 'linear-gradient(to right,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837)',
+                min: '−0.3', mid: '0.3', max: '0.85'
+            },
+            evi: {
+                label: 'EVI',
+                desc: 'EVI: similar ao NDVI mas menos saturado em vegetação densa. Captura melhor o vigor da vegetação em regiões tropicais.',
+                gradient: 'linear-gradient(to right,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#005a32)',
+                min: '−0.2', mid: '0.3', max: '0.8'
+            },
+            nbr: {
+                label: 'NBR',
+                desc: 'NBR: identifica áreas queimadas e cicatrizes de incêndio. Valores baixos (vermelho) = vegetação danificada ou solo exposto.',
+                gradient: 'linear-gradient(to right,#7a0403,#d44d00,#f5a623,#ffffbe,#c7e9b4,#41b6c4,#225ea8,#0c2c84)',
+                min: '−0.5', mid: '0.2', max: '0.9'
+            },
+            ndwi: {
+                label: 'NDWI',
+                desc: 'NDWI: realça corpos d\'água e umidade do solo. Azul = água / saturado; vermelho = solo seco / vegetação.',
+                gradient: 'linear-gradient(to right,#d7191c,#fdae61,#ffffbf,#abd9e9,#2c7bb6)',
+                min: '−0.5', mid: '0.0', max: '0.5'
+            }
+        };
+
+        function geeInicializar() {
+            if (_geeIniciado) return;
+            _geeIniciado = true;
+
+            // Popula selects de ano (1985–ano atual−1)
+            var anoAtual = new Date().getFullYear() - 1;
+            ['gee-ano','gee-diff-ano1','gee-diff-ano2','tl-ano-slider'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (!el || el.tagName !== 'SELECT') return;
+                for (var a = anoAtual; a >= 1985; a--) {
+                    var opt = document.createElement('option');
+                    opt.value = a;
+                    opt.textContent = a;
+                    if (id === 'gee-diff-ano1' && a === anoAtual - 5) opt.selected = true;
+                    else if (id !== 'gee-diff-ano1' && a === anoAtual) opt.selected = true;
+                    el.appendChild(opt);
+                }
+            });
+
+            // Slider timelapse: atualiza label
+            var slider = document.getElementById('tl-ano-slider');
+            if (slider) {
+                slider.min = 1985;
+                slider.max = anoAtual;
+                slider.value = 2010;
+                document.getElementById('tl-ano-label').textContent = 2010;
+            }
+
+            geeAtualizarDescricao();
+        }
+
+        function geeAtualizarDescricao() {
+            var idx   = document.getElementById('gee-indice');
+            var info  = idx ? _geeIndiceInfo[idx.value] : null;
+            if (!info) return;
+            document.getElementById('gee-descricao').textContent = info.desc;
+        }
+
+        function _geeToast(id, msg, isError) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = 'block';
+            el.style.color   = isError ? '#e74c3c' : '#7ab8d9';
+            el.innerHTML     = msg;
+        }
+        function _geeHideStatus(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        }
+
+        // ── Carrega índice espectral ────────────────────────────────────────
+        function geeCarregarIndice() {
+            var mode  = document.getElementById('gee-indice').value;
+            var year  = document.getElementById('gee-ano').value;
+            var cloud = document.getElementById('gee-cloud').value;
+            var info  = _geeIndiceInfo[mode];
+
+            _geeToast('gee-indice-status',
+                '<i class="fas fa-spinner fa-spin"></i> Calculando ' + info.label + ' ' + year + ' via GEE…', false);
+
+            var url = _GEE_ANALISE_URL + '?mode=' + mode + '&year=' + year + '&cloud=' + cloud;
+
+            fetch(url)
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    _geeHideStatus('gee-indice-status');
+                    if (_geeLayer) { map.removeLayer(_geeLayer); _geeLayer = null; }
+
+                    _geeLayer = L.tileLayer(data.tileUrl, {
+                        maxZoom: 22, opacity: 0.85,
+                        attribution: info.label + ' ' + year + ' · Landsat/GEE'
+                    }).addTo(map);
+
+                    // Mostra legenda
+                    var leg = document.getElementById('gee-legenda');
+                    document.getElementById('gee-legenda-bar').style.background = info.gradient;
+                    document.getElementById('gee-leg-min').textContent = info.min;
+                    document.getElementById('gee-leg-mid').textContent = info.mid;
+                    document.getElementById('gee-leg-max').textContent = info.max;
+                    leg.style.display = 'block';
+                })
+                .catch(function(err) {
+                    _geeToast('gee-indice-status',
+                        '<i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message, true);
+                    console.error('[GEE ' + mode + ']', err);
+                });
+        }
+
+        function geeRemoverCamada() {
+            if (_geeLayer) { map.removeLayer(_geeLayer); _geeLayer = null; }
+            document.getElementById('gee-legenda').style.display = 'none';
+            _geeHideStatus('gee-indice-status');
+        }
+
+        // ── Diff NDVI ───────────────────────────────────────────────────────
+        function geeCarregarDiffNDVI() {
+            var ano1  = document.getElementById('gee-diff-ano1').value;
+            var ano2  = document.getElementById('gee-diff-ano2').value;
+            var cloud = document.getElementById('gee-diff-cloud').value;
+
+            if (ano1 === ano2) {
+                _geeToast('gee-diff-status', '<i class="fas fa-exclamation-circle"></i> Selecione anos diferentes.', true);
+                return;
+            }
+
+            _geeToast('gee-diff-status',
+                '<i class="fas fa-spinner fa-spin"></i> Calculando Δ NDVI (' + ano1 + ' → ' + ano2 + ')…', false);
+
+            // year2 = base (mais antigo), year = comparação (mais recente)
+            var base = Math.min(parseInt(ano1), parseInt(ano2));
+            var comp = Math.max(parseInt(ano1), parseInt(ano2));
+            var url  = _GEE_ANALISE_URL + '?mode=diffndvi&year=' + comp + '&year2=' + base + '&cloud=' + cloud;
+
+            fetch(url)
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    _geeHideStatus('gee-diff-status');
+                    if (_geeDiffLayer) { map.removeLayer(_geeDiffLayer); _geeDiffLayer = null; }
+
+                    _geeDiffLayer = L.tileLayer(data.tileUrl, {
+                        maxZoom: 22, opacity: 0.82,
+                        attribution: 'Δ NDVI ' + base + '→' + comp + ' · Landsat/GEE'
+                    }).addTo(map);
+
+                    document.getElementById('gee-diff-legenda').style.display = 'block';
+                })
+                .catch(function(err) {
+                    _geeToast('gee-diff-status',
+                        '<i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message, true);
+                    console.error('[GEE diffndvi]', err);
+                });
+        }
+
+        function geeRemoverDiff() {
+            if (_geeDiffLayer) { map.removeLayer(_geeDiffLayer); _geeDiffLayer = null; }
+            document.getElementById('gee-diff-legenda').style.display = 'none';
+            _geeHideStatus('gee-diff-status');
+        }
+
+        // ── TIMELAPSE ───────────────────────────────────────────────────────
+        function _tlGetAno() {
+            return parseInt(document.getElementById('tl-ano-slider').value);
+        }
+
+        function tlNavegar(delta) {
+            var slider = document.getElementById('tl-ano-slider');
+            var novo   = Math.max(1985, Math.min(parseInt(slider.max), _tlGetAno() + delta));
+            slider.value = novo;
+            document.getElementById('tl-ano-label').textContent = novo;
+        }
+
+        function tlTogglePlay() {
+            if (_tlPlaying) {
+                _tlPlaying = false;
+                clearInterval(_tlPlayTimer);
+                document.getElementById('tl-play-btn').innerHTML = '<i class="fas fa-play"></i> Play';
+            } else {
+                _tlPlaying = true;
+                document.getElementById('tl-play-btn').innerHTML = '<i class="fas fa-pause"></i> Pause';
+                _tlPlayTimer = setInterval(function() {
+                    var anoAtual = _tlGetAno();
+                    var max      = parseInt(document.getElementById('tl-ano-slider').max);
+                    if (anoAtual >= max) {
+                        // Volta ao início
+                        document.getElementById('tl-ano-slider').value = 1985;
+                        document.getElementById('tl-ano-label').textContent = 1985;
+                    } else {
+                        tlNavegar(1);
+                    }
+                    tlCarregarAno(true);
+                }, 2500);
+            }
+        }
+
+        function tlCarregarAno(fromPlay) {
+            var year  = _tlGetAno();
+            var cloud = document.getElementById('tl-cloud').value;
+
+            // Cache hit
+            var cacheKey = year + '_' + cloud;
+            if (_tlCache[cacheKey]) {
+                _tlAplicarTile(_tlCache[cacheKey], year);
+                return;
+            }
+
+            if (!fromPlay) {
+                _geeToast('tl-status',
+                    '<i class="fas fa-spinner fa-spin"></i> Carregando Landsat ' + year + '…', false);
+            }
+
+            var url = _GEE_ANALISE_URL + '?mode=timelapse&year=' + year + '&cloud=' + cloud;
+
+            fetch(url)
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    _tlCache[cacheKey] = data.tileUrl;
+                    _tlAplicarTile(data.tileUrl, year);
+                    _geeHideStatus('tl-status');
+                    // Pré-carrega próximo ano
+                    var nextKey = (year + 1) + '_' + cloud;
+                    if (!_tlCache[nextKey] && year < parseInt(document.getElementById('tl-ano-slider').max)) {
+                        fetch(_GEE_ANALISE_URL + '?mode=timelapse&year=' + (year+1) + '&cloud=' + cloud)
+                            .then(function(r2) { return r2.json(); })
+                            .then(function(d2) { _tlCache[nextKey] = d2.tileUrl; })
+                            .catch(function() {});
+                    }
+                })
+                .catch(function(err) {
+                    if (!fromPlay) {
+                        _geeToast('tl-status',
+                            '<i class="fas fa-exclamation-triangle"></i> Erro: ' + err.message, true);
+                    }
+                    console.error('[GEE timelapse ' + year + ']', err);
+                });
+        }
+
+        function _tlAplicarTile(tileUrl, year) {
+            if (_tlLayer) { map.removeLayer(_tlLayer); _tlLayer = null; }
+            _tlLayer = L.tileLayer(tileUrl, {
+                maxZoom: 22, opacity: 1,
+                attribution: 'Landsat ' + year + ' · GEE'
+            });
+            // Insere abaixo de qualquer overlay (zIndex baixo)
+            _tlLayer.setZIndex(100);
+            _tlLayer.addTo(map);
+
+            // Mostra info de cache
+            var ci = document.getElementById('tl-cache-info');
+            var cached = Object.keys(_tlCache).length;
+            ci.style.display = 'block';
+            ci.textContent   = 'Exibindo ' + year + ' · ' + cached + ' ano(s) em cache';
+        }
+
+        function tlRemover() {
+            if (_tlPlaying) tlTogglePlay();
+            if (_tlLayer) { map.removeLayer(_tlLayer); _tlLayer = null; }
+            _geeHideStatus('tl-status');
+            var ci = document.getElementById('tl-cache-info');
+            if (ci) ci.style.display = 'none';
+        }
+        // ══════════════════════════════════════════════════════════════════════
 
         // ========== FERRAMENTA DE PONTO (ALFINETES) ==========
         var ferramentaPontoAtiva = false;
