@@ -3586,10 +3586,20 @@
             .then(function(data) {
                 document.getElementById('dsm-status').style.display = 'none';
 
+                // Garante pane com zIndex alto para o resultado
+                if (!map.getPane('dsmPane')) {
+                    map.createPane('dsmPane');
+                    map.getPane('dsmPane').style.zIndex = 650;
+                    map.getPane('dsmPane').style.pointerEvents = 'none';
+                }
+
+                // Remove tile anterior
+                if (_dsmResultado) { map.removeLayer(_dsmResultado); _dsmResultado = null; }
+
                 // Aplica tile no mapa
-                if (_dsmResultado) map.removeLayer(_dsmResultado);
                 _dsmResultado = L.tileLayer(data.tileUrl, {
-                    maxZoom: 22, opacity: 0.85,
+                    pane: 'dsmPane',
+                    maxZoom: 22, opacity: 0.9,
                     attribution: 'Supressão Vegetal · Sentinel-2/GEE'
                 }).addTo(map);
 
