@@ -2555,8 +2555,8 @@
                                 <button class="ferramenta-btn" id="dsm-btn-desenhar" onclick="dsmIniciarDesenho()" style="flex:1;min-width:90px;">
                                     <i class="fas fa-pencil-alt"></i> Desenhar
                                 </button>
-                                <button class="ferramenta-btn" onclick="dsmUsarDesenhoExistente()" style="flex:1;min-width:90px;" title="Usar área já desenhada na ferramenta de Desenho">
-                                    <i class="fas fa-vector-square"></i> Usar área atual
+                                <button class="ferramenta-btn" onclick="dsmUsarMunicipio()" style="flex:1;min-width:90px;" title="Carregar limite municipal do GeoJaraguá">
+                                    <i class="fas fa-city"></i> Município
                                 </button>
                                 <button class="ferramenta-btn" onclick="dsmLimparArea()" style="background:rgba(231,76,60,0.1);border-color:rgba(231,76,60,0.3);color:#e74c3c;flex:1;min-width:90px;">
                                     <i class="fas fa-trash"></i> Limpar
@@ -2671,6 +2671,23 @@
                             Dados: Landsat (USGS / Google Earth Engine) · composição anual mediana.
                         </div>
 
+                        <!-- Seleção de área -->
+                        <div style="margin-bottom:10px;">
+                            <label class="gee-label"><i class="fas fa-draw-polygon"></i> Área de análise <span style="font-size:0.85em;color:#666;">(opcional — sem seleção usa extensão do mapa)</span></label>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                <button class="ferramenta-btn" id="geo-btn-desenhar" onclick="geoIniciarDesenho()" style="flex:1;min-width:90px;">
+                                    <i class="fas fa-pencil-alt"></i> Desenhar
+                                </button>
+                                <button class="ferramenta-btn" onclick="geoUsarMunicipio()" style="flex:1;min-width:90px;" title="Carregar limite municipal do GeoJaraguá">
+                                    <i class="fas fa-city"></i> Município
+                                </button>
+                                <button class="ferramenta-btn" onclick="geoLimparArea()" style="background:rgba(231,76,60,0.1);border-color:rgba(231,76,60,0.3);color:#e74c3c;flex:1;min-width:80px;">
+                                    <i class="fas fa-trash"></i> Limpar
+                                </button>
+                            </div>
+                            <div id="geo-area-status" style="margin-top:5px;font-size:0.72em;color:#888;font-style:italic;">Nenhuma área definida</div>
+                        </div>
+
                         <!-- Seletor de índice -->
                         <div style="margin-bottom:8px;">
                             <label class="gee-label"><i class="fas fa-layer-group"></i> Índice</label>
@@ -2723,6 +2740,9 @@
                             </div>
                         </div>
 
+                        <!-- Relatório de área por classe -->
+                        <div id="gee-relatorio-area" style="display:none;margin-top:10px;background:rgba(10,20,40,0.55);border-radius:7px;padding:10px;border:1px solid rgba(46,204,113,0.25);"></div>
+
                     </div><!-- /card-collapsible -->
                 </div>
 
@@ -2736,6 +2756,23 @@
 
                         <div style="font-size:0.72em;color:#7ab;margin-bottom:8px;line-height:1.4;">
                             Compara o NDVI entre dois anos. <b style="color:#e74c3c;">Vermelho</b> = perda de vegetação · <b style="color:#2ecc71;">Verde</b> = ganho.
+                        </div>
+
+                        <!-- Seleção de área -->
+                        <div style="margin-bottom:10px;">
+                            <label class="gee-label"><i class="fas fa-draw-polygon"></i> Área de análise <span style="font-size:0.85em;color:#666;">(opcional)</span></label>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                <button class="ferramenta-btn" id="diff-btn-desenhar" onclick="diffIniciarDesenho()" style="flex:1;min-width:90px;">
+                                    <i class="fas fa-pencil-alt"></i> Desenhar
+                                </button>
+                                <button class="ferramenta-btn" onclick="diffUsarMunicipio()" style="flex:1;min-width:90px;" title="Carregar limite municipal do GeoJaraguá">
+                                    <i class="fas fa-city"></i> Município
+                                </button>
+                                <button class="ferramenta-btn" onclick="diffLimparArea()" style="background:rgba(231,76,60,0.1);border-color:rgba(231,76,60,0.3);color:#e74c3c;flex:1;min-width:80px;">
+                                    <i class="fas fa-trash"></i> Limpar
+                                </button>
+                            </div>
+                            <div id="diff-area-status" style="margin-top:5px;font-size:0.72em;color:#888;font-style:italic;">Nenhuma área definida</div>
                         </div>
 
                         <div style="display:flex;gap:8px;margin-bottom:8px;">
@@ -2775,6 +2812,9 @@
                                 <span>−0.5 (perda)</span><span>0</span><span>+0.5 (ganho)</span>
                             </div>
                         </div>
+
+                        <!-- Relatório de área por classe -->
+                        <div id="diff-relatorio-area" style="display:none;margin-top:10px;background:rgba(10,20,40,0.55);border-radius:7px;padding:10px;border:1px solid rgba(231,76,60,0.25);"></div>
 
                     </div>
                 </div>
@@ -3192,6 +3232,185 @@
             if (el) el.style.display = 'none';
         }
 
+        // ── Helpers de pane GEE ───────────────────────────────────────────────
+        function _geeEnsurePane(name) {
+            if (!map.getPane(name)) {
+                map.createPane(name);
+                map.getPane(name).style.zIndex = 655;
+                map.getPane(name).style.pointerEvents = 'none';
+            }
+        }
+
+        // ── Área de análise: Índices Espectrais ──────────────────────────────
+        var _geoPontos   = [];
+        var _geoLayer    = null;   // polígono de área no mapa
+        var _geoPolyline = null;
+        var _geoAtivo    = false;
+        var _geoClickH   = null;
+        var _geoDblH     = null;
+
+        function _geoAtualizarStatus() {
+            var el = document.getElementById('geo-area-status');
+            if (!el) return;
+            if (_geoPontos.length === 0)       { el.textContent = 'Nenhuma área definida'; el.style.color = '#888'; }
+            else if (_geoPontos.length < 3)    { el.textContent = _geoPontos.length + ' ponto(s) — mín. 3 para fechar'; el.style.color = '#f39c12'; }
+            else                               { el.textContent = 'Área definida com ' + _geoPontos.length + ' vértices ✓'; el.style.color = '#2ecc71'; }
+        }
+
+        function geoIniciarDesenho() {
+            _geoPontos = []; _geoAtivo = true;
+            geoLimparArea(true);
+            var btn = document.getElementById('geo-btn-desenhar');
+            if (btn) { btn.style.background='rgba(46,204,113,0.25)'; btn.style.borderColor='rgba(46,204,113,0.6)'; btn.style.color='#2ecc71'; btn.innerHTML='<i class="fas fa-stop-circle"></i> Parar'; }
+            var st = document.getElementById('geo-area-status');
+            if (st) { st.textContent = 'Clique no mapa para vértices — duplo-clique para fechar'; st.style.color = '#3498db'; }
+            map.getContainer().style.cursor = 'crosshair';
+            _geoClickH = function(e) { if (!_geoAtivo) return; _geoPontos.push([e.latlng.lng, e.latlng.lat]); _geoDesenharPolyline(); _geoAtualizarStatus(); };
+            _geoDblH   = function(e) { L.DomEvent.stop(e); geoFecharPoligono(); };
+            map.on('click', _geoClickH); map.on('dblclick', _geoDblH);
+        }
+
+        function _geoDesenharPolyline() {
+            if (_geoPolyline) { map.removeLayer(_geoPolyline); _geoPolyline = null; }
+            if (_geoPontos.length < 2) return;
+            _geoPolyline = L.polyline(_geoPontos.map(function(p){return[p[1],p[0]];}), {color:'#2ecc71',weight:2,dashArray:'6 4'}).addTo(map);
+        }
+
+        function geoFecharPoligono() {
+            _geoAtivo = false;
+            map.getContainer().style.cursor = '';
+            if (_geoClickH) { map.off('click', _geoClickH); _geoClickH = null; }
+            if (_geoDblH)   { map.off('dblclick', _geoDblH); _geoDblH = null; }
+            if (_geoPolyline) { map.removeLayer(_geoPolyline); _geoPolyline = null; }
+            var btn = document.getElementById('geo-btn-desenhar');
+            if (btn) { btn.style.background=''; btn.style.borderColor=''; btn.style.color=''; btn.innerHTML='<i class="fas fa-pencil-alt"></i> Desenhar'; }
+            if (_geoPontos.length < 3) { var st=document.getElementById('geo-area-status'); if(st){st.textContent='Mínimo 3 pontos necessário.';st.style.color='#e74c3c';} return; }
+            var fechado = _geoPontos.concat([_geoPontos[0]]);
+            if (_geoLayer) map.removeLayer(_geoLayer);
+            _geoLayer = L.polygon(fechado.map(function(p){return[p[1],p[0]];}), {color:'#2ecc71',weight:2,fillColor:'#2ecc71',fillOpacity:0.1}).addTo(map);
+            map.fitBounds(_geoLayer.getBounds(), {padding:[40,40]});
+            _geoAtualizarStatus();
+        }
+
+        function geoUsarMunicipio() {
+            _geoStatus('<i class="fas fa-spinner fa-spin"></i> Carregando limite municipal…', '#7ab8d9');
+            var wfsUrl = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=PMJS:lim_municipal&outputFormat=application/json';
+            fetch(wfsUrl)
+                .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+                .then(function(fc){
+                    var coords = fc.features[0].geometry.coordinates;
+                    // Suporta Polygon e MultiPolygon
+                    var ring = (fc.features[0].geometry.type === 'MultiPolygon') ? coords[0][0] : coords[0];
+                    _geoPontos = ring.map(function(c){return[c[0],c[1]];});
+                    if (_geoLayer) map.removeLayer(_geoLayer);
+                    _geoLayer = L.polygon(_geoPontos.map(function(p){return[p[1],p[0]];}), {color:'#2ecc71',weight:2,fillColor:'#2ecc71',fillOpacity:0.08}).addTo(map);
+                    map.fitBounds(_geoLayer.getBounds(), {padding:[20,20]});
+                    _geoAtualizarStatus();
+                    _geoHideStatus();
+                })
+                .catch(function(err){ _geoStatus('<i class="fas fa-exclamation-triangle"></i> Erro ao carregar município: '+err.message, '#e74c3c'); });
+        }
+
+        function geoLimparArea(manterModo) {
+            _geoPontos = [];
+            if (!manterModo) { _geoAtivo = false; }
+            if (_geoLayer)    { map.removeLayer(_geoLayer);    _geoLayer    = null; }
+            if (_geoPolyline) { map.removeLayer(_geoPolyline); _geoPolyline = null; }
+            if (_geoClickH)   { map.off('click', _geoClickH);    _geoClickH = null; }
+            if (_geoDblH)     { map.off('dblclick', _geoDblH);   _geoDblH   = null; }
+            map.getContainer().style.cursor = '';
+            var btn = document.getElementById('geo-btn-desenhar');
+            if (btn) { btn.style.background=''; btn.style.borderColor=''; btn.style.color=''; btn.innerHTML='<i class="fas fa-pencil-alt"></i> Desenhar'; }
+            _geoAtualizarStatus();
+        }
+
+        function _geoStatus(msg, cor) { var el=document.getElementById('gee-indice-status'); if(el){el.style.display='block';el.style.color=cor||'#7ab8d9';el.innerHTML=msg;} }
+        function _geoHideStatus()     { var el=document.getElementById('gee-indice-status'); if(el) el.style.display='none'; }
+
+        // ── Área de análise: Detecção de Mudança ─────────────────────────────
+        var _diffPontos   = [];
+        var _diffLayer    = null;
+        var _diffPolyline = null;
+        var _diffAtivo    = false;
+        var _diffClickH   = null;
+        var _diffDblH     = null;
+
+        function _diffAtualizarStatus() {
+            var el = document.getElementById('diff-area-status');
+            if (!el) return;
+            if (_diffPontos.length === 0)      { el.textContent = 'Nenhuma área definida'; el.style.color = '#888'; }
+            else if (_diffPontos.length < 3)   { el.textContent = _diffPontos.length + ' ponto(s) — mín. 3 para fechar'; el.style.color = '#f39c12'; }
+            else                               { el.textContent = 'Área definida com ' + _diffPontos.length + ' vértices ✓'; el.style.color = '#2ecc71'; }
+        }
+
+        function diffIniciarDesenho() {
+            _diffPontos = []; _diffAtivo = true;
+            diffLimparArea(true);
+            var btn = document.getElementById('diff-btn-desenhar');
+            if (btn) { btn.style.background='rgba(231,76,60,0.25)'; btn.style.borderColor='rgba(231,76,60,0.6)'; btn.style.color='#e74c3c'; btn.innerHTML='<i class="fas fa-stop-circle"></i> Parar'; }
+            var st = document.getElementById('diff-area-status');
+            if (st) { st.textContent = 'Clique no mapa para vértices — duplo-clique para fechar'; st.style.color = '#3498db'; }
+            map.getContainer().style.cursor = 'crosshair';
+            _diffClickH = function(e){ if(!_diffAtivo) return; _diffPontos.push([e.latlng.lng,e.latlng.lat]); _diffDesenharPolyline(); _diffAtualizarStatus(); };
+            _diffDblH   = function(e){ L.DomEvent.stop(e); diffFecharPoligono(); };
+            map.on('click', _diffClickH); map.on('dblclick', _diffDblH);
+        }
+
+        function _diffDesenharPolyline() {
+            if (_diffPolyline) { map.removeLayer(_diffPolyline); _diffPolyline = null; }
+            if (_diffPontos.length < 2) return;
+            _diffPolyline = L.polyline(_diffPontos.map(function(p){return[p[1],p[0]];}), {color:'#e74c3c',weight:2,dashArray:'6 4'}).addTo(map);
+        }
+
+        function diffFecharPoligono() {
+            _diffAtivo = false;
+            map.getContainer().style.cursor = '';
+            if (_diffClickH) { map.off('click', _diffClickH); _diffClickH = null; }
+            if (_diffDblH)   { map.off('dblclick', _diffDblH); _diffDblH = null; }
+            if (_diffPolyline) { map.removeLayer(_diffPolyline); _diffPolyline = null; }
+            var btn = document.getElementById('diff-btn-desenhar');
+            if (btn) { btn.style.background=''; btn.style.borderColor=''; btn.style.color=''; btn.innerHTML='<i class="fas fa-pencil-alt"></i> Desenhar'; }
+            if (_diffPontos.length < 3) { var st=document.getElementById('diff-area-status'); if(st){st.textContent='Mínimo 3 pontos necessário.';st.style.color='#e74c3c';} return; }
+            var fechado = _diffPontos.concat([_diffPontos[0]]);
+            if (_diffLayer) map.removeLayer(_diffLayer);
+            _diffLayer = L.polygon(fechado.map(function(p){return[p[1],p[0]];}), {color:'#e74c3c',weight:2,fillColor:'#e74c3c',fillOpacity:0.1}).addTo(map);
+            map.fitBounds(_diffLayer.getBounds(), {padding:[40,40]});
+            _diffAtualizarStatus();
+        }
+
+        function diffUsarMunicipio() {
+            _diffStatus('<i class="fas fa-spinner fa-spin"></i> Carregando limite municipal…', '#7ab8d9');
+            var wfsUrl = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=PMJS:lim_municipal&outputFormat=application/json';
+            fetch(wfsUrl)
+                .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+                .then(function(fc){
+                    var coords = fc.features[0].geometry.coordinates;
+                    var ring = (fc.features[0].geometry.type === 'MultiPolygon') ? coords[0][0] : coords[0];
+                    _diffPontos = ring.map(function(c){return[c[0],c[1]];});
+                    if (_diffLayer) map.removeLayer(_diffLayer);
+                    _diffLayer = L.polygon(_diffPontos.map(function(p){return[p[1],p[0]];}), {color:'#e74c3c',weight:2,fillColor:'#e74c3c',fillOpacity:0.08}).addTo(map);
+                    map.fitBounds(_diffLayer.getBounds(), {padding:[20,20]});
+                    _diffAtualizarStatus();
+                    document.getElementById('gee-diff-status').style.display = 'none';
+                })
+                .catch(function(err){ _diffStatus('<i class="fas fa-exclamation-triangle"></i> Erro ao carregar município: '+err.message, '#e74c3c'); });
+        }
+
+        function diffLimparArea(manterModo) {
+            _diffPontos = [];
+            if (!manterModo) { _diffAtivo = false; }
+            if (_diffLayer)    { map.removeLayer(_diffLayer);    _diffLayer    = null; }
+            if (_diffPolyline) { map.removeLayer(_diffPolyline); _diffPolyline = null; }
+            if (_diffClickH)   { map.off('click', _diffClickH);    _diffClickH = null; }
+            if (_diffDblH)     { map.off('dblclick', _diffDblH);   _diffDblH   = null; }
+            map.getContainer().style.cursor = '';
+            var btn = document.getElementById('diff-btn-desenhar');
+            if (btn) { btn.style.background=''; btn.style.borderColor=''; btn.style.color=''; btn.innerHTML='<i class="fas fa-pencil-alt"></i> Desenhar'; }
+            _diffAtualizarStatus();
+        }
+
+        function _diffStatus(msg, cor) { var el=document.getElementById('gee-diff-status'); if(el){el.style.display='block';el.style.color=cor||'#7ab8d9';el.innerHTML=msg;} }
+
         // ── Carrega índice espectral ────────────────────────────────────────
         function geeCarregarIndice() {
             var mode  = document.getElementById('gee-indice').value;
@@ -3203,14 +3422,27 @@
                 '<i class="fas fa-spinner fa-spin"></i> Calculando ' + info.label + ' ' + year + ' via GEE…', false);
 
             var url = _GEE_ANALISE_URL + '?mode=' + mode + '&year=' + year + '&cloud=' + cloud;
+            var fetchOpts = { method: 'GET' };
 
-            fetch(url)
+            // Se área definida, usa POST com coords
+            if (_geoPontos.length >= 3) {
+                fetchOpts = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: mode, year: parseInt(year), cloud: parseInt(cloud), coords: _geoPontos })
+                };
+                url = _GEE_ANALISE_URL;
+            }
+
+            fetch(url, fetchOpts)
                 .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(function(data) {
                     _geeHideStatus('gee-indice-status');
                     if (_geeLayer) { map.removeLayer(_geeLayer); _geeLayer = null; }
 
+                    _geeEnsurePane('geePane');
                     _geeLayer = L.tileLayer(data.tileUrl, {
+                        pane: 'geePane',
                         maxZoom: 22, opacity: 0.85,
                         attribution: info.label + ' ' + year + ' · Landsat/GEE'
                     }).addTo(map);
@@ -3222,6 +3454,39 @@
                     document.getElementById('gee-leg-mid').textContent = info.mid;
                     document.getElementById('gee-leg-max').textContent = info.max;
                     leg.style.display = 'block';
+
+                    // Relatório de área por classe (se stats disponíveis)
+                    var relDiv = document.getElementById('gee-relatorio-area');
+                    if (relDiv) {
+                        if (data.stats && data.stats.classes) {
+                            var html = '<div style="font-size:0.7em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;"><i class="fas fa-table"></i> Relatório de Área</div>';
+                            html += '<table style="width:100%;border-collapse:collapse;font-size:0.72em;">';
+                            html += '<tr style="color:#666;"><th style="text-align:left;padding:2px 4px;">Classe</th><th style="text-align:right;padding:2px 4px;">Área (ha)</th><th style="text-align:right;padding:2px 4px;">%</th></tr>';
+                            var total = data.stats.classes.reduce(function(s,c){return s+(c.ha||0);},0);
+                            data.stats.classes.forEach(function(c) {
+                                var pct = total > 0 ? ((c.ha/total)*100).toFixed(1) : '—';
+                                html += '<tr style="border-top:1px solid rgba(255,255,255,0.06);">';
+                                html += '<td style="padding:3px 4px;color:#ccc;">' + c.label + '</td>';
+                                html += '<td style="text-align:right;padding:3px 4px;color:#2ecc71;font-weight:600;">' + (c.ha||0).toLocaleString('pt-BR',{maximumFractionDigits:2}) + '</td>';
+                                html += '<td style="text-align:right;padding:3px 4px;color:#888;">' + pct + '%</td></tr>';
+                            });
+                            html += '<tr style="border-top:1px solid rgba(255,255,255,0.15);font-weight:600;"><td style="padding:3px 4px;color:#aaa;">Total</td><td style="text-align:right;padding:3px 4px;color:#2ecc71;">' + total.toLocaleString('pt-BR',{maximumFractionDigits:2}) + '</td><td style="text-align:right;padding:3px 4px;color:#888;">100%</td></tr>';
+                            html += '</table>';
+                            relDiv.innerHTML = html;
+                            relDiv.style.display = 'block';
+                        } else if (_geoPontos.length >= 3) {
+                            // Calcula área local pelo polígono desenhado
+                            var areaHa = _calcAreaHa(_geoPontos);
+                            relDiv.innerHTML = '<div style="font-size:0.7em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;"><i class="fas fa-ruler-combined"></i> Área de análise</div>'
+                                + '<div style="font-size:0.78em;color:#2ecc71;font-weight:700;">' + areaHa.toLocaleString('pt-BR',{maximumFractionDigits:2}) + ' ha</div>'
+                                + '<div style="font-size:0.68em;color:#666;margin-top:2px;">Relatório detalhado por classe disponível quando o backend retornar stats.</div>';
+                            relDiv.style.display = 'block';
+                        } else {
+                            relDiv.style.display = 'none';
+                        }
+                    }
+
+                    if (_geoLayer) map.fitBounds(_geoLayer.getBounds(), {padding:[30,30]});
                 })
                 .catch(function(err) {
                     _geeToast('gee-indice-status',
@@ -3233,6 +3498,7 @@
         function geeRemoverCamada() {
             if (_geeLayer) { map.removeLayer(_geeLayer); _geeLayer = null; }
             document.getElementById('gee-legenda').style.display = 'none';
+            var r = document.getElementById('gee-relatorio-area'); if(r) r.style.display='none';
             _geeHideStatus('gee-indice-status');
         }
 
@@ -3250,23 +3516,67 @@
             _geeToast('gee-diff-status',
                 '<i class="fas fa-spinner fa-spin"></i> Calculando Δ NDVI (' + ano1 + ' → ' + ano2 + ')…', false);
 
-            // year2 = base (mais antigo), year = comparação (mais recente)
             var base = Math.min(parseInt(ano1), parseInt(ano2));
             var comp = Math.max(parseInt(ano1), parseInt(ano2));
-            var url  = _GEE_ANALISE_URL + '?mode=diffndvi&year=' + comp + '&year2=' + base + '&cloud=' + cloud;
 
-            fetch(url)
+            var url = _GEE_ANALISE_URL;
+            var fetchOpts;
+
+            if (_diffPontos.length >= 3) {
+                fetchOpts = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'diffndvi', year: comp, year2: base, cloud: parseInt(cloud), coords: _diffPontos })
+                };
+            } else {
+                url = _GEE_ANALISE_URL + '?mode=diffndvi&year=' + comp + '&year2=' + base + '&cloud=' + cloud;
+                fetchOpts = { method: 'GET' };
+            }
+
+            fetch(url, fetchOpts)
                 .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(function(data) {
                     _geeHideStatus('gee-diff-status');
                     if (_geeDiffLayer) { map.removeLayer(_geeDiffLayer); _geeDiffLayer = null; }
 
+                    _geeEnsurePane('geeDiffPane');
                     _geeDiffLayer = L.tileLayer(data.tileUrl, {
+                        pane: 'geeDiffPane',
                         maxZoom: 22, opacity: 0.82,
                         attribution: 'Δ NDVI ' + base + '→' + comp + ' · Landsat/GEE'
                     }).addTo(map);
 
                     document.getElementById('gee-diff-legenda').style.display = 'block';
+
+                    // Relatório de área diff
+                    var relDiv = document.getElementById('diff-relatorio-area');
+                    if (relDiv) {
+                        if (data.stats && data.stats.classes) {
+                            var html = '<div style="font-size:0.7em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;"><i class="fas fa-table"></i> Relatório de Área</div>';
+                            html += '<table style="width:100%;border-collapse:collapse;font-size:0.72em;">';
+                            html += '<tr style="color:#666;"><th style="text-align:left;padding:2px 4px;">Classe</th><th style="text-align:right;padding:2px 4px;">Área (ha)</th><th style="text-align:right;padding:2px 4px;">%</th></tr>';
+                            var total = data.stats.classes.reduce(function(s,c){return s+(c.ha||0);},0);
+                            data.stats.classes.forEach(function(c) {
+                                var pct = total > 0 ? ((c.ha/total)*100).toFixed(1) : '—';
+                                var cor = c.label && c.label.toLowerCase().indexOf('perda') >= 0 ? '#e74c3c' : c.label && c.label.toLowerCase().indexOf('ganho') >= 0 ? '#2ecc71' : '#ccc';
+                                html += '<tr style="border-top:1px solid rgba(255,255,255,0.06);"><td style="padding:3px 4px;color:'+cor+';">'+c.label+'</td><td style="text-align:right;padding:3px 4px;color:'+cor+';font-weight:600;">'+((c.ha||0).toLocaleString('pt-BR',{maximumFractionDigits:2}))+'</td><td style="text-align:right;padding:3px 4px;color:#888;">'+pct+'%</td></tr>';
+                            });
+                            html += '<tr style="border-top:1px solid rgba(255,255,255,0.15);font-weight:600;"><td style="padding:3px 4px;color:#aaa;">Total</td><td style="text-align:right;padding:3px 4px;color:#aaa;">'+total.toLocaleString('pt-BR',{maximumFractionDigits:2})+'</td><td style="text-align:right;padding:3px 4px;color:#888;">100%</td></tr>';
+                            html += '</table>';
+                            relDiv.innerHTML = html;
+                            relDiv.style.display = 'block';
+                        } else if (_diffPontos.length >= 3) {
+                            var areaHa = _calcAreaHa(_diffPontos);
+                            relDiv.innerHTML = '<div style="font-size:0.7em;color:#7ab;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;"><i class="fas fa-ruler-combined"></i> Área de análise</div>'
+                                + '<div style="font-size:0.78em;color:#e74c3c;font-weight:700;">'+areaHa.toLocaleString('pt-BR',{maximumFractionDigits:2})+' ha</div>'
+                                + '<div style="font-size:0.68em;color:#666;margin-top:2px;">Relatório detalhado por classe disponível quando o backend retornar stats.</div>';
+                            relDiv.style.display = 'block';
+                        } else {
+                            relDiv.style.display = 'none';
+                        }
+                    }
+
+                    if (_diffLayer) map.fitBounds(_diffLayer.getBounds(), {padding:[30,30]});
                 })
                 .catch(function(err) {
                     _geeToast('gee-diff-status',
@@ -3278,7 +3588,26 @@
         function geeRemoverDiff() {
             if (_geeDiffLayer) { map.removeLayer(_geeDiffLayer); _geeDiffLayer = null; }
             document.getElementById('gee-diff-legenda').style.display = 'none';
+            var r = document.getElementById('diff-relatorio-area'); if(r) r.style.display='none';
             _geeHideStatus('gee-diff-status');
+        }
+
+        // ── Calcula área aproximada em ha (Shoelace, projeção plana) ──────────
+        function _calcAreaHa(coords) {
+            // coords = [[lng,lat], ...]
+            var n = coords.length;
+            if (n < 3) return 0;
+            var area = 0;
+            var R = 6371000; // raio médio Terra em metros
+            for (var i = 0; i < n; i++) {
+                var j = (i + 1) % n;
+                var xi = coords[i][0] * Math.PI / 180 * R * Math.cos(coords[i][1] * Math.PI / 180);
+                var yi = coords[i][1] * Math.PI / 180 * R;
+                var xj = coords[j][0] * Math.PI / 180 * R * Math.cos(coords[j][1] * Math.PI / 180);
+                var yj = coords[j][1] * Math.PI / 180 * R;
+                area += xi * yj - xj * yi;
+            }
+            return Math.abs(area / 2) / 10000; // m² → ha
         }
 
         // ── TIMELAPSE ───────────────────────────────────────────────────────
@@ -3360,12 +3689,17 @@
 
         function _tlAplicarTile(tileUrl, year) {
             if (_tlLayer) { map.removeLayer(_tlLayer); _tlLayer = null; }
+            // Garante pane dedicado acima dos vetoriais
+            if (!map.getPane('tlPane')) {
+                map.createPane('tlPane');
+                map.getPane('tlPane').style.zIndex = 650;
+                map.getPane('tlPane').style.pointerEvents = 'none';
+            }
             _tlLayer = L.tileLayer(tileUrl, {
+                pane: 'tlPane',
                 maxZoom: 22, opacity: 1,
                 attribution: 'Landsat ' + year + ' · GEE'
             });
-            // Insere abaixo de qualquer overlay (zIndex baixo)
-            _tlLayer.setZIndex(100);
             _tlLayer.addTo(map);
 
             // Mostra info de cache
@@ -3483,32 +3817,27 @@
             _dsmAtualizarStatus();
         }
 
-        // Usa área já desenhada pela ferramenta de Desenho de Área do dashboard
-        function dsmUsarDesenhoExistente() {
-            // Tenta capturar do drawnItems (camada de desenho existente no projeto)
-            if (typeof drawnItems !== 'undefined' && drawnItems) {
-                var layers = [];
-                drawnItems.eachLayer(function(l) { layers.push(l); });
-                if (layers.length > 0) {
-                    var poly = layers[layers.length - 1];
-                    var latlngs = poly.getLatLngs()[0];
-                    _dsmPontos = latlngs.map(function(ll) { return [ll.lng, ll.lat]; });
+        // Usa o limite municipal do GeoJaraguá como área de análise
+        function dsmUsarMunicipio() {
+            _dsmStatus('<i class="fas fa-spinner fa-spin"></i> Carregando limite municipal…', '#7ab8d9');
+            var wfsUrl = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=PMJS:lim_municipal&outputFormat=application/json';
+            fetch(wfsUrl)
+                .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+                .then(function(fc){
+                    var coords = fc.features[0].geometry.coordinates;
+                    var ring = (fc.features[0].geometry.type === 'MultiPolygon') ? coords[0][0] : coords[0];
+                    _dsmPontos = ring.map(function(c){ return [c[0], c[1]]; });
                     if (_dsmLayer) map.removeLayer(_dsmLayer);
-                    _dsmLayer = L.polygon(latlngs, {
-                        color:'#e74c3c', weight:2, fillColor:'#e74c3c', fillOpacity:0.12
+                    _dsmLayer = L.polygon(_dsmPontos.map(function(p){return[p[1],p[0]];}), {
+                        color:'#e74c3c', weight:2, fillColor:'#e74c3c', fillOpacity:0.08
                     }).addTo(map);
+                    map.fitBounds(_dsmLayer.getBounds(), {padding:[20,20]});
                     _dsmAtualizarStatus();
-                    return;
-                }
-            }
-            // Fallback: tenta usar a área desenhada armazenada no projeto
-            if (typeof _areaDesenhadaCoords !== 'undefined' && _areaDesenhadaCoords && _areaDesenhadaCoords.length >= 3) {
-                _dsmPontos = _areaDesenhadaCoords.map(function(ll){ return [ll.lng || ll[1], ll.lat || ll[0]]; });
-                _dsmAtualizarStatus();
-                return;
-            }
-            document.getElementById('dsm-area-status').textContent = 'Nenhuma área encontrada. Use "Desenhar" para criar uma nova.';
-            document.getElementById('dsm-area-status').style.color = '#f39c12';
+                    document.getElementById('dsm-status').style.display = 'none';
+                })
+                .catch(function(err){
+                    _dsmStatus('<i class="fas fa-exclamation-triangle"></i> Erro ao carregar município: '+err.message, '#e74c3c');
+                });
         }
 
         function dsmLimparArea(manterModo) {
