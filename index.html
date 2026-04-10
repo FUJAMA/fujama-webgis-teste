@@ -2894,6 +2894,7 @@
         <script src="js/labels.js"></script>
         <script src="js/leaflet.wms.js"></script>
         <script src="js/leaflet-measure.js"></script>
+        <script src="data/Limitemunicipal_0.js"></script>
         <script src="data/Vegetao_31.js"></script>
         <script src="data/Pedologia_32.js"></script>
         <script src="data/Geomorfologia_33.js"></script>
@@ -3184,38 +3185,32 @@
             if (el) el.style.display = 'none';
         }
 
-        // ── Limite Municipal (polígono aproximado de Jaraguá do Sul) ────────
-        // Fallback hardcoded caso o WFS tenha CORS bloqueado.
-        // Coordenadas do bbox externo do município (simplificadas).
-        var _MUNICIPIO_FALLBACK = [
-            [-49.4200,-26.0500],[-49.0800,-26.0500],
-            [-49.0800,-26.4800],[-49.4200,-26.4800],
-            [-49.4200,-26.0500]
-        ];
-
+        // ── Limite Municipal ─────────────────────────────────────────────────
+        // Lê o polígono real da layer Limitemunicipal_0.js já carregada no mapa.
         function _carregarLimiteMunicipal(onSuccess, onError) {
-            // Tenta WFS com outputFormat=application/json
-            var wfsUrl = 'https://geo.jaraguadosul.sc.gov.br/gs/geoserver-hive/PMJS/wfs'
-                + '?service=WFS&version=1.0.0&request=GetFeature'
-                + '&typeName=PMJS:lim_municipal&outputFormat=application/json';
-            fetch(wfsUrl)
-                .then(function(r) {
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    var ct = r.headers.get('content-type') || '';
-                    if (ct.indexOf('json') < 0) throw new Error('Resposta não é JSON (CORS bloqueado)');
-                    return r.json();
-                })
-                .then(function(fc) {
-                    var geom = fc.features && fc.features[0] && fc.features[0].geometry;
-                    if (!geom) throw new Error('Feição não encontrada');
-                    var coords = geom.coordinates;
-                    var ring = (geom.type === 'MultiPolygon') ? coords[0][0] : coords[0];
-                    onSuccess(ring.map(function(c) { return [c[0], c[1]]; }));
-                })
-                .catch(function() {
-                    // Fallback: usa bbox aproximado
-                    onSuccess(_MUNICIPIO_FALLBACK);
-                });
+            try {
+                if (typeof json_Limitemunicipal_0 === 'undefined') {
+                    throw new Error('Layer Limitemunicipal_0.js não encontrada. Adicione o arquivo em data/Limitemunicipal_0.js.');
+                }
+                var fc = json_Limitemunicipal_0;
+                var feat = fc.features && fc.features[0];
+                if (!feat || !feat.geometry) throw new Error('Feição não encontrada em Limitemunicipal_0.js');
+                var geom = feat.geometry;
+                var coords = geom.coordinates;
+                var ring;
+                if (geom.type === 'MultiPolygon') {
+                    // Pega o anel externo do maior polígono
+                    ring = coords[0][0];
+                } else if (geom.type === 'Polygon') {
+                    ring = coords[0];
+                } else {
+                    throw new Error('Tipo de geometria não suportado: ' + geom.type);
+                }
+                onSuccess(ring.map(function(c) { return [c[0], c[1]]; }));
+            } catch (e) {
+                if (typeof onError === 'function') onError(e.message);
+                else console.error('Limite Municipal:', e.message);
+            }
         }
         function _geeEnsurePane(name) {
             if (!map.getPane(name)) {
