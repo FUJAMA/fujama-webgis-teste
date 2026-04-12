@@ -4,3 +4,7 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[functions.gee-analise]
+  timeout = 26
