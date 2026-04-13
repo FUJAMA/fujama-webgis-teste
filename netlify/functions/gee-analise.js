@@ -178,17 +178,18 @@ exports.handler = function(event, context, callback) {
   }
 
   // ── DESMATAMENTO (Sentinel-2 · NBR) ─────────────────────────────────────────
-  if (mode==='desmatamento') {
+  // ── DESMATAMENTO — Fase 1: apenas tile (rápido, <8s) ────────────────────────
+  if (mode==='desmatamento' || mode==='dsm_tile') {
     var c2=body.coords, antesIni=body.antes_ini||'2017-01-01', antesFim=body.antes_fim||'2019-12-31';
     var depoisIni=body.depois_ini||'2022-01-01', depoisFim=body.depois_fim||'2024-12-31';
     var dsmCloud=parseInt(body.cloud)||40, threshold=parseFloat(body.threshold)||-0.1;
     if(!c2||c2.length<3) return send(callback,400,{error:'coords: minimo 3 pontos'});
-    // Simplifica o polígono se tiver muitos vértices (reduz timeout no GEE)
-    var coords = c2;
-    if (coords.length > 200) {
-      var step = Math.ceil(coords.length / 150);
-      coords = coords.filter(function(_, i){ return i % step === 0; });
-      if (coords[coords.length-1][0]!==coords[0][0]||coords[coords.length-1][1]!==coords[0][1]) coords.push(coords[0]);
+    // Simplifica polígono para reduzir carga no GEE
+    var coords=c2;
+    if(coords.length>300){
+      var step=Math.ceil(coords.length/200);
+      coords=coords.filter(function(_,i){return i%step===0;});
+      if(coords[coords.length-1][0]!==coords[0][0]||coords[coords.length-1][1]!==coords[0][1]) coords.push(coords[0]);
     }
     return withEE(pk,function(){
       var geom=ee.Geometry.Polygon([coords]);
@@ -199,47 +200,50 @@ exports.handler = function(event, context, callback) {
       }
       var antes=ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geom).filterDate(antesIni,antesFim).map(prepNBR).median();
       var depois=ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geom).filterDate(depoisIni,depoisFim).map(prepNBR).median();
-      var delta=depois.subtract(antes);
-      var masked=delta.lt(threshold).selfMask();
-
-      // Combina area suprimida + area total numa única chamada reduceRegion (paralela ao getMapId)
-      var areaImg = masked.multiply(ee.Image.pixelArea()).divide(10000)
-        .addBands(ee.Image.pixelArea().divide(10000).rename('total'));
-
-      var results = {tileUrl:null, stats:null, err:null};
-      var pending = 2;
-      function tryFinish(){
-        if(--pending > 0) return;
-        if(results.err) return send(callback,500,{error:'desmatamento: '+results.err});
-        send(callback,200,{tileUrl:results.tileUrl, stats:results.stats},{'Cache-Control':'no-cache'});
-      }
-
-      // Chamada 1: tile (renderização)
+      var masked=depois.subtract(antes).lt(threshold).selfMask().clip(geom);
       masked.getMapId({palette:['ff2200']},function(m,err){
-        if(err){ results.err=err; return tryFinish(); }
-        results.tileUrl=m.urlFormat;
-        tryFinish();
+        if(err) return send(callback,500,{error:'dsm_tile: '+err});
+        send(callback,200,{tileUrl:m.urlFormat,threshold:threshold,
+          antesIni:antesIni,antesFim:antesFim,depoisIni:depoisIni,depoisFim:depoisFim},
+          {'Cache-Control':'no-cache'});
       });
+    },callback);
+  }
 
-      // Chamada 2: estatísticas de área (paralela ao tile)
+  // ── DESMATAMENTO — Fase 2: apenas estatísticas (pode ser lento) ───────────
+  if (mode==='dsm_stats') {
+    var c2=body.coords, antesIni=body.antes_ini||'2017-01-01', antesFim=body.antes_fim||'2019-12-31';
+    var depoisIni=body.depois_ini||'2022-01-01', depoisFim=body.depois_fim||'2024-12-31';
+    var dsmCloud=parseInt(body.cloud)||40, threshold=parseFloat(body.threshold)||-0.1;
+    if(!c2||c2.length<3) return send(callback,400,{error:'coords: minimo 3 pontos'});
+    var coords=c2;
+    if(coords.length>300){
+      var step=Math.ceil(coords.length/200);
+      coords=coords.filter(function(_,i){return i%step===0;});
+      if(coords[coords.length-1][0]!==coords[0][0]||coords[coords.length-1][1]!==coords[0][1]) coords.push(coords[0]);
+    }
+    return withEE(pk,function(){
+      var geom=ee.Geometry.Polygon([coords]);
+      function prepNBR(img){
+        var mask=img.select('MSK_CLDPRB').lt(dsmCloud);
+        var nir=img.select('B8').multiply(0.0001), swir2=img.select('B12').multiply(0.0001);
+        return nir.subtract(swir2).divide(nir.add(swir2).add(1e-6)).rename('NBR').updateMask(mask);
+      }
+      var antes=ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geom).filterDate(antesIni,antesFim).map(prepNBR).median();
+      var depois=ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geom).filterDate(depoisIni,depoisFim).map(prepNBR).median();
+      var masked=depois.subtract(antes).lt(threshold).selfMask().clip(geom);
+      // Usa escala 30m para ser mais rápido e usar bestEffort
+      var areaImg=masked.multiply(ee.Image.pixelArea()).divide(10000)
+        .addBands(ee.Image.pixelArea().divide(10000).rename('total'));
       areaImg.reduceRegion({
-        reducer:ee.Reducer.sum(),
-        geometry:geom, scale:20, maxPixels:1e9, bestEffort:true
+        reducer:ee.Reducer.sum(),geometry:geom,scale:30,maxPixels:1e9,bestEffort:true
       }).evaluate(function(s,es){
-        var areaHa=0, totalHa=null;
-        if(!es && s){
-          var keys=Object.keys(s);
-          keys.forEach(function(k){
-            if(isFinite(s[k])){
-              if(k==='total') totalHa=Math.round(s[k]*100)/100;
-              else areaHa=Math.round(s[k]*100)/100;
-            }
-          });
-        }
+        var areaHa=0,totalHa=null;
+        if(!es&&s){Object.keys(s).forEach(function(k){if(isFinite(s[k])){if(k==='total')totalHa=Math.round(s[k]*100)/100;else areaHa=Math.round(s[k]*100)/100;}});}
         var pct=(totalHa&&totalHa>0)?Math.round(areaHa/totalHa*10000)/100:null;
-        results.stats={areaHa:areaHa,totalHa:totalHa,percentual:pct,threshold:threshold,
-          antesIni:antesIni,antesFim:antesFim,depoisIni:depoisIni,depoisFim:depoisFim};
-        tryFinish();
+        send(callback,200,{stats:{areaHa:areaHa,totalHa:totalHa,percentual:pct,threshold:threshold,
+          antesIni:antesIni,antesFim:antesFim,depoisIni:depoisIni,depoisFim:depoisFim}},
+          {'Cache-Control':'no-cache'});
       });
     },callback);
   }
