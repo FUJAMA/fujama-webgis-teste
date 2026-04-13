@@ -3870,21 +3870,24 @@
             if (antesIni >= depoisFim) { _dsmStatus('<i class="fas fa-exclamation-circle"></i> Período "Antes" deve ser anterior ao "Depois".','#f39c12'); return; }
 
             dsmRemoverResultado();
-            _dsmStatus('<i class="fas fa-spinner fa-spin"></i> Enviando para o Google Earth Engine… pode levar 20–60s.', '#7ab8d9');
+            _dsmStatus('<i class="fas fa-spinner fa-spin"></i> Gerando mapa de supressão… (etapa 1/2)', '#7ab8d9');
 
-            var payload = {
-                mode:'desmatamento', coords:_dsmPontos,
-                antes_ini:antesIni, antes_fim:antesFim,
-                depois_ini:depoisIni, depois_fim:depoisFim,
-                cloud:parseInt(cloud), threshold:parseFloat(threshold)
+            var basePayload = {
+                coords: _dsmPontos,
+                antes_ini: antesIni, antes_fim: antesFim,
+                depois_ini: depoisIni, depois_fim: depoisFim,
+                cloud: parseInt(cloud), threshold: parseFloat(threshold)
             };
 
-            fetch('https://fujama-gis.netlify.app/.netlify/functions/gee-analise', {
-                method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+            // ── Fase 1: busca apenas o tile (rápido) ──────────────────────────
+            fetch(_GEE_ANALISE_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(Object.assign({mode:'dsm_tile'}, basePayload))
             })
             .then(function(r){ if(!r.ok) return r.json().then(function(e){throw new Error(e.error||'HTTP '+r.status);}); return r.json(); })
             .then(function(data) {
-                document.getElementById('dsm-status').style.display = 'none';
+                _dsmStatus('<i class="fas fa-spinner fa-spin"></i> Mapa carregado. Calculando estatísticas… (etapa 2/2)', '#2ecc71');
 
                 if (!map.getPane('dsmPane')) {
                     map.createPane('dsmPane');
@@ -3898,21 +3901,48 @@
                     attribution:'Supressão Vegetal (NBR) · Sentinel-2/GEE'
                 }).addTo(map);
 
-                // Opacity slider
                 var ow=document.getElementById('dsm-opacity-wrap'); if(ow){ow.style.display='block';}
                 var be=document.getElementById('dsm-btn-export'); if(be){be.style.display=(_dsmPontos.length>=3?'flex':'none');}
-
-                var s = data.stats;
-                document.getElementById('dsm-res-area').textContent = s.areaHa ? s.areaHa.toLocaleString('pt-BR') + ' ha' : '< 0.01 ha';
-                document.getElementById('dsm-res-pct').textContent  = s.percentual !== null ? s.percentual + '%' : '—';
-                var pct = s.percentual || 0;
-                document.getElementById('dsm-res-barra').style.width = Math.min(pct,100)+'%';
-                document.getElementById('dsm-res-info').innerHTML =
-                    '<b>Antes:</b> '+s.antesIni+' → '+s.antesFim+'<br>'+
-                    '<b>Depois:</b> '+s.depoisIni+' → '+s.depoisFim+'<br>'+
-                    '<b>Limiar Δ NBR:</b> '+s.threshold+' · <b>Área total:</b> '+(s.totalHa?s.totalHa.toLocaleString('pt-BR')+' ha':'—');
-                document.getElementById('dsm-resultado').style.display = 'block';
                 if (_dsmLayer) map.fitBounds(_dsmLayer.getBounds(), {padding:[40,40]});
+
+                // Mostra resultado parcial sem estatísticas ainda
+                document.getElementById('dsm-res-area').textContent = '…';
+                document.getElementById('dsm-res-pct').textContent  = '…';
+                document.getElementById('dsm-res-barra').style.width = '0%';
+                document.getElementById('dsm-res-info').innerHTML =
+                    '<b>Antes:</b> '+antesIni+' → '+antesFim+'<br>'+
+                    '<b>Depois:</b> '+depoisIni+' → '+depoisFim+'<br>'+
+                    '<b>Limiar Δ NBR:</b> '+threshold+' · <i style="color:#888">calculando área…</i>';
+                document.getElementById('dsm-resultado').style.display = 'block';
+
+                // ── Fase 2: busca estatísticas separadamente ──────────────────
+                fetch(_GEE_ANALISE_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(Object.assign({mode:'dsm_stats'}, basePayload))
+                })
+                .then(function(r2){ if(!r2.ok) return r2.json().then(function(e){throw new Error(e.error||'HTTP '+r2.status);}); return r2.json(); })
+                .then(function(d2) {
+                    document.getElementById('dsm-status').style.display = 'none';
+                    var s = d2.stats;
+                    document.getElementById('dsm-res-area').textContent = s.areaHa ? s.areaHa.toLocaleString('pt-BR') + ' ha' : '< 0.01 ha';
+                    document.getElementById('dsm-res-pct').textContent  = s.percentual !== null ? s.percentual + '%' : '—';
+                    var pct = s.percentual || 0;
+                    document.getElementById('dsm-res-barra').style.width = Math.min(pct,100)+'%';
+                    document.getElementById('dsm-res-info').innerHTML =
+                        '<b>Antes:</b> '+s.antesIni+' → '+s.antesFim+'<br>'+
+                        '<b>Depois:</b> '+s.depoisIni+' → '+s.depoisFim+'<br>'+
+                        '<b>Limiar Δ NBR:</b> '+s.threshold+' · <b>Área total:</b> '+(s.totalHa?s.totalHa.toLocaleString('pt-BR')+' ha':'—');
+                })
+                .catch(function(err2) {
+                    _dsmStatus('<i class="fas fa-exclamation-triangle"></i> Estatísticas indisponíveis: '+err2.message, '#f39c12');
+                    document.getElementById('dsm-res-info').innerHTML =
+                        '<b>Antes:</b> '+antesIni+' → '+antesFim+'<br>'+
+                        '<b>Depois:</b> '+depoisIni+' → '+depoisFim+'<br>'+
+                        '<span style="color:#f39c12"><i class="fas fa-exclamation-triangle"></i> Estatísticas não disponíveis (área muito grande)</span>';
+                    document.getElementById('dsm-res-area').textContent = '—';
+                    document.getElementById('dsm-res-pct').textContent  = '—';
+                });
             })
             .catch(function(err) {
                 _dsmStatus('<i class="fas fa-exclamation-triangle"></i> Erro: '+err.message, '#e74c3c');
