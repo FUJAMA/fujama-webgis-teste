@@ -9890,31 +9890,43 @@
 
             tlFloatSetProgress('Consultando catálogo STAC do INPE...', 20);
 
+            // Mesma estrutura de URL do painel existente (que funciona)
+            // Filtro de nuvens aplicado localmente após receber os dados
             var url = tlFloat.STAC_BASE + '/search' +
                 '?collections=' + encodeURIComponent(col) +
                 '&bbox=' + bbox +
-                '&datetime=' + ini + 'T00:00:00Z/' + fim + 'T23:59:59Z' +
-                '&query=%7B%22eo%3Acloud_cover%22%3A%7B%22lte%22%3A' + cloud + '%7D%7D' +
-                '&fields=id,properties,assets,geometry' +
-                '&sortby=-properties.datetime' +
+                '&datetime=' + ini + '/' + fim +
                 '&limit=100';
 
-            fetch(url)
+            fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
                 .then(function(r) {
                     tlFloatSetProgress('Processando resultados...', 70);
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    if (!r.ok) {
+                        return r.text().then(function(t) {
+                            throw new Error('HTTP ' + r.status + (t ? ' — ' + t.slice(0, 200) : ''));
+                        });
+                    }
                     return r.json();
                 })
                 .then(function(data) {
                     tlFloatHideProgress();
-                    var features = (data.features || []);
+                    var allFeatures = (data.features || []);
+
+                    // Filtrar nuvens localmente (igual ao painel existente)
+                    var features = allFeatures.filter(function(f) {
+                        var cc = f.properties['eo:cloud_cover'];
+                        if (cc === undefined || cc === null) return true; // sem dado = inclui
+                        return cc <= cloud;
+                    });
 
                     if (features.length === 0) {
                         dot.className = '';
                         document.getElementById('tl-float-empty').style.display = 'block';
                         document.getElementById('tl-float-empty').innerHTML =
                             '<i class="fas fa-satellite-dish" style="font-size:1.4em;display:block;margin-bottom:6px;opacity:0.4;"></i>' +
-                            'Nenhuma imagem encontrada para os filtros selecionados.<br><span style="font-size:0.85em;opacity:0.7;">Tente ampliar o período ou aumentar a cobertura de nuvens.</span>';
+                            (allFeatures.length > 0
+                                ? 'Nenhuma cena com cobertura de nuvens ≤ ' + cloud + '% no período.<br><span style="font-size:0.85em;opacity:0.7;">' + allFeatures.length + ' cenas encontradas antes do filtro. Tente aumentar o limite de nuvens.</span>'
+                                : 'Nenhuma imagem encontrada para os filtros selecionados.<br><span style="font-size:0.85em;opacity:0.7;">Tente ampliar o período ou a área visível no mapa.</span>');
                         return;
                     }
 
