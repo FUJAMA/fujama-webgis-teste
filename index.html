@@ -37,7 +37,7 @@
         #tl-float-panel {
             position: fixed;
             top: calc(var(--header-height) + 10px);
-            left: 10px;
+            left: 90px;
             z-index: 4500;
             width: 290px;
             background: linear-gradient(160deg, rgba(10,25,41,0.97) 0%, rgba(13,33,55,0.97) 100%);
@@ -2261,9 +2261,9 @@
                     <div class="tl-float-row">
                         <label class="tl-float-label"><i class="fas fa-satellite"></i> Satélite</label>
                         <select id="tl-float-colecao" class="tl-float-select">
-                            <option value="CB4A-WPM-PCA-FUSED-1">CBERS-4A WPM</option>
-                            <option value="S2-16D-2">Sentinel-2 (16d)</option>
-                            <option value="LC8-30-16D-STK-1">Landsat-8 (16d)</option>
+                            <option value="CB4A-WPM-PCA-FUSED-1">CBERS-4A WPM (Melhor resolução)</option>
+                            <option value="S2-16D-2">Sentinel-2 (16d) (Maior frequência)</option>
+                            <option value="LC8-30-16D-STK-1">Landsat-8 (16d) (Mais longevo)</option>
                         </select>
                     </div>
 
@@ -2314,9 +2314,6 @@
                     <div class="tl-float-controls">
                         <button class="tl-float-nav-btn" onclick="tlFloatNavegar(-5)" title="5 cenas atrás"><i class="fas fa-fast-backward"></i></button>
                         <button class="tl-float-nav-btn" onclick="tlFloatNavegar(-1)" title="Cena anterior"><i class="fas fa-step-backward"></i></button>
-                        <button class="tl-float-nav-btn tl-float-play-btn" id="tl-float-play-btn" onclick="tlFloatTogglePlay()" title="Play/Pause">
-                            <i class="fas fa-play"></i>
-                        </button>
                         <button class="tl-float-nav-btn" onclick="tlFloatNavegar(1)" title="Próxima cena"><i class="fas fa-step-forward"></i></button>
                         <button class="tl-float-nav-btn" onclick="tlFloatNavegar(5)" title="5 cenas à frente"><i class="fas fa-fast-forward"></i></button>
                     </div>
@@ -2324,18 +2321,10 @@
                     <!-- Contador -->
                     <div style="text-align:center;font-size:0.72em;color:#7ab;margin-bottom:6px;">
                         <span id="tl-float-idx-label">1</span> / <span id="tl-float-total-label">0</span> cenas
-                        <span style="margin-left:6px;opacity:0.6;" id="tl-float-speed-label">• 2s/cena</span>
                     </div>
 
                     <!-- Linha do tempo / thumbnails scrollável -->
                     <div id="tl-float-timeline" class="tl-float-timeline"></div>
-
-                    <!-- Velocidade -->
-                    <div class="tl-float-row" style="padding:4px 0 0;gap:6px;align-items:center;">
-                        <label class="tl-float-label" style="min-width:auto;font-size:0.7em;"><i class="fas fa-tachometer-alt"></i> Velocidade</label>
-                        <input type="range" id="tl-float-speed" min="0" max="4" value="2" step="1" class="tl-float-range"
-                            oninput="tlFloatAtualizarVelocidade(this.value)">
-                    </div>
 
                     <!-- Opacidade -->
                     <div class="tl-float-row" style="padding:4px 0 0;gap:6px;align-items:center;">
@@ -9812,7 +9801,7 @@
         // ========== PAINEL FLUTUANTE TIMELAPSE DE SATÉLITE ==========
 
         var tlFloat = {
-            open: true,
+            open: false,
             playing: false,
             playTimer: null,
             speedMs: 2000,   // ms por cena
@@ -9826,9 +9815,9 @@
             STAC_BASE: 'https://data.inpe.br/bdc/stac/v1',
             TMS_BASE: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png',
             COLLECTIONS: {
-                'CB4A-WPM-PCA-FUSED-1': { tms: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png', bands: null },
-                'S2-16D-2':             { tms: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png', bands: null },
-                'LC8-30-16D-STK-1':     { tms: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png', bands: null }
+                'CB4A-WPM-PCA-FUSED-1': { bands: '1,2,3' },
+                'S2-16D-2':             { bands: '1,2,3' },
+                'LC8-30-16D-STK-1':     { bands: '1,2,3' }
             }
         };
 
@@ -9836,6 +9825,11 @@
         (function() {
             var el = document.getElementById('tl-float-fim');
             if (el && !el.value) el.value = new Date().toISOString().slice(0, 10);
+            // Painel inicia recolhido
+            var body = document.getElementById('tl-float-body');
+            var chevron = document.getElementById('tl-float-chevron');
+            if (body) body.classList.add('fechado');
+            if (chevron) chevron.classList.remove('aberto');
         })();
 
         function tlFloatToggle() {
@@ -9956,10 +9950,16 @@
                             }
                         }
 
-                        // Asset COG para TMS
+                        // Asset COG para TMS — chaves por coleção
                         var cogUrl = null;
                         if (f.assets) {
-                            var cogKeys = ['tci','TCI','visual','VISUAL','red','GREEN','BAND3','BAND4','B4','B3','B2','B04','B03','B02'];
+                            var colName = col;
+                            var cogKeysByCol = {
+                                'CB4A-WPM-PCA-FUSED-1': ['visual','VISUAL','red','PAN','BAND3','BAND4','B4','B3','B2','B04','B03','B02','tci','TCI'],
+                                'S2-16D-2':             ['visual','VISUAL','tci','TCI','B04','B03','B02','red','green','blue','B4','B3','B2'],
+                                'LC8-30-16D-STK-1':     ['visual','VISUAL','tci','TCI','red','green','blue','B4','B3','B2','B04','B03','B02','BAND4','BAND3','BAND2']
+                            };
+                            var cogKeys = cogKeysByCol[colName] || ['tci','TCI','visual','VISUAL','red','green','blue'];
                             for (var j = 0; j < cogKeys.length; j++) {
                                 if (f.assets[cogKeys[j]] && f.assets[cogKeys[j]].href) {
                                     cogUrl = f.assets[cogKeys[j]].href.replace(/^http:\/\//i, 'https://');
@@ -10071,8 +10071,15 @@
                 map.getPane('tlFloatPane').style.pointerEvents = 'none';
             }
 
-            // URL TMS do INPE para COG
-            var tmsUrl = 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png?url=' + encodeURIComponent(cena.cogUrl) + '&bands=1';
+            // URL TMS do INPE para COG — bandas RGB corretas por coleção
+            var col = document.getElementById('tl-float-colecao').value;
+            var bandsByCol = {
+                'CB4A-WPM-PCA-FUSED-1': '1,2,3',
+                'S2-16D-2':             '1,2,3',
+                'LC8-30-16D-STK-1':     '1,2,3'
+            };
+            var bands = bandsByCol[col] || '1,2,3';
+            var tmsUrl = 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png?url=' + encodeURIComponent(cena.cogUrl) + '&bands=' + bands;
             tlFloat.layer = L.tileLayer(tmsUrl, {
                 opacity: tlFloat.opacity,
                 attribution: 'INPE – BDC',
