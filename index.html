@@ -33,6 +33,233 @@
             z-index: 500; /* base; sobe para 520 como overlay */
         }
 
+        /* ===== PAINEL FLUTUANTE TIMELAPSE ===== */
+        #tl-float-panel {
+            position: fixed;
+            top: calc(var(--header-height) + 10px);
+            left: 10px;
+            z-index: 4500;
+            width: 290px;
+            background: linear-gradient(160deg, rgba(10,25,41,0.97) 0%, rgba(13,33,55,0.97) 100%);
+            border: 1px solid rgba(52,152,219,0.3);
+            border-radius: 10px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(52,152,219,0.08);
+            backdrop-filter: blur(8px);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #cde;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+            max-height: calc(100vh - var(--header-height) - 20px);
+            display: flex;
+            flex-direction: column;
+        }
+        #tl-float-panel:hover {
+            box-shadow: 0 6px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(52,152,219,0.2);
+        }
+        #tl-float-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 12px;
+            cursor: pointer;
+            background: linear-gradient(90deg, rgba(52,152,219,0.12) 0%, rgba(52,152,219,0.04) 100%);
+            border-bottom: 1px solid rgba(52,152,219,0.15);
+            user-select: none;
+            flex-shrink: 0;
+        }
+        #tl-float-header:hover { background: linear-gradient(90deg, rgba(52,152,219,0.18) 0%, rgba(52,152,219,0.07) 100%); }
+        #tl-float-title {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.82em;
+            font-weight: 700;
+            color: #3498db;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        #tl-float-status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #555;
+            transition: background 0.3s;
+            display: inline-block;
+        }
+        #tl-float-status-dot.ativo { background: #2ecc71; box-shadow: 0 0 6px rgba(46,204,113,0.7); }
+        #tl-float-status-dot.carregando { background: #f39c12; animation: tl-pulse 0.8s ease-in-out infinite; }
+        @keyframes tl-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        #tl-float-chevron { color: #7ab; font-size: 0.75em; transition: transform 0.25s; }
+        #tl-float-chevron.aberto { transform: rotate(180deg); }
+        #tl-float-body {
+            overflow-y: auto;
+            flex: 1;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(52,152,219,0.3) transparent;
+        }
+        #tl-float-body::-webkit-scrollbar { width: 4px; }
+        #tl-float-body::-webkit-scrollbar-track { background: transparent; }
+        #tl-float-body::-webkit-scrollbar-thumb { background: rgba(52,152,219,0.3); border-radius: 2px; }
+        #tl-float-body.fechado { display: none; }
+
+        .tl-float-section { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .tl-float-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+        .tl-float-row:last-child { margin-bottom: 0; }
+        .tl-float-label {
+            font-size: 0.72em;
+            color: #7ab;
+            min-width: 70px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .tl-float-select, .tl-float-input {
+            flex: 1;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 5px;
+            color: #cde;
+            font-size: 0.75em;
+            padding: 4px 7px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .tl-float-select:hover, .tl-float-input:hover,
+        .tl-float-select:focus, .tl-float-input:focus {
+            border-color: rgba(52,152,219,0.5);
+        }
+        .tl-float-input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+        .tl-float-range {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 3px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+        }
+        .tl-float-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 13px; height: 13px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            box-shadow: 0 0 4px rgba(52,152,219,0.6);
+        }
+        .tl-float-btn-buscar {
+            width: 100%;
+            padding: 7px 0;
+            background: linear-gradient(90deg, rgba(52,152,219,0.2), rgba(52,152,219,0.1));
+            border: 1px solid rgba(52,152,219,0.4);
+            border-radius: 6px;
+            color: #3498db;
+            font-size: 0.78em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 4px;
+            letter-spacing: 0.02em;
+        }
+        .tl-float-btn-buscar:hover { background: linear-gradient(90deg, rgba(52,152,219,0.32), rgba(52,152,219,0.18)); border-color: rgba(52,152,219,0.65); }
+        .tl-float-btn-limpar {
+            width: 100%;
+            padding: 5px 0;
+            background: rgba(231,76,60,0.08);
+            border: 1px solid rgba(231,76,60,0.25);
+            border-radius: 5px;
+            color: #e74c3c;
+            font-size: 0.72em;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 6px;
+        }
+        .tl-float-btn-limpar:hover { background: rgba(231,76,60,0.15); }
+
+        .tl-float-cena-info {
+            padding: 8px 12px;
+            background: rgba(52,152,219,0.06);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .tl-float-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 8px 10px;
+        }
+        .tl-float-nav-btn {
+            width: 32px; height: 32px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 6px;
+            color: #cde;
+            font-size: 0.78em;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .tl-float-nav-btn:hover { background: rgba(52,152,219,0.2); border-color: rgba(52,152,219,0.4); color: #3498db; }
+        .tl-float-play-btn {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, rgba(52,152,219,0.25), rgba(52,152,219,0.12));
+            border-color: rgba(52,152,219,0.5);
+            color: #3498db;
+            font-size: 0.92em;
+            border-radius: 50%;
+        }
+        .tl-float-play-btn.playing { background: linear-gradient(135deg, rgba(231,76,60,0.25), rgba(231,76,60,0.12)); border-color: rgba(231,76,60,0.5); color: #e74c3c; }
+
+        .tl-float-timeline {
+            display: flex;
+            gap: 4px;
+            padding: 6px 10px 8px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(52,152,219,0.2) transparent;
+        }
+        .tl-float-timeline::-webkit-scrollbar { height: 3px; }
+        .tl-float-timeline::-webkit-scrollbar-thumb { background: rgba(52,152,219,0.25); border-radius: 2px; }
+
+        .tl-float-thumb {
+            flex-shrink: 0;
+            width: 44px;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.08);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: all 0.15s;
+            background: rgba(255,255,255,0.04);
+            position: relative;
+        }
+        .tl-float-thumb:hover { border-color: rgba(52,152,219,0.4); transform: scale(1.05); }
+        .tl-float-thumb.ativo { border-color: #3498db; box-shadow: 0 0 8px rgba(52,152,219,0.5); }
+        .tl-float-thumb-img {
+            width: 100%;
+            height: 36px;
+            object-fit: cover;
+            display: block;
+            background: rgba(255,255,255,0.04);
+        }
+        .tl-float-thumb-no-img {
+            width: 100%;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65em;
+            color: #555;
+        }
+        .tl-float-thumb-date {
+            font-size: 0.55em;
+            color: #7ab;
+            text-align: center;
+            padding: 2px 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tl-float-thumb.ativo .tl-float-thumb-date { color: #3498db; font-weight: 700; }
+
         /* ===== CABEÇALHO PRINCIPAL ===== */
         #app-header {
             position: fixed;
@@ -2009,6 +2236,127 @@
         </div>
 
         <div id="map"></div>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             PAINEL FLUTUANTE DE TIMELAPSE DE IMAGENS DE SATÉLITE
+             ═══════════════════════════════════════════════════════════ -->
+        <div id="tl-float-panel">
+            <!-- Cabeçalho -->
+            <div id="tl-float-header" onclick="tlFloatToggle()">
+                <span id="tl-float-title">
+                    <i class="fas fa-film"></i>
+                    <span>Timelapse Satélite</span>
+                </span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span id="tl-float-status-dot" title="Painel de timelapse de imagens de satélite"></span>
+                    <i class="fas fa-chevron-down" id="tl-float-chevron"></i>
+                </div>
+            </div>
+
+            <!-- Corpo do painel -->
+            <div id="tl-float-body">
+
+                <!-- Controles de Filtro -->
+                <div class="tl-float-section">
+                    <div class="tl-float-row">
+                        <label class="tl-float-label"><i class="fas fa-satellite"></i> Satélite</label>
+                        <select id="tl-float-colecao" class="tl-float-select">
+                            <option value="CB4A-WPM-PCA-FUSED-1">CBERS-4A WPM</option>
+                            <option value="S2-16D-2">Sentinel-2 (16d)</option>
+                            <option value="LC8-30-16D-STK-1">Landsat-8 (16d)</option>
+                        </select>
+                    </div>
+
+                    <div class="tl-float-row">
+                        <label class="tl-float-label"><i class="fas fa-calendar-alt"></i> Período</label>
+                        <div style="display:flex;gap:4px;flex:1;">
+                            <input type="date" id="tl-float-ini" class="tl-float-input" style="flex:1;" value="2023-01-01">
+                            <span style="color:#7ab;align-self:center;font-size:0.8em;">→</span>
+                            <input type="date" id="tl-float-fim" class="tl-float-input" style="flex:1;">
+                        </div>
+                    </div>
+
+                    <div class="tl-float-row">
+                        <label class="tl-float-label">
+                            <i class="fas fa-cloud"></i> Nuvens máx.
+                            <b id="tl-float-cloud-val" style="color:#f39c12;">60%</b>
+                        </label>
+                        <input type="range" id="tl-float-cloud" min="0" max="100" value="60" class="tl-float-range"
+                            oninput="document.getElementById('tl-float-cloud-val').textContent=this.value+'%'">
+                    </div>
+
+                    <button class="tl-float-btn-buscar" onclick="tlFloatBuscar()">
+                        <i class="fas fa-search"></i> Buscar Imagens no Mapa
+                    </button>
+                </div>
+
+                <!-- Barra de progresso -->
+                <div id="tl-float-progress" style="display:none;padding:0 10px 8px;">
+                    <div style="font-size:0.73em;color:#7ab;margin-bottom:4px;" id="tl-float-progress-txt">Buscando...</div>
+                    <div style="background:rgba(255,255,255,0.08);border-radius:3px;height:4px;overflow:hidden;">
+                        <div id="tl-float-progress-fill" style="height:100%;background:linear-gradient(90deg,#3498db,#2ecc71);transition:width 0.3s;width:0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Área de resultados / linha do tempo -->
+                <div id="tl-float-results" style="display:none;">
+
+                    <!-- Info da cena atual -->
+                    <div id="tl-float-cena-info" class="tl-float-cena-info">
+                        <div id="tl-float-cena-id" style="font-size:0.7em;color:#7ab;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                        <div style="display:flex;gap:10px;margin-top:3px;flex-wrap:wrap;">
+                            <span id="tl-float-cena-data" style="font-size:0.75em;color:#cde;"></span>
+                            <span id="tl-float-cena-cloud" style="font-size:0.75em;color:#f39c12;"></span>
+                        </div>
+                    </div>
+
+                    <!-- Controles de navegação -->
+                    <div class="tl-float-controls">
+                        <button class="tl-float-nav-btn" onclick="tlFloatNavegar(-5)" title="5 cenas atrás"><i class="fas fa-fast-backward"></i></button>
+                        <button class="tl-float-nav-btn" onclick="tlFloatNavegar(-1)" title="Cena anterior"><i class="fas fa-step-backward"></i></button>
+                        <button class="tl-float-nav-btn tl-float-play-btn" id="tl-float-play-btn" onclick="tlFloatTogglePlay()" title="Play/Pause">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="tl-float-nav-btn" onclick="tlFloatNavegar(1)" title="Próxima cena"><i class="fas fa-step-forward"></i></button>
+                        <button class="tl-float-nav-btn" onclick="tlFloatNavegar(5)" title="5 cenas à frente"><i class="fas fa-fast-forward"></i></button>
+                    </div>
+
+                    <!-- Contador -->
+                    <div style="text-align:center;font-size:0.72em;color:#7ab;margin-bottom:6px;">
+                        <span id="tl-float-idx-label">1</span> / <span id="tl-float-total-label">0</span> cenas
+                        <span style="margin-left:6px;opacity:0.6;" id="tl-float-speed-label">• 2s/cena</span>
+                    </div>
+
+                    <!-- Linha do tempo / thumbnails scrollável -->
+                    <div id="tl-float-timeline" class="tl-float-timeline"></div>
+
+                    <!-- Velocidade -->
+                    <div class="tl-float-row" style="padding:4px 0 0;gap:6px;align-items:center;">
+                        <label class="tl-float-label" style="min-width:auto;font-size:0.7em;"><i class="fas fa-tachometer-alt"></i> Velocidade</label>
+                        <input type="range" id="tl-float-speed" min="0" max="4" value="2" step="1" class="tl-float-range"
+                            oninput="tlFloatAtualizarVelocidade(this.value)">
+                    </div>
+
+                    <!-- Opacidade -->
+                    <div class="tl-float-row" style="padding:4px 0 0;gap:6px;align-items:center;">
+                        <label class="tl-float-label" style="min-width:auto;font-size:0.7em;"><i class="fas fa-adjust"></i> Opacidade</label>
+                        <input type="range" id="tl-float-opacity" min="10" max="100" value="90" step="5" class="tl-float-range"
+                            oninput="tlFloatAtualizarOpacidade(this.value)">
+                    </div>
+
+                    <button class="tl-float-btn-limpar" onclick="tlFloatLimpar()">
+                        <i class="fas fa-times"></i> Remover camada e limpar
+                    </button>
+                </div>
+
+                <!-- Estado vazio -->
+                <div id="tl-float-empty" style="padding:10px;text-align:center;font-size:0.75em;color:#7ab;opacity:0.7;">
+                    <i class="fas fa-satellite-dish" style="font-size:1.4em;display:block;margin-bottom:6px;"></i>
+                    Defina o período e clique em <b>Buscar</b> para carregar imagens da área visível no mapa.
+                </div>
+
+            </div>
+        </div>
 
         <!-- Botão flutuante para abrir/fechar dashboard no mobile -->
         <button class="fab-mobile" id="fabMobile" onclick="toggleDashboardMobile()" title="Painel de Controle">
@@ -9461,8 +9809,353 @@
         })();
 
 
+        // ========== PAINEL FLUTUANTE TIMELAPSE DE SATÉLITE ==========
+
+        var tlFloat = {
+            open: true,
+            playing: false,
+            playTimer: null,
+            speedMs: 2000,   // ms por cena
+            speeds: [500, 1000, 2000, 3500, 6000],
+            speedLabels: ['0.5s', '1s', '2s', '3.5s', '6s'],
+            cenas: [],
+            idxAtual: 0,
+            layer: null,
+            pane: null,
+            opacity: 0.9,
+            STAC_BASE: 'https://data.inpe.br/bdc/stac/v1',
+            TMS_BASE: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png',
+            COLLECTIONS: {
+                'CB4A-WPM-PCA-FUSED-1': { tms: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png', bands: null },
+                'S2-16D-2':             { tms: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png', bands: null },
+                'LC8-30-16D-STK-1':     { tms: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png', bands: null }
+            }
+        };
+
+        // Inicializar data final do painel flutuante
+        (function() {
+            var el = document.getElementById('tl-float-fim');
+            if (el && !el.value) el.value = new Date().toISOString().slice(0, 10);
+        })();
+
+        function tlFloatToggle() {
+            var body = document.getElementById('tl-float-body');
+            var chevron = document.getElementById('tl-float-chevron');
+            tlFloat.open = !tlFloat.open;
+            body.classList.toggle('fechado', !tlFloat.open);
+            chevron.classList.toggle('aberto', tlFloat.open);
+        }
+
+        function tlFloatSetProgress(txt, pct) {
+            var el = document.getElementById('tl-float-progress');
+            var dot = document.getElementById('tl-float-status-dot');
+            el.style.display = 'block';
+            document.getElementById('tl-float-progress-txt').textContent = txt;
+            document.getElementById('tl-float-progress-fill').style.width = pct + '%';
+            dot.className = 'carregando';
+        }
+
+        function tlFloatHideProgress() {
+            document.getElementById('tl-float-progress').style.display = 'none';
+        }
+
+        function tlFloatBuscar() {
+            var col = document.getElementById('tl-float-colecao').value;
+            var ini = document.getElementById('tl-float-ini').value;
+            var fim = document.getElementById('tl-float-fim').value || new Date().toISOString().slice(0,10);
+            var cloud = parseInt(document.getElementById('tl-float-cloud').value);
+
+            // Limpa estado anterior
+            tlFloatPararPlay();
+            tlFloat.cenas = [];
+            tlFloat.idxAtual = 0;
+            if (tlFloat.layer && map.hasLayer(tlFloat.layer)) {
+                map.removeLayer(tlFloat.layer);
+                tlFloat.layer = null;
+            }
+
+            document.getElementById('tl-float-results').style.display = 'none';
+            document.getElementById('tl-float-empty').style.display = 'none';
+            var dot = document.getElementById('tl-float-status-dot');
+            dot.className = 'carregando';
+
+            // BBox do mapa atual
+            var b = map.getBounds();
+            var bbox = [
+                parseFloat(b.getWest().toFixed(6)),
+                parseFloat(b.getSouth().toFixed(6)),
+                parseFloat(b.getEast().toFixed(6)),
+                parseFloat(b.getNorth().toFixed(6))
+            ].join(',');
+
+            tlFloatSetProgress('Consultando catálogo STAC do INPE...', 20);
+
+            var url = tlFloat.STAC_BASE + '/search' +
+                '?collections=' + encodeURIComponent(col) +
+                '&bbox=' + bbox +
+                '&datetime=' + ini + 'T00:00:00Z/' + fim + 'T23:59:59Z' +
+                '&query=%7B%22eo%3Acloud_cover%22%3A%7B%22lte%22%3A' + cloud + '%7D%7D' +
+                '&fields=id,properties,assets,geometry' +
+                '&sortby=-properties.datetime' +
+                '&limit=100';
+
+            fetch(url)
+                .then(function(r) {
+                    tlFloatSetProgress('Processando resultados...', 70);
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function(data) {
+                    tlFloatHideProgress();
+                    var features = (data.features || []);
+
+                    if (features.length === 0) {
+                        dot.className = '';
+                        document.getElementById('tl-float-empty').style.display = 'block';
+                        document.getElementById('tl-float-empty').innerHTML =
+                            '<i class="fas fa-satellite-dish" style="font-size:1.4em;display:block;margin-bottom:6px;opacity:0.4;"></i>' +
+                            'Nenhuma imagem encontrada para os filtros selecionados.<br><span style="font-size:0.85em;opacity:0.7;">Tente ampliar o período ou aumentar a cobertura de nuvens.</span>';
+                        return;
+                    }
+
+                    // Ordenar por data ascendente para o timelapse
+                    features.sort(function(a, b) {
+                        return (a.properties.datetime || '') < (b.properties.datetime || '') ? -1 : 1;
+                    });
+
+                    // Construir lista de cenas
+                    tlFloat.cenas = features.map(function(f, i) {
+                        var dt = f.properties.datetime || f.properties['datetime:start'] || '';
+                        var dtObj = dt ? new Date(dt) : null;
+                        var dtStr = dtObj ? dtObj.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'}) : '?';
+                        var dtShort = dtObj ? dtObj.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'2-digit'}) : '?';
+                        var cc = f.properties['eo:cloud_cover'] || f.properties.cloud_cover;
+                        var ccStr = (cc !== undefined && cc !== null) ? Math.round(cc) + '% ☁' : '';
+
+                        // Thumbnail
+                        var thumb = null;
+                        if (f.assets) {
+                            var thumbKeys = ['thumbnail','THUMBNAIL','overview','BROWSE','rendered_preview'];
+                            for (var k = 0; k < thumbKeys.length; k++) {
+                                if (f.assets[thumbKeys[k]] && f.assets[thumbKeys[k]].href) {
+                                    thumb = f.assets[thumbKeys[k]].href.replace(/^http:\/\//i, 'https://');
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Asset COG para TMS
+                        var cogUrl = null;
+                        if (f.assets) {
+                            var cogKeys = ['tci','TCI','visual','VISUAL','red','GREEN','BAND3','BAND4','B4','B3','B2','B04','B03','B02'];
+                            for (var j = 0; j < cogKeys.length; j++) {
+                                if (f.assets[cogKeys[j]] && f.assets[cogKeys[j]].href) {
+                                    cogUrl = f.assets[cogKeys[j]].href.replace(/^http:\/\//i, 'https://');
+                                    break;
+                                }
+                            }
+                            // Fallback: qualquer GeoTIFF
+                            if (!cogUrl) {
+                                for (var k2 in f.assets) {
+                                    var a = f.assets[k2];
+                                    if (a.href && ((a.type && a.type.indexOf('tiff') >= 0) || a.href.indexOf('.tif') >= 0)) {
+                                        cogUrl = a.href.replace(/^http:\/\//i, 'https://');
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        return {
+                            id: f.id,
+                            dt: dtStr,
+                            dtShort: dtShort,
+                            cc: ccStr,
+                            thumb: thumb,
+                            cogUrl: cogUrl,
+                            feature: f
+                        };
+                    });
+
+                    dot.className = 'ativo';
+                    tlFloat.idxAtual = 0;
+                    tlFloatRenderTimeline();
+                    tlFloatExibirCena(0);
+                    document.getElementById('tl-float-results').style.display = 'block';
+                    document.getElementById('tl-float-total-label').textContent = tlFloat.cenas.length;
+                    document.getElementById('tl-float-empty').style.display = 'none';
+                })
+                .catch(function(err) {
+                    tlFloatHideProgress();
+                    dot.className = '';
+                    document.getElementById('tl-float-empty').style.display = 'block';
+                    document.getElementById('tl-float-empty').innerHTML =
+                        '<i class="fas fa-exclamation-triangle" style="color:#e74c3c;font-size:1.2em;display:block;margin-bottom:6px;"></i>' +
+                        'Erro ao consultar STAC: ' + err.message;
+                    console.error('[TL-Float] Erro STAC:', err, url);
+                });
+        }
+
+        function tlFloatRenderTimeline() {
+            var tl = document.getElementById('tl-float-timeline');
+            tl.innerHTML = '';
+            tlFloat.cenas.forEach(function(cena, idx) {
+                var div = document.createElement('div');
+                div.className = 'tl-float-thumb' + (idx === tlFloat.idxAtual ? ' ativo' : '');
+                div.id = 'tl-thumb-' + idx;
+                div.title = cena.dt + (cena.cc ? ' · ' + cena.cc : '');
+                div.onclick = (function(i) { return function() { tlFloatExibirCena(i); }; })(idx);
+
+                if (cena.thumb) {
+                    div.innerHTML = '<img class="tl-float-thumb-img" src="' + cena.thumb + '" alt="' + cena.dt + '" ' +
+                        'onerror="this.parentNode.querySelector(\'.tl-float-thumb-no-img\').style.display=\'flex\';this.style.display=\'none\'">' +
+                        '<div class="tl-float-thumb-no-img" style="display:none"><i class="fas fa-image"></i></div>' +
+                        '<div class="tl-float-thumb-date">' + cena.dtShort + '</div>';
+                } else {
+                    div.innerHTML = '<div class="tl-float-thumb-no-img"><i class="fas fa-image" style="font-size:0.9em;"></i></div>' +
+                        '<div class="tl-float-thumb-date">' + cena.dtShort + '</div>';
+                }
+                tl.appendChild(div);
+            });
+        }
+
+        function tlFloatExibirCena(idx) {
+            if (idx < 0) idx = 0;
+            if (idx >= tlFloat.cenas.length) idx = tlFloat.cenas.length - 1;
+            tlFloat.idxAtual = idx;
+
+            var cena = tlFloat.cenas[idx];
+
+            // Atualizar info
+            document.getElementById('tl-float-cena-id').textContent = cena.id;
+            document.getElementById('tl-float-cena-data').textContent = '📅 ' + cena.dt;
+            document.getElementById('tl-float-cena-cloud').textContent = cena.cc || '';
+            document.getElementById('tl-float-idx-label').textContent = idx + 1;
+
+            // Destacar thumbnail ativo
+            document.querySelectorAll('.tl-float-thumb').forEach(function(el, i) {
+                el.classList.toggle('ativo', i === idx);
+            });
+            // Scroll para thumbnail ativo
+            var thumbEl = document.getElementById('tl-thumb-' + idx);
+            if (thumbEl) thumbEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+            // Exibir camada TMS
+            if (!cena.cogUrl) {
+                console.warn('[TL-Float] Cena sem COG:', cena.id);
+                return;
+            }
+
+            // Remove camada anterior
+            if (tlFloat.layer && map.hasLayer(tlFloat.layer)) {
+                map.removeLayer(tlFloat.layer);
+                tlFloat.layer = null;
+            }
+
+            // Cria pane dedicado se não existir
+            if (!map.getPane('tlFloatPane')) {
+                map.createPane('tlFloatPane');
+                map.getPane('tlFloatPane').style.zIndex = 350;
+                map.getPane('tlFloatPane').style.pointerEvents = 'none';
+            }
+
+            // URL TMS do INPE para COG
+            var tmsUrl = 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png?url=' + encodeURIComponent(cena.cogUrl) + '&bands=1';
+            tlFloat.layer = L.tileLayer(tmsUrl, {
+                opacity: tlFloat.opacity,
+                attribution: 'INPE – BDC',
+                maxNativeZoom: 18,
+                maxZoom: 22,
+                tms: false,
+                pane: 'tlFloatPane',
+                crossOrigin: true
+            });
+            tlFloat.layer.addTo(map);
+        }
+
+        function tlFloatNavegar(delta) {
+            var novo = tlFloat.idxAtual + delta;
+            if (novo < 0) novo = 0;
+            if (novo >= tlFloat.cenas.length) novo = tlFloat.cenas.length - 1;
+            tlFloatExibirCena(novo);
+        }
+
+        function tlFloatTogglePlay() {
+            if (tlFloat.playing) {
+                tlFloatPararPlay();
+            } else {
+                tlFloatIniciarPlay();
+            }
+        }
+
+        function tlFloatIniciarPlay() {
+            if (tlFloat.cenas.length === 0) return;
+            tlFloat.playing = true;
+            var btn = document.getElementById('tl-float-play-btn');
+            btn.classList.add('playing');
+            btn.innerHTML = '<i class="fas fa-pause"></i>';
+
+            function avancar() {
+                if (!tlFloat.playing) return;
+                var prox = tlFloat.idxAtual + 1;
+                if (prox >= tlFloat.cenas.length) prox = 0; // loop
+                tlFloatExibirCena(prox);
+                tlFloat.playTimer = setTimeout(avancar, tlFloat.speedMs);
+            }
+            tlFloat.playTimer = setTimeout(avancar, tlFloat.speedMs);
+        }
+
+        function tlFloatPararPlay() {
+            tlFloat.playing = false;
+            if (tlFloat.playTimer) { clearTimeout(tlFloat.playTimer); tlFloat.playTimer = null; }
+            var btn = document.getElementById('tl-float-play-btn');
+            if (btn) {
+                btn.classList.remove('playing');
+                btn.innerHTML = '<i class="fas fa-play"></i>';
+            }
+        }
+
+        function tlFloatAtualizarVelocidade(val) {
+            var i = parseInt(val);
+            tlFloat.speedMs = tlFloat.speeds[i] || 2000;
+            document.getElementById('tl-float-speed-label').textContent = '• ' + (tlFloat.speedLabels[i] || '2s') + '/cena';
+            // Reinicia play se estava tocando
+            if (tlFloat.playing) {
+                tlFloatPararPlay();
+                tlFloatIniciarPlay();
+            }
+        }
+
+        function tlFloatAtualizarOpacidade(val) {
+            tlFloat.opacity = parseInt(val) / 100;
+            if (tlFloat.layer) tlFloat.layer.setOpacity(tlFloat.opacity);
+        }
+
+        function tlFloatLimpar() {
+            tlFloatPararPlay();
+            if (tlFloat.layer && map.hasLayer(tlFloat.layer)) {
+                map.removeLayer(tlFloat.layer);
+                tlFloat.layer = null;
+            }
+            tlFloat.cenas = [];
+            tlFloat.idxAtual = 0;
+            document.getElementById('tl-float-results').style.display = 'none';
+            document.getElementById('tl-float-timeline').innerHTML = '';
+            document.getElementById('tl-float-status-dot').className = '';
+            document.getElementById('tl-float-empty').style.display = 'block';
+            document.getElementById('tl-float-empty').innerHTML =
+                '<i class="fas fa-satellite-dish" style="font-size:1.4em;display:block;margin-bottom:6px;"></i>' +
+                'Defina o período e clique em <b>Buscar</b> para carregar imagens da área visível no mapa.';
+        }
+
+        // Inicializar painel com chevron visível
+        (function() {
+            var chevron = document.getElementById('tl-float-chevron');
+            if (chevron) chevron.classList.add('aberto');
+        })();
 
         // ========== FERRAMENTA DE DESENHO DE ÁREA ==========
+
         var drawAreaAtivo    = false;
         var drawAreaPontos   = [];   // L.LatLng[]
         var drawAreaPolyline = null;
