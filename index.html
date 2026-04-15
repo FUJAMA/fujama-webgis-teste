@@ -2263,7 +2263,7 @@
                         <select id="tl-float-colecao" class="tl-float-select">
                             <option value="CB4A-WPM-PCA-FUSED-1">CBERS-4A WPM (Melhor resolução)</option>
                             <option value="S2-16D-2">Sentinel-2 (16d) (Maior frequência)</option>
-                            <option value="LC8-30-16D-STK-1">Landsat-8 (16d) (Mais longevo)</option>
+                            <option value="landsat-2">Landsat Collection 2 (Mais longevo)</option>
                         </select>
                     </div>
 
@@ -9813,11 +9813,11 @@
             pane: null,
             opacity: 0.9,
             STAC_BASE: 'https://data.inpe.br/bdc/stac/v1',
-            TMS_BASE: 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png',
+            TMS_BASE: 'https://data.inpe.br/bdc/tms/tiles/WebMercatorQuad/{z}/{x}/{y}',
             COLLECTIONS: {
-                'CB4A-WPM-PCA-FUSED-1': { bands: '1,2,3' },
-                'S2-16D-2':             { bands: '1,2,3' },
-                'LC8-30-16D-STK-1':     { bands: '1,2,3' }
+                'CB4A-WPM-PCA-FUSED-1': { assetKey: 'tci',   multiband: false },
+                'S2-16D-2':             { assetKey: 'tci',   multiband: false },
+                'landsat-2':            { assetKey: 'red',   assetGreen: 'green', assetBlue: 'blue', multiband: true }
             }
         };
 
@@ -9950,29 +9950,41 @@
                             }
                         }
 
-                        // Asset COG para TMS — chaves por coleção
+                        // Asset COG para TMS — por coleção
                         var cogUrl = null;
+                        var cogUrlGreen = null;
+                        var cogUrlBlue = null;
+                        var colCfg = tlFloat.COLLECTIONS[col] || {};
                         if (f.assets) {
-                            var colName = col;
-                            var cogKeysByCol = {
-                                'CB4A-WPM-PCA-FUSED-1': ['visual','VISUAL','red','PAN','BAND3','BAND4','B4','B3','B2','B04','B03','B02','tci','TCI'],
-                                'S2-16D-2':             ['visual','VISUAL','tci','TCI','B04','B03','B02','red','green','blue','B4','B3','B2'],
-                                'LC8-30-16D-STK-1':     ['visual','VISUAL','tci','TCI','red','green','blue','B4','B3','B2','B04','B03','B02','BAND4','BAND3','BAND2']
-                            };
-                            var cogKeys = cogKeysByCol[colName] || ['tci','TCI','visual','VISUAL','red','green','blue'];
-                            for (var j = 0; j < cogKeys.length; j++) {
-                                if (f.assets[cogKeys[j]] && f.assets[cogKeys[j]].href) {
-                                    cogUrl = f.assets[cogKeys[j]].href.replace(/^http:\/\//i, 'https://');
-                                    break;
-                                }
-                            }
-                            // Fallback: qualquer GeoTIFF
-                            if (!cogUrl) {
-                                for (var k2 in f.assets) {
-                                    var a = f.assets[k2];
-                                    if (a.href && ((a.type && a.type.indexOf('tiff') >= 0) || a.href.indexOf('.tif') >= 0)) {
-                                        cogUrl = a.href.replace(/^http:\/\//i, 'https://');
+                            if (colCfg.multiband) {
+                                // Landsat: bandas separadas red/green/blue
+                                var rk = colCfg.assetKey || 'red';
+                                var gk = colCfg.assetGreen || 'green';
+                                var bk = colCfg.assetBlue  || 'blue';
+                                if (f.assets[rk] && f.assets[rk].href) cogUrl      = f.assets[rk].href.replace(/^http:\/\//i, 'https://');
+                                if (f.assets[gk] && f.assets[gk].href) cogUrlGreen = f.assets[gk].href.replace(/^http:\/\//i, 'https://');
+                                if (f.assets[bk] && f.assets[bk].href) cogUrlBlue  = f.assets[bk].href.replace(/^http:\/\//i, 'https://');
+                                // Fallback: SR_B4/SR_B3/SR_B2 (Landsat Collection 2 USGS names)
+                                if (!cogUrl)      { var alt=['SR_B4','B4','BAND4']; for(var ai=0;ai<alt.length;ai++){if(f.assets[alt[ai]]&&f.assets[alt[ai]].href){cogUrl=f.assets[alt[ai]].href.replace(/^http:\/\//i,'https://');break;}} }
+                                if (!cogUrlGreen) { var alt2=['SR_B3','B3','BAND3']; for(var ai2=0;ai2<alt2.length;ai2++){if(f.assets[alt2[ai2]]&&f.assets[alt2[ai2]].href){cogUrlGreen=f.assets[alt2[ai2]].href.replace(/^http:\/\//i,'https://');break;}} }
+                                if (!cogUrlBlue)  { var alt3=['SR_B2','B2','BAND2']; for(var ai3=0;ai3<alt3.length;ai3++){if(f.assets[alt3[ai3]]&&f.assets[alt3[ai3]].href){cogUrlBlue=f.assets[alt3[ai3]].href.replace(/^http:\/\//i,'https://');break;}} }
+                            } else {
+                                // CBERS / Sentinel: asset tci (True Color Image)
+                                var tciKeys = ['tci','TCI','visual','VISUAL'];
+                                for (var j = 0; j < tciKeys.length; j++) {
+                                    if (f.assets[tciKeys[j]] && f.assets[tciKeys[j]].href) {
+                                        cogUrl = f.assets[tciKeys[j]].href.replace(/^http:\/\//i, 'https://');
                                         break;
+                                    }
+                                }
+                                // Fallback: qualquer GeoTIFF
+                                if (!cogUrl) {
+                                    for (var k2 in f.assets) {
+                                        var a = f.assets[k2];
+                                        if (a.href && ((a.type && a.type.indexOf('tiff') >= 0) || a.href.indexOf('.tif') >= 0)) {
+                                            cogUrl = a.href.replace(/^http:\/\//i, 'https://');
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -9985,6 +9997,9 @@
                             cc: ccStr,
                             thumb: thumb,
                             cogUrl: cogUrl,
+                            cogUrlGreen: cogUrlGreen,
+                            cogUrlBlue: cogUrlBlue,
+                            multiband: !!(cogUrlGreen && cogUrlBlue),
                             feature: f
                         };
                     });
@@ -10071,15 +10086,20 @@
                 map.getPane('tlFloatPane').style.pointerEvents = 'none';
             }
 
-            // URL TMS do INPE para COG — bandas RGB corretas por coleção
-            var col = document.getElementById('tl-float-colecao').value;
-            var bandsByCol = {
-                'CB4A-WPM-PCA-FUSED-1': '1,2,3',
-                'S2-16D-2':             '1,2,3',
-                'LC8-30-16D-STK-1':     '1,2,3'
-            };
-            var bands = bandsByCol[col] || '1,2,3';
-            var tmsUrl = 'https://data.inpe.br/bdc/tms/rgb/WebMercatorQuad/{z}/{x}/{y}.png?url=' + encodeURIComponent(cena.cogUrl) + '&bands=' + bands;
+            // URL TMS do INPE — endpoint correto e bandas por coleção
+            var tmsBase = 'https://data.inpe.br/bdc/tms/tiles/WebMercatorQuad/{z}/{x}/{y}';
+            var tmsUrl;
+            if (cena.multiband && cena.cogUrlGreen && cena.cogUrlBlue) {
+                // Landsat: 3 bandas separadas
+                tmsUrl = tmsBase +
+                    '?url=' + encodeURIComponent(cena.cogUrl) +
+                    '&url=' + encodeURIComponent(cena.cogUrlGreen) +
+                    '&url=' + encodeURIComponent(cena.cogUrlBlue) +
+                    '&color_formula=gamma+rgb+1.3';
+            } else {
+                // CBERS / Sentinel: TCI (True Color Image já é RGB)
+                tmsUrl = tmsBase + '?url=' + encodeURIComponent(cena.cogUrl);
+            }
             tlFloat.layer = L.tileLayer(tmsUrl, {
                 opacity: tlFloat.opacity,
                 attribution: 'INPE – BDC',
