@@ -9938,6 +9938,11 @@
                         var cc = f.properties['eo:cloud_cover'] || f.properties.cloud_cover;
                         var ccStr = (cc !== undefined && cc !== null) ? Math.round(cc) + '% ☁' : '';
 
+                        // Inspecionar assets disponíveis (log para debug)
+                        if (f.assets) {
+                            console.log('[TL-Float] Assets do item ' + f.id + ':', Object.keys(f.assets));
+                        }
+
                         // Thumbnail
                         var thumb = null;
                         if (f.assets) {
@@ -9950,44 +9955,82 @@
                             }
                         }
 
-                        // Asset COG para TMS — por coleção
-                        var cogUrl = null;
-                        var cogUrlGreen = null;
-                        var cogUrlBlue = null;
-                        var colCfg = tlFloat.COLLECTIONS[col] || {};
+                        // Detectar assets COG automaticamente
+                        // O serviço TMS do INPE (titiler) aceita ?assets=KEY1&assets=KEY2&assets=KEY3
+                        // para composição RGB a partir de bandas separadas.
+                        // Ordem de prioridade por coleção:
+                        var cogAssets = [];  // lista de chaves de asset para R, G, B
+                        var cogUrl = null;   // usado apenas para coleções com TCI único
                         if (f.assets) {
-                            if (colCfg.multiband) {
-                                // Landsat: bandas separadas red/green/blue
-                                var rk = colCfg.assetKey || 'red';
-                                var gk = colCfg.assetGreen || 'green';
-                                var bk = colCfg.assetBlue  || 'blue';
-                                if (f.assets[rk] && f.assets[rk].href) cogUrl      = f.assets[rk].href.replace(/^http:\/\//i, 'https://');
-                                if (f.assets[gk] && f.assets[gk].href) cogUrlGreen = f.assets[gk].href.replace(/^http:\/\//i, 'https://');
-                                if (f.assets[bk] && f.assets[bk].href) cogUrlBlue  = f.assets[bk].href.replace(/^http:\/\//i, 'https://');
-                                // Fallback: SR_B4/SR_B3/SR_B2 (Landsat Collection 2 USGS names)
-                                if (!cogUrl)      { var alt=['SR_B4','B4','BAND4']; for(var ai=0;ai<alt.length;ai++){if(f.assets[alt[ai]]&&f.assets[alt[ai]].href){cogUrl=f.assets[alt[ai]].href.replace(/^http:\/\//i,'https://');break;}} }
-                                if (!cogUrlGreen) { var alt2=['SR_B3','B3','BAND3']; for(var ai2=0;ai2<alt2.length;ai2++){if(f.assets[alt2[ai2]]&&f.assets[alt2[ai2]].href){cogUrlGreen=f.assets[alt2[ai2]].href.replace(/^http:\/\//i,'https://');break;}} }
-                                if (!cogUrlBlue)  { var alt3=['SR_B2','B2','BAND2']; for(var ai3=0;ai3<alt3.length;ai3++){if(f.assets[alt3[ai3]]&&f.assets[alt3[ai3]].href){cogUrlBlue=f.assets[alt3[ai3]].href.replace(/^http:\/\//i,'https://');break;}} }
-                            } else {
-                                // CBERS / Sentinel: asset tci (True Color Image)
-                                var tciKeys = ['tci','TCI','visual','VISUAL'];
-                                for (var j = 0; j < tciKeys.length; j++) {
-                                    if (f.assets[tciKeys[j]] && f.assets[tciKeys[j]].href) {
-                                        cogUrl = f.assets[tciKeys[j]].href.replace(/^http:\/\//i, 'https://');
+                            var aKeys = Object.keys(f.assets);
+                            console.log('[TL-Float] Coleção:', col, '| Assets:', aKeys);
+
+                            if (col === 'CB4A-WPM-PCA-FUSED-1') {
+                                // CBERS: tci é RGB fusionado em banda única
+                                var cbersTci = ['tci','TCI','visual','VISUAL','BAND4','BAND3','BAND2','B4','B3','B2'];
+                                for (var ci = 0; ci < cbersTci.length; ci++) {
+                                    if (f.assets[cbersTci[ci]] && f.assets[cbersTci[ci]].href) {
+                                        cogUrl = f.assets[cbersTci[ci]].href.replace(/^http:\/\//i,'https://');
                                         break;
                                     }
                                 }
-                                // Fallback: qualquer GeoTIFF
+                                // fallback: qualquer tiff
                                 if (!cogUrl) {
-                                    for (var k2 in f.assets) {
-                                        var a = f.assets[k2];
-                                        if (a.href && ((a.type && a.type.indexOf('tiff') >= 0) || a.href.indexOf('.tif') >= 0)) {
-                                            cogUrl = a.href.replace(/^http:\/\//i, 'https://');
+                                    for (var ak in f.assets) {
+                                        var av = f.assets[ak];
+                                        if (av.href && (ak !== 'thumbnail') && ((av.type && av.type.indexOf('tiff') >= 0) || av.href.indexOf('.tif') >= 0)) {
+                                            cogUrl = av.href.replace(/^http:\/\//i,'https://');
                                             break;
                                         }
                                     }
                                 }
+                            } else if (col === 'S2-16D-2') {
+                                // Sentinel BDC: bandas separadas BAND1..BAND16 ou B04/B03/B02
+                                // Para RGB natural: Red=B04/BAND8, Green=B03/BAND7, Blue=B02/BAND6
+                                // Na coleção S2-16D-2 do BDC as bandas são BAND1..BAND13+
+                                // B04=BAND8 (Red 10m), B03=BAND7 (Green 10m), B02=BAND6 (Blue 10m)
+                                // Mas os nomes reais dependem do catálogo — tentamos múltiplos
+                                var s2rgb = [
+                                    ['BAND8','BAND7','BAND6'],   // S2-16D-2 BDC naming
+                                    ['B04','B03','B02'],          // genérico Sentinel-2
+                                    ['red','green','blue'],
+                                    ['BAND4','BAND3','BAND2'],
+                                ];
+                                for (var si = 0; si < s2rgb.length; si++) {
+                                    var rk = s2rgb[si][0], gk = s2rgb[si][1], bk = s2rgb[si][2];
+                                    if (f.assets[rk] && f.assets[gk] && f.assets[bk]) {
+                                        cogAssets = [rk, gk, bk];
+                                        break;
+                                    }
+                                }
+                                // Se não achou triplet, tenta tci/visual
+                                if (cogAssets.length === 0) {
+                                    var s2tci = ['tci','TCI','visual','VISUAL'];
+                                    for (var sti = 0; sti < s2tci.length; sti++) {
+                                        if (f.assets[s2tci[sti]] && f.assets[s2tci[sti]].href) {
+                                            cogUrl = f.assets[s2tci[sti]].href.replace(/^http:\/\//i,'https://');
+                                            break;
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Landsat (landsat-2) e outros: bandas separadas
+                                var lsRgb = [
+                                    ['red','green','blue'],
+                                    ['SR_B4','SR_B3','SR_B2'],
+                                    ['B4','B3','B2'],
+                                    ['BAND4','BAND3','BAND2'],
+                                    ['B04','B03','B02'],
+                                ];
+                                for (var li = 0; li < lsRgb.length; li++) {
+                                    var lrk = lsRgb[li][0], lgk = lsRgb[li][1], lbk = lsRgb[li][2];
+                                    if (f.assets[lrk] && f.assets[lgk] && f.assets[lbk]) {
+                                        cogAssets = [lrk, lgk, lbk];
+                                        break;
+                                    }
+                                }
                             }
+                            console.log('[TL-Float] cogUrl:', cogUrl, '| cogAssets:', cogAssets);
                         }
 
                         return {
@@ -9997,9 +10040,7 @@
                             cc: ccStr,
                             thumb: thumb,
                             cogUrl: cogUrl,
-                            cogUrlGreen: cogUrlGreen,
-                            cogUrlBlue: cogUrlBlue,
-                            multiband: !!(cogUrlGreen && cogUrlBlue),
+                            cogAssets: cogAssets,
                             feature: f
                         };
                     });
@@ -10068,8 +10109,8 @@
             if (thumbEl) thumbEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 
             // Exibir camada TMS
-            if (!cena.cogUrl) {
-                console.warn('[TL-Float] Cena sem COG:', cena.id);
+            if (!cena.cogUrl && (!cena.cogAssets || cena.cogAssets.length === 0)) {
+                console.warn('[TL-Float] Cena sem COG ou assets:', cena.id, cena);
                 return;
             }
 
@@ -10086,19 +10127,38 @@
                 map.getPane('tlFloatPane').style.pointerEvents = 'none';
             }
 
-            // URL TMS do INPE — endpoint correto e bandas por coleção
+            // URL TMS do INPE (titiler) — dois modos:
+            // 1. cogUrl: arquivo TCI/visual já é RGB (CBERS fusionado)
+            //    → /bdc/tms/tiles/{z}/{x}/{y}?url=<COG>
+            // 2. cogAssets: bandas separadas (Sentinel, Landsat)
+            //    → /bdc/tms/tiles/{z}/{x}/{y}?url=<COG_R>&url=<COG_G>&url=<COG_B>
+            //    OU via STAC:
+            //    → /bdc/tms/stac/tiles/{z}/{x}/{y}?url=<STAC_ITEM>&assets=R&assets=G&assets=B
             var tmsBase = 'https://data.inpe.br/bdc/tms/tiles/WebMercatorQuad/{z}/{x}/{y}';
             var tmsUrl;
-            if (cena.multiband && cena.cogUrlGreen && cena.cogUrlBlue) {
-                // Landsat: 3 bandas separadas
-                tmsUrl = tmsBase +
-                    '?url=' + encodeURIComponent(cena.cogUrl) +
-                    '&url=' + encodeURIComponent(cena.cogUrlGreen) +
-                    '&url=' + encodeURIComponent(cena.cogUrlBlue) +
-                    '&color_formula=gamma+rgb+1.3';
-            } else {
-                // CBERS / Sentinel: TCI (True Color Image já é RGB)
+            if (cena.cogAssets && cena.cogAssets.length === 3) {
+                // Bandas separadas — obtém as hrefs dos assets do feature original
+                var feat = cena.feature;
+                var hrefR = feat.assets[cena.cogAssets[0]] ? feat.assets[cena.cogAssets[0]].href.replace(/^http:\/\//i,'https://') : null;
+                var hrefG = feat.assets[cena.cogAssets[1]] ? feat.assets[cena.cogAssets[1]].href.replace(/^http:\/\//i,'https://') : null;
+                var hrefB = feat.assets[cena.cogAssets[2]] ? feat.assets[cena.cogAssets[2]].href.replace(/^http:\/\//i,'https://') : null;
+                if (hrefR && hrefG && hrefB) {
+                    tmsUrl = tmsBase +
+                        '?url=' + encodeURIComponent(hrefR) +
+                        '&url=' + encodeURIComponent(hrefG) +
+                        '&url=' + encodeURIComponent(hrefB) +
+                        '&color_formula=gamma+rgb+1.3';
+                    console.log('[TL-Float] TMS multi-banda:', cena.cogAssets, tmsUrl.slice(0,200));
+                } else {
+                    console.warn('[TL-Float] hrefs ausentes para assets:', cena.cogAssets);
+                    return;
+                }
+            } else if (cena.cogUrl) {
                 tmsUrl = tmsBase + '?url=' + encodeURIComponent(cena.cogUrl);
+                console.log('[TL-Float] TMS TCI:', tmsUrl.slice(0,200));
+            } else {
+                console.warn('[TL-Float] Sem URL para cena:', cena.id);
+                return;
             }
             tlFloat.layer = L.tileLayer(tmsUrl, {
                 opacity: tlFloat.opacity,
