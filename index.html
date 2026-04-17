@@ -10127,37 +10127,32 @@
                 map.getPane('tlFloatPane').style.pointerEvents = 'none';
             }
 
-            // URL TMS via endpoint STAC do INPE (titiler) — suporta CORS e multi-asset RGB:
-            // https://data.inpe.br/bdc/tms/stac/tiles/WebMercatorQuad/{z}/{x}/{y}
-            //   ?url=<STAC_ITEM_URL>&assets=B04&assets=B03&assets=B02&rescale=0,3000&color_formula=gamma+rgb+1.3
-            // A URL do item STAC é construída a partir do id e collection do feature.
-            var stacBase = 'https://data.inpe.br/bdc/stac/v1';
+            // URL TMS via proxy Netlify (/.netlify/functions/inpe-tiles)
+            // que faz o fetch server-side contornando o bloqueio CORS do INPE.
+            var proxyBase = '/.netlify/functions/inpe-tiles';
             var col = document.getElementById('tl-float-colecao').value;
-            var stacItemUrl = stacBase + '/collections/' + encodeURIComponent(col) + '/items/' + encodeURIComponent(cena.id);
-
-            var tmsStacBase = 'https://data.inpe.br/bdc/tms/stac/tiles/WebMercatorQuad/{z}/{x}/{y}';
             var tmsUrl;
 
             if (cena.cogAssets && cena.cogAssets.length === 3) {
-                // Sentinel / Landsat: composição RGB via assets separados
-                tmsUrl = tmsStacBase +
-                    '?url=' + encodeURIComponent(stacItemUrl) +
-                    '&assets=' + encodeURIComponent(cena.cogAssets[0]) +
-                    '&assets=' + encodeURIComponent(cena.cogAssets[1]) +
-                    '&assets=' + encodeURIComponent(cena.cogAssets[2]) +
+                // Sentinel / Landsat: composição RGB via STAC + assets
+                tmsUrl = proxyBase +
+                    '?z={z}&x={x}&y={y}' +
+                    '&col=' + encodeURIComponent(col) +
+                    '&item=' + encodeURIComponent(cena.id) +
+                    '&assets=' + encodeURIComponent(cena.cogAssets.join(',')) +
                     '&rescale=0,3000' +
-                    '&color_formula=gamma+rgb+1.3';
-                console.log('[TL-Float] TMS STAC multi-asset:', cena.cogAssets, stacItemUrl);
+                    '&color_formula=' + encodeURIComponent('gamma rgb 1.3');
+                console.log('[TL-Float] Proxy STAC assets:', cena.cogAssets, '| item:', cena.id);
             } else if (cena.cogUrl) {
-                // CBERS: TCI já é RGB, usa endpoint direto de COG
-                tmsUrl = 'https://data.inpe.br/bdc/tms/tiles/WebMercatorQuad/{z}/{x}/{y}' +
-                    '?url=' + encodeURIComponent(cena.cogUrl);
-                console.log('[TL-Float] TMS TCI COG:', cena.cogUrl.slice(0,120));
+                // CBERS: TCI COG direto
+                tmsUrl = proxyBase +
+                    '?z={z}&x={x}&y={y}' +
+                    '&cogUrl=' + encodeURIComponent(cena.cogUrl);
+                console.log('[TL-Float] Proxy COG:', cena.cogUrl.slice(0, 100));
             } else {
                 console.warn('[TL-Float] Sem URL para cena:', cena.id);
                 return;
             }
-            console.log('[TL-Float] tmsUrl:', tmsUrl.slice(0,250));
             tlFloat.layer = L.tileLayer(tmsUrl, {
                 opacity: tlFloat.opacity,
                 attribution: 'INPE – BDC',
