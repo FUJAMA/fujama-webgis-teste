@@ -9885,7 +9885,7 @@
             tlFloatSetProgress('Consultando catálogo STAC do INPE...', 20);
 
             // Busca via proxy Netlify (contorna bloqueio CORS do INPE)
-            var proxySearch = '/.netlify/functions/inpe-tiles' +
+            var proxySearch = 'https://fujama-gis.netlify.app/.netlify/functions/inpe-tiles' +
                 '?mode=search' +
                 '&col=' + encodeURIComponent(col) +
                 '&bbox=' + bbox +
