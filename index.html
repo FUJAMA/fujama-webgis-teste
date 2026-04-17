@@ -9884,15 +9884,15 @@
 
             tlFloatSetProgress('Consultando catálogo STAC do INPE...', 20);
 
-            // Mesma estrutura de URL do painel existente (que funciona)
-            // Filtro de nuvens aplicado localmente após receber os dados
-            var url = tlFloat.STAC_BASE + '/search' +
-                '?collections=' + encodeURIComponent(col) +
+            // Busca via proxy Netlify (contorna bloqueio CORS do INPE)
+            var proxySearch = '/.netlify/functions/inpe-tiles' +
+                '?mode=search' +
+                '&col=' + encodeURIComponent(col) +
                 '&bbox=' + bbox +
-                '&datetime=' + ini + '/' + fim +
+                '&datetime=' + encodeURIComponent(ini + '/' + fim) +
                 '&limit=100';
 
-            fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
+            fetch(proxySearch, { method: 'GET', headers: { 'Accept': 'application/json' } })
                 .then(function(r) {
                     tlFloatSetProgress('Processando resultados...', 70);
                     if (!r.ok) {
@@ -10060,7 +10060,7 @@
                     document.getElementById('tl-float-empty').innerHTML =
                         '<i class="fas fa-exclamation-triangle" style="color:#e74c3c;font-size:1.2em;display:block;margin-bottom:6px;"></i>' +
                         'Erro ao consultar STAC: ' + err.message;
-                    console.error('[TL-Float] Erro STAC:', err, url);
+                    console.error('[TL-Float] Erro STAC:', err, proxySearch);
                 });
         }
 
