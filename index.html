@@ -9884,12 +9884,12 @@
 
             tlFloatSetProgress('Consultando catálogo STAC do INPE...', 20);
 
-            // Busca via proxy Netlify (contorna bloqueio CORS do INPE)
-            var proxySearch = 'https://fujama-gis.netlify.app/.netlify/functions/inpe-tiles' +
-                '?mode=search' +
-                '&col=' + encodeURIComponent(col) +
+            // Busca direta à API STAC do INPE (suporta CORS para browsers)
+            // O proxy Netlify é usado apenas para tiles TMS (imagens), não para a API STAC
+            var proxySearch = tlFloat.STAC_BASE + '/search' +
+                '?collections=' + encodeURIComponent(col) +
                 '&bbox=' + bbox +
-                '&datetime=' + encodeURIComponent(ini + '/' + fim) +
+                '&datetime=' + ini + '/' + fim +
                 '&limit=100';
 
             fetch(proxySearch, { method: 'GET', headers: { 'Accept': 'application/json' } })
