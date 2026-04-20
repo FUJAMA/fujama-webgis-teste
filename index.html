@@ -9884,12 +9884,12 @@
 
             tlFloatSetProgress('Consultando catálogo STAC do INPE...', 20);
 
-            // Busca direta à API STAC do INPE (suporta CORS para browsers)
-            // O proxy Netlify é usado apenas para tiles TMS (imagens), não para a API STAC
-            var proxySearch = tlFloat.STAC_BASE + '/search' +
-                '?collections=' + encodeURIComponent(col) +
+            // Busca via proxy Netlify (contorna bloqueio CORS do INPE)
+            var proxySearch = '/.netlify/functions/inpe-tiles' +
+                '?mode=search' +
+                '&col=' + encodeURIComponent(col) +
                 '&bbox=' + bbox +
-                '&datetime=' + ini + '/' + fim +
+                '&datetime=' + encodeURIComponent(ini + '/' + fim) +
                 '&limit=100';
 
             fetch(proxySearch, { method: 'GET', headers: { 'Accept': 'application/json' } })
