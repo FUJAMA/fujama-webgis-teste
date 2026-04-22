@@ -41,9 +41,23 @@ function fetchRaw(targetUrl, isBinary, callback) {
   });
 
   req.on('error', function(err) { callback(err); });
-  req.setTimeout(25000, function() {
+  req.setTimeout(23000, function() {
     req.destroy();
     callback(new Error('Timeout'));
+  });
+}
+
+// Wrapper com 1 retry automático para erros 503 do INPE (cold start do titiler)
+function fetchWithRetry(targetUrl, isBinary, callback) {
+  fetchRaw(targetUrl, isBinary, function(err, status, headers, body) {
+    if (!err && status === 503) {
+      // Aguarda 2s e retenta uma vez
+      setTimeout(function() {
+        fetchRaw(targetUrl, isBinary, callback);
+      }, 2000);
+    } else {
+      callback(err, status, headers, body);
+    }
   });
 }
 
@@ -160,7 +174,7 @@ exports.handler = function(event, context, callback) {
       });
     }
 
-    fetchRaw(tmsUrl, true, function(err, status, headers, body) {
+    fetchWithRetry(tmsUrl, true, function(err, status, headers, body) {
       if (err) {
         return callback(null, {
           statusCode: 502,
