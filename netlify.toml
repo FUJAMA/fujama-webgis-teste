@@ -8,3 +8,6 @@
 
 [functions.gee-analise]
   timeout = 26
+
+[functions.inpe-tiles]
+  timeout = 26

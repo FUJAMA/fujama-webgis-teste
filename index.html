@@ -10130,42 +10130,31 @@
                 map.getPane('tlFloatPane').style.pointerEvents = 'none';
             }
 
-            // URLs do titiler BDC direto (sem proxy) — o titiler retorna CORS '*' para browsers.
-            // O proxy Netlify causava 503/404 por timeout (limite 10s) ao buscar COGs remotos.
-            // - Banda única (CBERS TCI): endpoint COG /bdc/tms/tiles/
-            // - Multi-banda RGB (S2/Landsat): endpoint STAC /bdc/tms/stac/tiles/ com item URL
-            var TITILER_COG  = 'https://data.inpe.br/bdc/tms/tiles/WebMercatorQuad/{z}/{x}/{y}';
-            var TITILER_STAC = 'https://data.inpe.br/bdc/tms/stac/tiles/WebMercatorQuad/{z}/{x}/{y}';
-            var STAC_BASE    = 'https://data.inpe.br/bdc/stac/v1';
+            // URL TMS via proxy Netlify (URL absoluta — site servido pelo GitHub Pages).
+            // O titiler STAC do INPE não envia CORS para fujama.github.io, então o proxy
+            // é obrigatório. O timeout da função foi aumentado para 26s no netlify.toml.
+            var proxyBase = 'https://fujama-gis.netlify.app/.netlify/functions/inpe-tiles';
             var col = document.getElementById('tl-float-colecao').value;
             var tmsUrl;
 
-            if (cena.cogUrls && cena.cogUrls.length === 3) {
-                // Sentinel-2 / Landsat: endpoint STAC TMS com URL do item + assets RGB
+            if (cena.cogUrls && cena.cogUrls.length === 3 && cena.rgbKeys) {
+                // Sentinel-2 / Landsat: composição RGB via proxy → titiler STAC
                 // Rescale: S2-16D-2 = reflectância ×10000; landsat-2 = SR escalonado
                 var rescale = (col === 'landsat-2') ? '7500,57355' : '0,3000';
-                var stacItemUrl = STAC_BASE + '/collections/' +
-                    encodeURIComponent(col) + '/items/' + encodeURIComponent(cena.id);
-                var rgbKeys = cena.rgbKeys;
-                if (rgbKeys) {
-                    tmsUrl = TITILER_STAC +
-                        '?url=' + encodeURIComponent(stacItemUrl) +
-                        '&assets=' + encodeURIComponent(rgbKeys[0]) +
-                        '&assets=' + encodeURIComponent(rgbKeys[1]) +
-                        '&assets=' + encodeURIComponent(rgbKeys[2]) +
-                        '&rescale=' + encodeURIComponent(rescale) +
-                        '&rescale=' + encodeURIComponent(rescale) +
-                        '&rescale=' + encodeURIComponent(rescale) +
-                        '&color_formula=' + encodeURIComponent('gamma rgb 1.3');
-                    console.log('[TL-Float] Titiler STAC direto:', col, cena.id, rgbKeys);
-                } else {
-                    console.warn('[TL-Float] Assets RGB não encontrados para:', cena.id);
-                    return;
-                }
+                tmsUrl = proxyBase +
+                    '?z={z}&x={x}&y={y}' +
+                    '&col=' + encodeURIComponent(col) +
+                    '&item=' + encodeURIComponent(cena.id) +
+                    '&assets=' + encodeURIComponent(cena.rgbKeys.join(',')) +
+                    '&rescale=' + encodeURIComponent(rescale) +
+                    '&color_formula=' + encodeURIComponent('gamma rgb 1.3');
+                console.log('[TL-Float] Proxy tiles:', col, cena.id, cena.rgbKeys, 'rescale:', rescale);
             } else if (cena.cogUrl) {
-                // CBERS: TCI COG banda única — endpoint COG direto
-                tmsUrl = TITILER_COG + '?url=' + encodeURIComponent(cena.cogUrl);
-                console.log('[TL-Float] Titiler COG direto:', cena.cogUrl.slice(0, 80));
+                // CBERS: TCI COG banda única via proxy
+                tmsUrl = proxyBase +
+                    '?z={z}&x={x}&y={y}' +
+                    '&cogUrl=' + encodeURIComponent(cena.cogUrl);
+                console.log('[TL-Float] Proxy COG:', cena.cogUrl.slice(0, 80));
             } else {
                 console.warn('[TL-Float] Sem URL para cena:', cena.id);
                 return;
