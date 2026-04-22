@@ -9955,66 +9955,60 @@
                             }
                         }
 
-                        // Detectar assets COG automaticamente
-                        // O serviço TMS do INPE (titiler) aceita ?assets=KEY1&assets=KEY2&assets=KEY3
-                        // para composição RGB a partir de bandas separadas.
-                        // Ordem de prioridade por coleção:
-                        var cogAssets = [];  // lista de chaves de asset para R, G, B
-                        var cogUrl = null;   // usado apenas para coleções com TCI único
+                        // Detectar assets COG e extrair URLs href diretamente da resposta STAC.
+                        // Usa endpoint COG direto (/bdc/tms/tiles/) — mais rápido e estável
+                        // que o endpoint STAC TMS (/bdc/tms/stac/tiles/) que causava 503.
+                        var cogUrl  = null;   // URL única (TCI/visual banda única)
+                        var cogUrls = null;   // Array [urlR, urlG, urlB] para RGB multi-COG
                         if (f.assets) {
                             var aKeys = Object.keys(f.assets);
                             console.log('[TL-Float] Coleção:', col, '| Assets:', aKeys);
 
+                            function assetHref(key) {
+                                var a = f.assets[key];
+                                return (a && a.href) ? a.href.replace(/^http:\/\//i, 'https://') : null;
+                            }
+
                             if (col === 'CB4A-WPM-PCA-FUSED-1') {
-                                // CBERS: tci é RGB fusionado em banda única
+                                // CBERS: TCI fusionado em banda única COG
                                 var cbersTci = ['tci','TCI','visual','VISUAL','BAND4','BAND3','BAND2','B4','B3','B2'];
                                 for (var ci = 0; ci < cbersTci.length; ci++) {
-                                    if (f.assets[cbersTci[ci]] && f.assets[cbersTci[ci]].href) {
-                                        cogUrl = f.assets[cbersTci[ci]].href.replace(/^http:\/\//i,'https://');
-                                        break;
-                                    }
+                                    var h = assetHref(cbersTci[ci]);
+                                    if (h) { cogUrl = h; break; }
                                 }
-                                // fallback: qualquer tiff
                                 if (!cogUrl) {
                                     for (var ak in f.assets) {
                                         var av = f.assets[ak];
-                                        if (av.href && (ak !== 'thumbnail') && ((av.type && av.type.indexOf('tiff') >= 0) || av.href.indexOf('.tif') >= 0)) {
-                                            cogUrl = av.href.replace(/^http:\/\//i,'https://');
+                                        if (av.href && ak !== 'thumbnail' &&
+                                            ((av.type && av.type.indexOf('tiff') >= 0) || av.href.indexOf('.tif') >= 0)) {
+                                            cogUrl = av.href.replace(/^http:\/\//i, 'https://');
                                             break;
                                         }
                                     }
                                 }
                             } else if (col === 'S2-16D-2') {
-                                // Sentinel BDC: bandas separadas BAND1..BAND16 ou B04/B03/B02
-                                // Para RGB natural: Red=B04/BAND8, Green=B03/BAND7, Blue=B02/BAND6
-                                // Na coleção S2-16D-2 do BDC as bandas são BAND1..BAND13+
-                                // B04=BAND8 (Red 10m), B03=BAND7 (Green 10m), B02=BAND6 (Blue 10m)
-                                // Mas os nomes reais dependem do catálogo — tentamos múltiplos
+                                // Sentinel-2 BDC: extrair hrefs das bandas RGB individuais
                                 var s2rgb = [
-                                    ['BAND8','BAND7','BAND6'],   // S2-16D-2 BDC naming
-                                    ['B04','B03','B02'],          // genérico Sentinel-2
+                                    ['B04','B03','B02'],
+                                    ['BAND8','BAND7','BAND6'],
                                     ['red','green','blue'],
                                     ['BAND4','BAND3','BAND2'],
                                 ];
                                 for (var si = 0; si < s2rgb.length; si++) {
-                                    var rk = s2rgb[si][0], gk = s2rgb[si][1], bk = s2rgb[si][2];
-                                    if (f.assets[rk] && f.assets[gk] && f.assets[bk]) {
-                                        cogAssets = [rk, gk, bk];
-                                        break;
-                                    }
+                                    var rh = assetHref(s2rgb[si][0]);
+                                    var gh = assetHref(s2rgb[si][1]);
+                                    var bh = assetHref(s2rgb[si][2]);
+                                    if (rh && gh && bh) { cogUrls = [rh, gh, bh]; break; }
                                 }
-                                // Se não achou triplet, tenta tci/visual
-                                if (cogAssets.length === 0) {
+                                if (!cogUrls) {
                                     var s2tci = ['tci','TCI','visual','VISUAL'];
                                     for (var sti = 0; sti < s2tci.length; sti++) {
-                                        if (f.assets[s2tci[sti]] && f.assets[s2tci[sti]].href) {
-                                            cogUrl = f.assets[s2tci[sti]].href.replace(/^http:\/\//i,'https://');
-                                            break;
-                                        }
+                                        var h = assetHref(s2tci[sti]);
+                                        if (h) { cogUrl = h; break; }
                                     }
                                 }
                             } else {
-                                // Landsat (landsat-2) e outros: bandas separadas
+                                // Landsat (landsat-2) e outros: extrair hrefs das bandas RGB
                                 var lsRgb = [
                                     ['red','green','blue'],
                                     ['SR_B4','SR_B3','SR_B2'],
@@ -10023,14 +10017,13 @@
                                     ['B04','B03','B02'],
                                 ];
                                 for (var li = 0; li < lsRgb.length; li++) {
-                                    var lrk = lsRgb[li][0], lgk = lsRgb[li][1], lbk = lsRgb[li][2];
-                                    if (f.assets[lrk] && f.assets[lgk] && f.assets[lbk]) {
-                                        cogAssets = [lrk, lgk, lbk];
-                                        break;
-                                    }
+                                    var rh = assetHref(lsRgb[li][0]);
+                                    var gh = assetHref(lsRgb[li][1]);
+                                    var bh = assetHref(lsRgb[li][2]);
+                                    if (rh && gh && bh) { cogUrls = [rh, gh, bh]; break; }
                                 }
                             }
-                            console.log('[TL-Float] cogUrl:', cogUrl, '| cogAssets:', cogAssets);
+                            console.log('[TL-Float] cogUrl:', cogUrl, '| cogUrls:', cogUrls ? cogUrls[0].slice(-40) : null);
                         }
 
                         return {
@@ -10040,7 +10033,7 @@
                             cc: ccStr,
                             thumb: thumb,
                             cogUrl: cogUrl,
-                            cogAssets: cogAssets,
+                            cogUrls: cogUrls,
                             feature: f
                         };
                     });
@@ -10109,7 +10102,7 @@
             if (thumbEl) thumbEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 
             // Exibir camada TMS
-            if (!cena.cogUrl && (!cena.cogAssets || cena.cogAssets.length === 0)) {
+            if (!cena.cogUrl && (!cena.cogUrls || cena.cogUrls.length === 0)) {
                 console.warn('[TL-Float] Cena sem COG ou assets:', cena.id, cena);
                 return;
             }
@@ -10128,26 +10121,28 @@
             }
 
             // URL TMS via proxy Netlify (URL absoluta necessária pois o site é servido
-            // pelo GitHub Pages e paths relativos resolveriam para github.io)
+            // pelo GitHub Pages e paths relativos resolveriam para github.io).
+            // Usa endpoint COG direto (/bdc/tms/tiles/) com URLs dos assets extraídas
+            // do catálogo STAC — evita o endpoint STAC TMS instável que causava 503.
             var proxyBase = 'https://fujama-gis.netlify.app/.netlify/functions/inpe-tiles';
             var col = document.getElementById('tl-float-colecao').value;
             var tmsUrl;
 
-            if (cena.cogAssets && cena.cogAssets.length === 3) {
-                // Sentinel / Landsat: composição RGB via STAC + assets
-                // Rescale: S2-16D-2 e CB4A = reflectância ×10000 (0–10000)
-                //          landsat-2 BDC = Surface Reflectance escalonada (7500–57355 típico)
+            if (cena.cogUrls && cena.cogUrls.length === 3) {
+                // Sentinel-2 / Landsat: composição RGB via 3 COGs individuais
+                // Rescale: S2-16D-2 = reflectância ×10000 (0–10000)
+                //          landsat-2 BDC = Surface Reflectance (7500–57355 típico)
                 var rescale = (col === 'landsat-2') ? '7500,57355' : '0,3000';
                 tmsUrl = proxyBase +
                     '?z={z}&x={x}&y={y}' +
-                    '&col=' + encodeURIComponent(col) +
-                    '&item=' + encodeURIComponent(cena.id) +
-                    '&assets=' + encodeURIComponent(cena.cogAssets.join(',')) +
+                    '&cogUrl=' + encodeURIComponent(cena.cogUrls[0]) +
+                    '&cogUrlG=' + encodeURIComponent(cena.cogUrls[1]) +
+                    '&cogUrlB=' + encodeURIComponent(cena.cogUrls[2]) +
                     '&rescale=' + encodeURIComponent(rescale) +
                     '&color_formula=' + encodeURIComponent('gamma rgb 1.3');
-                console.log('[TL-Float] Proxy STAC assets:', cena.cogAssets, '| item:', cena.id, '| rescale:', rescale);
+                console.log('[TL-Float] Proxy multi-COG R:', cena.cogUrls[0].slice(-50));
             } else if (cena.cogUrl) {
-                // CBERS: TCI COG direto
+                // CBERS: TCI COG banda única
                 tmsUrl = proxyBase +
                     '?z={z}&x={x}&y={y}' +
                     '&cogUrl=' + encodeURIComponent(cena.cogUrl);
