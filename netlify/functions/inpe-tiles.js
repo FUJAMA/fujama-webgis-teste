@@ -122,10 +122,16 @@ exports.handler = function(event, context, callback) {
         return 'assets=' + encodeURIComponent(a.trim());
       }).join('&');
 
+      // titiler exige um rescale por banda — repetir o mesmo valor para cada asset
+      var rescaleVal = p.rescale || '0,3000';
+      var rescaleQs = assetList.map(function() {
+        return 'rescale=' + encodeURIComponent(rescaleVal);
+      }).join('&');
+
       tmsUrl = INPE_TMS_STAC + '/' + z + '/' + x + '/' + y +
         '?url=' + encodeURIComponent(stacItemUrl) +
         '&' + assetsQs +
-        '&rescale=' + encodeURIComponent(p.rescale || '0,3000') +
+        '&' + rescaleQs +
         '&color_formula=' + encodeURIComponent(p.color_formula || 'gamma rgb 1.3');
 
     } else {
