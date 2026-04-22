@@ -109,7 +109,25 @@ exports.handler = function(event, context, callback) {
 
     var tmsUrl;
 
-    if (p.cogUrl) {
+    if (p.cogUrl && p.cogUrlG && p.cogUrlB) {
+      // Modo multi-COG RGB: 3 arquivos individuais (R, G, B)
+      // titiler aceita múltiplos ?url= e retorna composição RGB
+      var assetList = [p.cogUrl, p.cogUrlG, p.cogUrlB];
+      var rescaleVal = p.rescale || '0,3000';
+      var rescaleQs = assetList.map(function() {
+        return 'rescale=' + encodeURIComponent(rescaleVal);
+      }).join('&');
+      var urlQs = assetList.map(function(u) {
+        return 'url=' + encodeURIComponent(u);
+      }).join('&');
+
+      tmsUrl = INPE_TMS_COG + '/' + z + '/' + x + '/' + y +
+        '?' + urlQs +
+        '&bidx=1&bidx=1&bidx=1' +
+        '&' + rescaleQs +
+        '&color_formula=' + encodeURIComponent(p.color_formula || 'gamma rgb 1.3');
+
+    } else if (p.cogUrl) {
       tmsUrl = INPE_TMS_COG + '/' + z + '/' + x + '/' + y +
         '?url=' + encodeURIComponent(p.cogUrl);
 
