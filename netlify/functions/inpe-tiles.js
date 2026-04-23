@@ -166,9 +166,15 @@ exports.handler = function(event, context, callback) {
         return 'rescale=' + encodeURIComponent(rescaleVal);
       }).join('&');
 
+      // bidx=1 para cada asset: instrui o titiler a usar a banda 1 de cada COG
+      // e compô-los como R, G, B — essencial para saída colorida (RGB true color).
+      // Sem isso, o titiler renderiza cada asset individualmente em escala de cinza.
+      var bidxQs = assetList.map(function() { return 'asset_bidx=1'; }).join('&');
+
       tmsUrl = INPE_TMS_STAC + '/' + z + '/' + x + '/' + y +
         '?url=' + encodeURIComponent(stacItemUrl) +
         '&' + assetsQs +
+        '&' + bidxQs +
         '&' + rescaleQs +
         '&color_formula=' + encodeURIComponent(p.color_formula || 'gamma rgb 1.3');
 
