@@ -129,47 +129,36 @@ exports.handler = function(event, context, callback) {
 
     var tmsUrl;
 
-    if (p.cogUrl && p.cogUrlG && p.cogUrlB) {
-      // Modo multi-COG RGB: 3 arquivos individuais (R, G, B)
-      // titiler aceita múltiplos ?url= e retorna composição RGB
-      var assetList = [p.cogUrl, p.cogUrlG, p.cogUrlB];
-      var rescaleVal = p.rescale || '0,3000';
-      var rescaleQs = assetList.map(function() {
-        return 'rescale=' + encodeURIComponent(rescaleVal);
-      }).join('&');
-      var urlQs = assetList.map(function(u) {
-        return 'url=' + encodeURIComponent(u);
-      }).join('&');
-
-      tmsUrl = INPE_TMS_COG + '/' + z + '/' + x + '/' + y +
-        '?' + urlQs +
-        '&bidx=1&bidx=1&bidx=1' +
-        '&' + rescaleQs +
-        '&color_formula=' + encodeURIComponent(p.color_formula || 'gamma rgb 1.3');
-
-    } else if (p.cogUrl) {
+    if (p.cogUrl) {
+      // CBERS banda única — sem composição RGB necessária
       tmsUrl = INPE_TMS_COG + '/' + z + '/' + x + '/' + y +
         '?url=' + encodeURIComponent(p.cogUrl);
 
     } else if (p.col && p.item && p.assets) {
+      // Modo STAC TMS: usado para Sentinel-2 e Landsat (RGB true color).
+      // Sempre preferido ao modo multi-COG pois a URL é curta e estável.
       var stacItemUrl = INPE_STAC_BASE + '/collections/' +
         encodeURIComponent(p.col) + '/items/' + encodeURIComponent(p.item);
 
-      var assetList = p.assets.split(',');
+      var assetList = p.assets.split(',').map(function(a) { return a.trim(); });
+
+      // assets= para selecionar cada banda
       var assetsQs = assetList.map(function(a) {
-        return 'assets=' + encodeURIComponent(a.trim());
+        return 'assets=' + encodeURIComponent(a);
       }).join('&');
 
-      // titiler exige um rescale por banda — repetir o mesmo valor para cada asset
+      // asset_bidx=NOME|1 instrui o titiler a ler a banda 1 de cada COG individual
+      // e compô-los na ordem R, G, B — essencial para saída colorida (RGB true color).
+      // Sintaxe: asset_bidx=<asset_name>|<band_index>  (pipe como separador)
+      var bidxQs = assetList.map(function(a) {
+        return 'asset_bidx=' + encodeURIComponent(a + '|1');
+      }).join('&');
+
+      // rescale por banda (um valor por asset)
       var rescaleVal = p.rescale || '0,3000';
       var rescaleQs = assetList.map(function() {
         return 'rescale=' + encodeURIComponent(rescaleVal);
       }).join('&');
-
-      // bidx=1 para cada asset: instrui o titiler a usar a banda 1 de cada COG
-      // e compô-los como R, G, B — essencial para saída colorida (RGB true color).
-      // Sem isso, o titiler renderiza cada asset individualmente em escala de cinza.
-      var bidxQs = assetList.map(function() { return 'asset_bidx=1'; }).join('&');
 
       tmsUrl = INPE_TMS_STAC + '/' + z + '/' + x + '/' + y +
         '?url=' + encodeURIComponent(stacItemUrl) +
