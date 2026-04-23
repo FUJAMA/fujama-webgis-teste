@@ -41,24 +41,30 @@ function fetchRaw(targetUrl, isBinary, callback) {
   });
 
   req.on('error', function(err) { callback(err); });
-  req.setTimeout(23000, function() {
+  req.setTimeout(8000, function() {
     req.destroy();
     callback(new Error('Timeout'));
   });
 }
 
-// Wrapper com 1 retry automático para erros 503 do INPE (cold start do titiler)
+// Wrapper com até 3 retries para erros 503/502 do INPE (cold start do titiler STAC).
+// Usa backoff exponencial: 1.5s → 3s → 5s
 function fetchWithRetry(targetUrl, isBinary, callback) {
-  fetchRaw(targetUrl, isBinary, function(err, status, headers, body) {
-    if (!err && status === 503) {
-      // Aguarda 2s e retenta uma vez
-      setTimeout(function() {
-        fetchRaw(targetUrl, isBinary, callback);
-      }, 2000);
-    } else {
-      callback(err, status, headers, body);
-    }
-  });
+  var delays = [1500, 3000, 5000];
+
+  function attempt(n) {
+    fetchRaw(targetUrl, isBinary, function(err, status, headers, body) {
+      var shouldRetry = (!err && (status === 503 || status === 502)) ||
+                        (err && err.message === 'Timeout');
+      if (shouldRetry && n < delays.length) {
+        setTimeout(function() { attempt(n + 1); }, delays[n]);
+      } else {
+        callback(err, status, headers, body);
+      }
+    });
+  }
+
+  attempt(0);
 }
 
 exports.handler = function(event, context, callback) {
