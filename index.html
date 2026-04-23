@@ -10138,17 +10138,36 @@
             var tmsUrl;
 
             if (cena.cogUrls && cena.cogUrls.length === 3 && cena.rgbKeys) {
-                // Sentinel-2 / Landsat: composição RGB via proxy → titiler STAC
-                // Rescale: S2-16D-2 = reflectância ×10000; landsat-2 = SR escalonado
-                var rescale = (col === 'landsat-2') ? '7500,57355' : '0,3000';
-                tmsUrl = proxyBase +
-                    '?z={z}&x={x}&y={y}' +
-                    '&col=' + encodeURIComponent(col) +
-                    '&item=' + encodeURIComponent(cena.id) +
-                    '&assets=' + encodeURIComponent(cena.rgbKeys.join(',')) +
-                    '&rescale=' + encodeURIComponent(rescale) +
-                    '&color_formula=' + encodeURIComponent('gamma rgb 1.3');
-                console.log('[TL-Float] Proxy tiles:', col, cena.id, cena.rgbKeys, 'rescale:', rescale);
+                // Verificar se os hrefs são URLs absolutas válidas.
+                // A API STAC do INPE/BDC pode retornar hrefs relativos (ex: /01/01/arquivo.tif),
+                // que não funcionam no modo multi-COG do titiler. Nesses casos, usa-se
+                // obrigatoriamente o modo STAC TMS (col + item + assets).
+                var firstUrl = cena.cogUrls[0];
+                var isAbsoluteUrl = firstUrl && (firstUrl.indexOf('http://') === 0 || firstUrl.indexOf('https://') === 0);
+
+                if (!isAbsoluteUrl) {
+                    // hrefs relativos → modo STAC TMS (col + item + assets)
+                    var rescale = (col === 'landsat-2') ? '7500,57355' : '0,3000';
+                    tmsUrl = proxyBase +
+                        '?z={z}&x={x}&y={y}' +
+                        '&col=' + encodeURIComponent(col) +
+                        '&item=' + encodeURIComponent(cena.id) +
+                        '&assets=' + encodeURIComponent(cena.rgbKeys.join(',')) +
+                        '&rescale=' + encodeURIComponent(rescale) +
+                        '&color_formula=' + encodeURIComponent('gamma rgb 1.3');
+                    console.log('[TL-Float] Proxy tiles (STAC TMS, hrefs relativos):', col, cena.id, cena.rgbKeys, 'rescale:', rescale);
+                } else {
+                    // hrefs absolutos → modo multi-COG RGB
+                    var rescale = (col === 'landsat-2') ? '7500,57355' : '0,3000';
+                    tmsUrl = proxyBase +
+                        '?z={z}&x={x}&y={y}' +
+                        '&cogUrl=' + encodeURIComponent(cena.cogUrls[0]) +
+                        '&cogUrlG=' + encodeURIComponent(cena.cogUrls[1]) +
+                        '&cogUrlB=' + encodeURIComponent(cena.cogUrls[2]) +
+                        '&rescale=' + encodeURIComponent(rescale) +
+                        '&color_formula=' + encodeURIComponent('gamma rgb 1.3');
+                    console.log('[TL-Float] Proxy tiles (multi-COG RGB):', col, cena.id, cena.rgbKeys, 'rescale:', rescale);
+                }
             } else if (cena.cogUrl) {
                 // CBERS: TCI COG banda única via proxy
                 tmsUrl = proxyBase +
