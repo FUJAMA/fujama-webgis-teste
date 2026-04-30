@@ -4234,7 +4234,7 @@
                 if (_dsmResultado) { map.removeLayer(_dsmResultado); _dsmResultado = null; }
 
                 _dsmResultado = L.tileLayer(data.tileUrl, {
-                    pane:'dsmPane', maxZoom:28, opacity:0.9,
+                    pane:'dsmPane', maxZoom:28, maxNativeZoom: 18, opacity:0.9,
                     attribution:'Supressão Vegetal (NBR) · Sentinel-2/GEE'
                 }).addTo(map);
 
