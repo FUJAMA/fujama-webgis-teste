@@ -5919,7 +5919,7 @@
                     var cbs = _orto1979Callbacks.splice(0);
                     cbs.forEach(function(cb) {
                         var lyr = L.tileLayer(tileUrl, {
-                            maxZoom: 28, opacity: 1, attribution: 'Ortomosaico 1979 · GEE',
+                            maxZoom: 28, maxNativeZoom: 22, opacity: 1, attribution: 'Ortomosaico 1979 · GEE',
                             pane: cb.forComp ? undefined : 'pane_Orto1979_COG'
                         });
                         if (!cb.forComp) layer_Orto1979_COG = lyr;
@@ -6014,7 +6014,7 @@
                     var cbs = _mdtCallbacks.splice(0);
                     cbs.forEach(function(cb) {
                         var lyr = L.tileLayer(tileUrl, {
-                            maxZoom: 28, opacity: 1, attribution: 'MDT · GEE',
+                            maxZoom: 28, maxNativeZoom: 22, opacity: 1, attribution: 'MDT · GEE',
                             pane: cb.forComp ? undefined : 'pane_MDT_COG'
                         });
                         if (!cb.forComp) layer_MDT_COG = lyr;
