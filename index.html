@@ -3743,7 +3743,7 @@
                     _geeEnsurePane('geePane');
                     _geeLayer = L.tileLayer(data.tileUrl, {
                         pane: 'geePane',
-                        maxZoom: 22, opacity: 0.85,
+                        maxZoom: 28, opacity: 0.85,
                         attribution: info.label + ' ' + year + ' · Landsat/GEE'
                     }).addTo(map);
 
@@ -3870,7 +3870,7 @@
                     _geeEnsurePane('geeDiffPane');
                     _geeDiffLayer = L.tileLayer(data.tileUrl, {
                         pane: 'geeDiffPane',
-                        maxZoom: 22, opacity: 0.82,
+                        maxZoom: 28, opacity: 0.82,
                         attribution: 'Δ NDVI ' + base + '→' + comp + ' · Landsat/GEE'
                     }).addTo(map);
 
@@ -4054,7 +4054,7 @@
             }
             _tlLayer = L.tileLayer(tileUrl, {
                 pane: 'tlPane',
-                maxZoom: 22, opacity: 1,
+                maxZoom: 28, opacity: 1,
                 attribution: 'Landsat ' + year + ' · GEE'
             });
             _tlLayer.addTo(map);
@@ -4234,7 +4234,7 @@
                 if (_dsmResultado) { map.removeLayer(_dsmResultado); _dsmResultado = null; }
 
                 _dsmResultado = L.tileLayer(data.tileUrl, {
-                    pane:'dsmPane', maxZoom:22, opacity:0.9,
+                    pane:'dsmPane', maxZoom:28, opacity:0.9,
                     attribution:'Supressão Vegetal (NBR) · Sentinel-2/GEE'
                 }).addTo(map);
 
@@ -5915,7 +5915,7 @@
                     var cbs = _orto1979Callbacks.splice(0);
                     cbs.forEach(function(cb) {
                         var lyr = L.tileLayer(tileUrl, {
-                            maxZoom: 22, opacity: 1, attribution: 'Ortomosaico 1979 · GEE',
+                            maxZoom: 28, opacity: 1, attribution: 'Ortomosaico 1979 · GEE',
                             pane: cb.forComp ? undefined : 'pane_Orto1979_COG'
                         });
                         if (!cb.forComp) layer_Orto1979_COG = lyr;
@@ -6010,7 +6010,7 @@
                     var cbs = _mdtCallbacks.splice(0);
                     cbs.forEach(function(cb) {
                         var lyr = L.tileLayer(tileUrl, {
-                            maxZoom: 22, opacity: 1, attribution: 'MDT · GEE',
+                            maxZoom: 28, opacity: 1, attribution: 'MDT · GEE',
                             pane: cb.forComp ? undefined : 'pane_MDT_COG'
                         });
                         if (!cb.forComp) layer_MDT_COG = lyr;
@@ -6030,7 +6030,7 @@
         map.getPane('pane_GoogleHybrid').style.zIndex = 205;
         var layer_GoogleHybrid = L.tileLayer('https://mt0.google.com/vt/lyrs=y&hl=pt-BR&x={x}&y={y}&z={z}', {
             pane: 'pane_GoogleHybrid',
-            opacity: 1.0, attribution: '', minZoom: 1, maxZoom: 22
+            opacity: 1.0, attribution: '', minZoom: 1, maxZoom: 28
         });
 
         map.createPane('pane_MDT_COG');
@@ -9762,7 +9762,7 @@
             var tmsLayer = L.tileLayer(tmsUrl, {
                 opacity: 0.9,
                 attribution: 'INPE – CBERS-4A / BDC',
-                maxNativeZoom: 18, maxZoom: 22,
+                maxNativeZoom: 18, maxZoom: 28,
                 tms: false,
                 pane: 'satTmsPane'
             });
@@ -10182,7 +10182,7 @@
                 opacity: tlFloat.opacity,
                 attribution: 'INPE – BDC',
                 maxNativeZoom: 18,
-                maxZoom: 22,
+                maxZoom: 28,
                 tms: false,
                 pane: 'tlFloatPane',
                 crossOrigin: true
@@ -10996,14 +10996,14 @@
             if (!cfg) return;
             if (cfg.type === 'wms') {
                 compRightBase = L.tileLayer.wms(cfg.url, {
-                    layers: cfg.layers, format:'image/png', transparent:false, maxZoom:22
+                    layers: cfg.layers, format:'image/png', transparent:false, maxZoom:28
                 }).addTo(compRightMap);
             } else if (cfg.type === 'cog-orto1979') {
                 _carregarOrto1979(function(lyr){ compRightBase = lyr; lyr.addTo(compRightMap); }, true);
             } else if (cfg.type === 'cog-mdt') {
                 _carregarMDT(function(lyr){ compRightBase = lyr; lyr.addTo(compRightMap); }, true);
             } else {
-                compRightBase = L.tileLayer(cfg.url, { maxZoom:22, attribution:'' }).addTo(compRightMap);
+                compRightBase = L.tileLayer(cfg.url, { maxZoom:28, attribution:'' }).addTo(compRightMap);
             }
         }
 
